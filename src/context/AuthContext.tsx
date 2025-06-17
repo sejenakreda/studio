@@ -1,8 +1,9 @@
+
 "use client";
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { doc, getDoc, Firestore } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile, Role } from '@/types';
@@ -26,24 +27,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        // Fetch user profile from Firestore
-        const userDocRef = doc(db as Firestore, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setUserProfile(userDocSnap.data() as UserProfile);
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          // Fetch user profile from Firestore
+          const userDocRef = doc(db as Firestore, 'users', firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setUserProfile(userDocSnap.data() as UserProfile);
+          } else {
+            console.warn(`User profile not found in Firestore for UID: ${firebaseUser.uid}.`);
+            setUserProfile(null); 
+            // If a user is authenticated but has no profile, you might want to sign them out
+            // or redirect them to a profile creation page.
+            // await signOut(auth); // This would trigger onAuthStateChanged again with user=null
+          }
         } else {
-          // Potentially handle case where user exists in Auth but not in Firestore users collection
-          // For now, assume they are linked or logout if not found
-          setUserProfile(null); 
-          // auth.signOut(); // Or redirect to a page to complete profile
+          setUser(null);
+          setUserProfile(null);
         }
-      } else {
+      } catch (error) {
+        console.error("Error during authentication state change or profile fetching:", error);
         setUser(null);
         setUserProfile(null);
+        // You could set an error state here to display a message to the user
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

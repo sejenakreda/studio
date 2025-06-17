@@ -1,0 +1,16 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This rule allows anyone with your database Creadentials to read, write and delete
+    // all data in your Firestore database. It is useful for getting started, but
+    // make sure to edit it to match your app's security requirements before
+    // deploying.
+    // Cloud Firestore Security Rules Docs: https://firebase.google.com/docs/firestore/security/get-started
+    match /{document=**} {
+      allow read, write: if
+          request.time < timestamp.date(2025, 7, 17);
+    }
+  }
+}

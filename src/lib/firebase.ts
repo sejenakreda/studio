@@ -24,15 +24,16 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
       projectId: firebaseConfig.projectId || 'MISSING_OR_UNDEFINED',
     }
   );
+  throw new Error(
+    "Firebase initialization failed: Firebase apiKey or projectId is missing. Check your .env.local file. " +
+    "Please check your Firebase configuration in .env.local and ensure all NEXT_PUBLIC_ variables are set correctly and your server has been restarted."
+  );
 }
 
 let app: FirebaseApp;
 
 if (!getApps().length) {
   try {
-    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-      throw new Error("Firebase apiKey or projectId is missing. Check your .env.local file.");
-    }
     app = initializeApp(firebaseConfig);
   } catch (error: any) {
     console.error("Firebase initialization error in initializeApp:", error);
@@ -60,4 +61,3 @@ try {
 }
 
 export { app, auth, db };
-

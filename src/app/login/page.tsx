@@ -57,7 +57,13 @@ export default function LoginPage() {
 
     if (adminCreated || guruCreated) {
         toast({ title: "Seeding Complete", description: "Attempted to create default users. You can now try logging in." });
+    } else if (!adminCreated && !guruCreated) {
+      // This case handles if both creations failed for reasons other than 'email-already-in-use'
+      // or if they already existed and thus weren't "created" in this run.
+      // The individual error toasts would have already appeared.
+      // We can add a general message if needed, or rely on the specific failure toasts.
     }
+
 
     setIsSeeding(false);
   };

@@ -1,3 +1,4 @@
+
 "use client";
 
 import *
@@ -62,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="p-4 border-b">
           <Link href={userProfile?.role === 'admin' ? '/admin' : '/guru'} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <ShieldCheck className="h-8 w-8 text-primary transition-transform duration-300 group-hover/sidebar:rotate-[360deg]" />
-            <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SkorZen</span>
+            <span id="sidebar-mobile-title" className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SkorZen</span>
           </Link>
         </SidebarHeader>
         <SidebarContent className="flex-1 p-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Added this import
 import { BarChart3, Users, Settings, FileText, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 

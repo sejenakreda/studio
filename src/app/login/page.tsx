@@ -21,36 +21,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Login Berhasil",
-        description: "Anda akan diarahkan ke dasbor.",
-      });
-      router.push('/'); 
-    } catch (e: any) {
-      let friendlyMessage = 'Gagal melakukan login. Periksa kembali email dan password Anda.';
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan coba lagi.';
-      } else if (e.code === 'auth/too-many-requests') {
-        friendlyMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti.';
-      }
-      setError(friendlyMessage);
-      toast({
-        variant: "destructive",
-        title: "Login Gagal",
-        description: friendlyMessage,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleForgotPassword = async () => {
     const emailForReset = prompt("Masukkan alamat email Anda untuk reset password:");
     if (emailForReset) {
@@ -94,13 +64,16 @@ export default function LoginPage() {
             aria-label="SiAP Smapna Logo"
             role="img"
           >
-            <path d="M9 4h10c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h4" />
-            <polyline points="16 12 12 12 12 16" />
-            <path d="m10 14 2-2 2 2" />
-            <path d="M12 3v2" />
-            <path d="M5 2v2" />
-            <path d="M19 2v2" />
-            <circle cx="12" cy="14" r="4" />
+            <path d="M10 8H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3" />
+            <path d="m10.5 10.5-5 5" />
+            <path d="M10 14h.01" />
+            <path d="M13 11h.01" />
+            <path d="M16 8h.01" />
+            <path d="M13 8h.01" />
+            <path d="M16 11h.01" />
+            <path d="M7 19.5c.942-1.014 2.364-1.501 4-1.5h2" />
+            <path d="M12.914 4.914a2 2 0 0 1 2.828 0l1.344 1.344a2 2 0 0 1 0 2.828l-5.086 5.086a2 2 0 0 1-2.828 0l-1.344-1.344a2 2 0 0 1 0-2.828z" />
+            <path d="m19 5-4 4" />
           </svg>
           <h1 className="text-4xl font-bold text-primary font-headline tracking-tight">
             SiAP Smapna
@@ -121,14 +94,17 @@ export default function LoginPage() {
             Lupa Password?
           </Button>
           <span className="mx-2 text-muted-foreground">|</span>
-          <Link href="/register" passHref legacyBehavior>
+          <Link href="/register">
             <Button
               variant="link"
               className="text-primary hover:text-primary/80 p-0"
               disabled={loading}
+              asChild 
             >
-              <UserPlus className="mr-1.5 h-4 w-4" />
-              Buat Akun Baru
+              <span> 
+                <UserPlus className="mr-1.5 h-4 w-4" />
+                Buat Akun Baru
+              </span>
             </Button>
           </Link>
           {/* 
@@ -149,15 +125,15 @@ export default function LoginPage() {
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null); // Error state for login form specifically
-  const [loading, setLoading] = useState(false);
+  const [errorLoginForm, setErrorLoginForm] = useState<string | null>(null); // Renamed to avoid conflict
+  const [loadingLoginForm, setLoadingLoginForm] = useState(false); // Renamed to avoid conflict
   const router = useRouter();
   const { toast } = useToast();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError(null);
-    setLoading(true);
+    setErrorLoginForm(null);
+    setLoadingLoginForm(true);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -173,32 +149,32 @@ function LoginForm() {
       } else if (e.code === 'auth/too-many-requests') {
         friendlyMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti.';
       }
-      setError(friendlyMessage);
+      setErrorLoginForm(friendlyMessage);
       toast({
         variant: "destructive",
         title: "Login Gagal",
         description: friendlyMessage,
       });
     } finally {
-      setLoading(false);
+      setLoadingLoginForm(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
+      {errorLoginForm && (
         <Alert variant="destructive" role="alert">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Kesalahan Login</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorLoginForm}</AlertDescription>
         </Alert>
       )}
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-sm font-medium text-foreground/80">
+        <Label htmlFor="email-login" className="text-sm font-medium text-foreground/80">
           Alamat Email
         </Label>
         <Input
-          id="email"
+          id="email-login" 
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -209,11 +185,11 @@ function LoginForm() {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-sm font-medium text-foreground/80">
+        <Label htmlFor="password-login" className="text-sm font-medium text-foreground/80">
           Password
         </Label>
         <Input
-          id="password"
+          id="password-login" 
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -226,10 +202,10 @@ function LoginForm() {
       <Button 
         type="submit" 
         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-        disabled={loading}
+        disabled={loadingLoginForm}
         aria-live="polite"
       >
-        {loading ? (
+        {loadingLoginForm ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Memproses...
@@ -244,3 +220,4 @@ function LoginForm() {
     </form>
   );
 }
+

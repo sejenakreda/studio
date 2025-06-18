@@ -7,12 +7,13 @@ import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Download } from "lucide-react";
 import { 
   getAllUsersByRole, 
   createUserProfile as createUserProfileFirestore, 
@@ -167,6 +168,36 @@ export default function ManageTeachersPage() {
     }
   };
 
+  const handleDownloadTeacherTemplate = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["displayName", "email", "password"],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 } ];
+    worksheet['!cols'] = wscols;
+    XLSX.writeFile(workbook, "template_import_guru.xlsx");
+    toast({ title: "Template Diunduh", description: "Template Excel untuk impor guru telah diunduh." });
+  };
+
+  const handleExportTeachersData = () => {
+    if (teachers.length === 0) {
+      toast({ variant: "default", title: "Tidak Ada Data", description: "Belum ada data guru untuk diekspor." });
+      return;
+    }
+    const dataToExport = teachers.map(teacher => ({
+      NamaTampilan: teacher.displayName,
+      Email: teacher.email,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Guru");
+    const wscols = [ { wch: 25 }, { wch: 30 } ];
+    worksheet['!cols'] = wscols;
+    XLSX.writeFile(workbook, "data_guru_skorzen.xlsx");
+    toast({ title: "Data Diekspor", description: "Data guru telah diekspor ke Excel." });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -253,8 +284,20 @@ export default function ManageTeachersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Guru Terdaftar</CardTitle>
-          <CardDescription>Berikut adalah daftar semua profil guru dalam sistem.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Daftar Guru Terdaftar</CardTitle>
+              <CardDescription>Berikut adalah daftar semua profil guru dalam sistem.</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleDownloadTeacherTemplate} variant="outline">
+                <Download className="mr-2 h-4 w-4" /> Unduh Template
+              </Button>
+              <Button onClick={handleExportTeachersData} variant="outline">
+                <Download className="mr-2 h-4 w-4" /> Ekspor Data Guru
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {fetchError && (

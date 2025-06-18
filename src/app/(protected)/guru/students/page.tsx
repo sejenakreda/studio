@@ -6,13 +6,14 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react";
 import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -158,6 +159,38 @@ export default function ManageStudentsPage() {
     }
   };
 
+  const handleDownloadStudentTemplate = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["nama", "nis", "kelas", "id_siswa"],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Siswa");
+    const wscols = [ { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 } ];
+    worksheet['!cols'] = wscols;
+    XLSX.writeFile(workbook, "template_import_siswa.xlsx");
+    toast({ title: "Template Diunduh", description: "Template Excel untuk impor siswa telah diunduh." });
+  };
+
+  const handleExportStudentsData = () => {
+    if (allStudents.length === 0) {
+      toast({ variant: "default", title: "Tidak Ada Data", description: "Belum ada data siswa untuk diekspor." });
+      return;
+    }
+    const dataToExport = allStudents.map(student => ({
+      Nama: student.nama,
+      NIS: student.nis,
+      Kelas: student.kelas,
+      ID_Siswa: student.id_siswa,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Siswa");
+    const wscols = [ { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 } ];
+    worksheet['!cols'] = wscols;
+    XLSX.writeFile(workbook, "data_siswa_skorzen.xlsx");
+    toast({ title: "Data Diekspor", description: "Data siswa telah diekspor ke Excel." });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -263,22 +296,33 @@ export default function ManageStudentsPage() {
               <CardTitle>Daftar Siswa Terdaftar</CardTitle>
               <CardDescription>Berikut adalah daftar semua siswa.</CardDescription>
             </div>
-            {uniqueClasses.length > 0 && (
-              <div className="w-full sm:w-auto min-w-[200px]">
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger className="w-full" aria-label="Filter berdasarkan kelas">
-                    <Filter className="h-4 w-4 mr-2 opacity-70" />
-                    <SelectValue placeholder="Filter Kelas..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kelas</SelectItem>
-                    {uniqueClasses.map(kelas => (
-                      <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                 {uniqueClasses.length > 0 && (
+                    <div className="w-full sm:w-auto min-w-[200px]">
+                        <Select value={selectedClass} onValueChange={setSelectedClass}>
+                        <SelectTrigger className="w-full" aria-label="Filter berdasarkan kelas">
+                            <Filter className="h-4 w-4 mr-2 opacity-70" />
+                            <SelectValue placeholder="Filter Kelas..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Kelas</SelectItem>
+                            {uniqueClasses.map(kelas => (
+                            <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button onClick={handleDownloadStudentTemplate} variant="outline" className="flex-1 sm:flex-initial">
+                        <Download className="mr-2 h-4 w-4" /> Unduh Template
+                    </Button>
+                    <Button onClick={handleExportStudentsData} variant="outline" className="flex-1 sm:flex-initial">
+                        <Download className="mr-2 h-4 w-4" /> Ekspor Siswa
+                    </Button>
+                </div>
+            </div>
+
           </div>
         </CardHeader>
         <CardContent>

@@ -22,17 +22,26 @@ export function calculateFinalGrade(nilai: Nilai, bobot: Bobot): number {
 
   const avgTugas = calculateAverage(nilai.tugas);
 
-  const finalGrade =
+  // Calculate base academic grade from components that sum to 100%
+  const academicGrade =
     (avgTugas * (bobot.tugas / 100)) +
     ((nilai.tes || 0) * (bobot.tes / 100)) +
     ((nilai.pts || 0) * (bobot.pts / 100)) +
     ((nilai.pas || 0) * (bobot.pas / 100)) +
-    ((nilai.kehadiran || 0) * (bobot.kehadiran / 100)) +
-    ((nilai.eskul || 0) * (bobot.eskul / 100)) +
-    ((nilai.osis || 0) * (bobot.osis / 100));
+    ((nilai.kehadiran || 0) * (bobot.kehadiran / 100));
+
+  // Calculate bonus points from Eskul and OSIS
+  // Bobot.eskul and bobot.osis now represent the maximum bonus points these can add
+  const eskulBonus = ((nilai.eskul || 0) / 100) * (bobot.eskul || 0);
+  const osisBonus = ((nilai.osis || 0) / 100) * (bobot.osis || 0);
+  
+  let finalGradeWithBonus = academicGrade + eskulBonus + osisBonus;
+  
+  // Ensure final grade does not exceed 100
+  finalGradeWithBonus = Math.min(100, finalGradeWithBonus);
   
   // Round to 2 decimal places
-  return Math.round(finalGrade * 100) / 100;
+  return Math.round(finalGradeWithBonus * 100) / 100;
 }
 
 export function getAcademicYears(startYear = 2020): string[] {

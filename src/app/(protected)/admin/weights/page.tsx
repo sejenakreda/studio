@@ -23,19 +23,19 @@ const weightsSchema = z.object({
   tes: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
   pts: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
   pas: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
-  kehadiran: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"), // This is the weight for attendance component
-  eskul: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
-  osis: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
+  kehadiran: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
+  eskul: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"), // Represents max bonus points
+  osis: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),   // Represents max bonus points
   totalHariEfektifGanjil: z.coerce.number().min(1, "Minimal 1 hari").max(200, "Maksimal 200 hari").optional().default(90),
   totalHariEfektifGenap: z.coerce.number().min(1, "Minimal 1 hari").max(200, "Maksimal 200 hari").optional().default(90),
 }).refine(
   (data) => {
-    const { totalHariEfektifGanjil, totalHariEfektifGenap, ...percentageWeights } = data;
-    const total = Object.values(percentageWeights).reduce((sum, value) => sum + (value || 0), 0);
-    return total === 100;
+    const { tugas, tes, pts, pas, kehadiran } = data;
+    const totalAcademicWeights = (tugas || 0) + (tes || 0) + (pts || 0) + (pas || 0) + (kehadiran || 0);
+    return totalAcademicWeights === 100;
   },
   {
-    message: "Total bobot dari komponen penilaian (Tugas, Tes, dll.) harus 100%.",
+    message: "Total bobot dari komponen akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus 100%.",
     path: ["tugas"], 
   }
 );
@@ -43,13 +43,13 @@ const weightsSchema = z.object({
 type WeightsFormData = z.infer<typeof weightsSchema>;
 
 const defaultWeights: WeightsFormData = {
-  tugas: 0,
-  tes: 0,
-  pts: 0,
-  pas: 0,
-  kehadiran: 0,
-  eskul: 0,
-  osis: 0,
+  tugas: 20, // Example default, sum to 100 for academic
+  tes: 20,
+  pts: 20,
+  pas: 25,
+  kehadiran: 15,
+  eskul: 5, // Default max bonus
+  osis: 5,  // Default max bonus
   totalHariEfektifGanjil: 90,
   totalHariEfektifGenap: 90,
 };
@@ -66,13 +66,13 @@ export default function ManageWeightsPage() {
     defaultValues: defaultWeights,
   });
 
-  const watchedPercentageWeights = form.watch([
-    "tugas", "tes", "pts", "pas", "kehadiran", "eskul", "osis"
+  const watchedAcademicWeights = form.watch([
+    "tugas", "tes", "pts", "pas", "kehadiran"
   ]);
 
-  const totalPercentage = React.useMemo(() => {
-    return watchedPercentageWeights.reduce((sum, value) => sum + (Number(value) || 0), 0);
-  }, [watchedPercentageWeights]);
+  const totalAcademicPercentage = React.useMemo(() => {
+    return watchedAcademicWeights.reduce((sum, value) => sum + (Number(value) || 0), 0);
+  }, [watchedAcademicWeights]);
 
 
   useEffect(() => {
@@ -114,13 +114,13 @@ export default function ManageWeightsPage() {
     setFormError(null);
     form.clearErrors("root");
 
-    const { totalHariEfektifGanjil, totalHariEfektifGenap, ...percentageWeights } = data;
-    const currentTotalPercentage = Object.values(percentageWeights).reduce((sum, value) => sum + (value || 0), 0);
+    const { tugas, tes, pts, pas, kehadiran } = data;
+    const currentTotalAcademicPercentage = (tugas || 0) + (tes || 0) + (pts || 0) + (pas || 0) + (kehadiran || 0);
 
-    if (currentTotalPercentage !== 100) {
+    if (currentTotalAcademicPercentage !== 100) {
       form.setError("root.serverError", { 
         type: "manual", 
-        message: "Total bobot dari semua komponen penilaian (Tugas, Tes, dll.) harus 100%." 
+        message: "Total bobot dari komponen penilaian akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus 100%." 
       });
       setIsSubmitting(false);
       return;
@@ -132,7 +132,7 @@ export default function ManageWeightsPage() {
       if (userProfile) {
         await addActivityLog(
             "Konfigurasi Bobot Diperbarui", 
-            `Bobot & hari efektif telah diubah. Detail: Tgs(${data.tugas}), Tes(${data.tes}), PTS(${data.pts}), PAS(${data.pas}), Keh(${data.kehadiran}), Eskul(${data.eskul}), Osis(${data.osis}), HrGjl(${data.totalHariEfektifGanjil}), HrGnp(${data.totalHariEfektifGenap}).`,
+            `Bobot Akd: Tgs(${data.tugas}),Tes(${data.tes}),PTS(${data.pts}),PAS(${data.pas}),Keh(${data.kehadiran}). Bonus: Eskul(${data.eskul}),Osis(${data.osis}). HrGjl(${data.totalHariEfektifGanjil}),HrGnp(${data.totalHariEfektifGenap}).`,
             userProfile.uid,
             userProfile.displayName || userProfile.email || "Admin"
           );
@@ -146,15 +146,19 @@ export default function ManageWeightsPage() {
     }
   };
   
-  const weightFields: { name: keyof Omit<WeightsFormData, 'totalHariEfektifGanjil' | 'totalHariEfektifGenap'>; label: string }[] = [
+  const academicWeightFields: { name: keyof Pick<WeightsFormData, 'tugas' | 'tes' | 'pts' | 'pas' | 'kehadiran'>; label: string }[] = [
     { name: "tugas", label: "Tugas / Harian (%)" },
     { name: "tes", label: "Tes / Ulangan (%)" },
     { name: "pts", label: "PTS (Penilaian Tengah Semester) (%)" },
     { name: "pas", label: "PAS (Penilaian Akhir Semester) (%)" },
     { name: "kehadiran", label: "Kehadiran (Bobot Komponen) (%)" },
-    { name: "eskul", label: "Ekstrakurikuler (%)" },
-    { name: "osis", label: "OSIS / Kegiatan Sekolah (%)" },
   ];
+  
+  const bonusWeightFields: { name: keyof Pick<WeightsFormData, 'eskul' | 'osis'>; label: string }[] = [
+    { name: "eskul", label: "Ekstrakurikuler (Poin Bonus Maks.)" },
+    { name: "osis", label: "OSIS / Kegiatan (Poin Bonus Maks.)" },
+  ];
+
 
   if (isLoadingData) {
     return (
@@ -199,7 +203,7 @@ export default function ManageWeightsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Atur Bobot & Hari Efektif</h1>
           <p className="text-muted-foreground">
-            Sesuaikan persentase bobot penilaian dan total hari efektif per semester.
+            Sesuaikan persentase bobot penilaian akademik, poin bonus, dan total hari efektif per semester.
           </p>
         </div>
       </div>
@@ -210,8 +214,7 @@ export default function ManageWeightsPage() {
             <CardHeader>
               <CardTitle>Konfigurasi Global</CardTitle>
               <CardDescription>
-                Masukkan persentase untuk komponen penilaian (total harus 100%) dan jumlah hari efektif.
-                 Pengaturan ini berlaku global untuk semua perhitungan nilai akhir.
+                Total bobot komponen akademik harus 100%. Bobot Eskul & OSIS adalah poin bonus maksimal.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -238,18 +241,17 @@ export default function ManageWeightsPage() {
               )}
               
               <div>
-                <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Bobot Komponen Penilaian</h3>
+                <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Bobot Komponen Penilaian Akademik</h3>
                  <Alert variant="default" className="mb-4">
                   <Info className="h-4 w-4" />
-                  <AlertTitle>Informasi Bobot</AlertTitle>
+                  <AlertTitle>Informasi Bobot Akademik</AlertTitle>
                   <AlertDescription>
-                    Total bobot dari semua komponen yang tercantum (Tugas, Tes, PTS, PAS, Kehadiran, Eskul, OSIS) harus mencapai 100%. 
-                    Jika Eskul atau OSIS diberi bobot, nilai aktual yang diinput guru untuk komponen tersebut (skala 0-100) akan mempengaruhi nilai akhir siswa. 
-                    Jika komponen seperti Eskul/OSIS hanya bersifat sebagai catatan dan tidak boleh signifikan mempengaruhi nilai akhir (terutama menurunkannya), pertimbangkan untuk memberi bobot 0% pada komponen tersebut.
+                    Total bobot dari komponen akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus mencapai 100%.
+                    Ini akan menjadi dasar perhitungan nilai akademik siswa sebelum ditambahkan poin bonus.
                   </AlertDescription>
                 </Alert>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {weightFields.map((fieldInfo) => (
+                  {academicWeightFields.map((fieldInfo) => (
                     <FormField
                       key={fieldInfo.name}
                       control={form.control}
@@ -268,11 +270,42 @@ export default function ManageWeightsPage() {
                 </div>
                 <div className="mt-4 p-4 border rounded-md bg-muted/50">
                   <p className="text-lg font-semibold">
-                    Total Bobot Komponen: <span className={`font-bold ${totalPercentage === 100 ? 'text-green-600' : 'text-red-600'}`}>{totalPercentage}%</span>
+                    Total Bobot Komponen Akademik: <span className={`font-bold ${totalAcademicPercentage === 100 ? 'text-green-600' : 'text-red-600'}`}>{totalAcademicPercentage}%</span>
                   </p>
-                  {totalPercentage !== 100 && (
-                    <p className="text-sm text-red-600 mt-1">Total bobot komponen harus 100% untuk dapat menyimpan.</p>
+                  {totalAcademicPercentage !== 100 && (
+                    <p className="text-sm text-red-600 mt-1">Total bobot komponen akademik harus 100% untuk dapat menyimpan.</p>
                   )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium text-foreground mb-4 mt-8 border-b pb-2">Poin Bonus Tambahan</h3>
+                 <Alert variant="default" className="mb-4">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Informasi Poin Bonus</AlertTitle>
+                  <AlertDescription>
+                    Bobot untuk Ekstrakurikuler dan OSIS/Kegiatan di sini menentukan **poin bonus maksimal** yang dapat ditambahkan ke nilai akhir siswa.
+                    Contoh: Jika Eskul diberi bobot 5, dan siswa mendapat nilai 80 untuk Eskul, maka siswa akan mendapat tambahan `(80/100) * 5 = 4` poin.
+                    Jika diatur ke 0, komponen tersebut tidak akan memberi bonus. Nilai akhir total tidak akan melebihi 100.
+                  </AlertDescription>
+                </Alert>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {bonusWeightFields.map((fieldInfo) => (
+                    <FormField
+                      key={fieldInfo.name}
+                      control={form.control}
+                      name={fieldInfo.name}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{fieldInfo.label}</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0-100" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
                 </div>
               </div>
               
@@ -314,7 +347,7 @@ export default function ManageWeightsPage() {
 
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isSubmitting || totalPercentage !== 100}>
+              <Button type="submit" disabled={isSubmitting || totalAcademicPercentage !== 100}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -334,5 +367,4 @@ export default function ManageWeightsPage() {
     </div>
   );
 }
-
     

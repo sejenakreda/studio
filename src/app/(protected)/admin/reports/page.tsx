@@ -5,21 +5,39 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, BookUser, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, BookUser, Loader2, AlertCircle, BarChartHorizontalBig } from "lucide-react";
 import { getAllUsersByRole, getStudents } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+
+interface ClassDistribution {
+  name: string;
+  total: number;
+}
+
+const chartConfig = {
+  total: {
+    label: "Jumlah Siswa",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
 export default function SystemReportsPage() {
   const { toast } = useToast();
   const [teacherCount, setTeacherCount] = useState<number | null>(null);
   const [studentCount, setStudentCount] = useState<number | null>(null);
+  const [classDistribution, setClassDistribution] = useState<ClassDistribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingChart, setIsLoadingChart] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchReportData = useCallback(async () => {
     setIsLoading(true);
+    setIsLoadingChart(true);
     setError(null);
     try {
       const [guruUsers, studentList] = await Promise.all([
@@ -28,6 +46,22 @@ export default function SystemReportsPage() {
       ]);
       setTeacherCount(guruUsers?.length || 0);
       setStudentCount(studentList?.length || 0);
+
+      // Process class distribution
+      if (studentList && studentList.length > 0) {
+        const counts: { [key: string]: number } = {};
+        studentList.forEach(student => {
+          counts[student.kelas] = (counts[student.kelas] || 0) + 1;
+        });
+        const distributionData = Object.entries(counts).map(([name, total]) => ({
+          name,
+          total
+        })).sort((a,b) => b.total - a.total); // Sort by count descending
+        setClassDistribution(distributionData);
+      } else {
+        setClassDistribution([]);
+      }
+
     } catch (err: any) {
       console.error("Error fetching report data:", err);
       setError("Gagal memuat data untuk laporan. Silakan coba lagi nanti.");
@@ -38,6 +72,7 @@ export default function SystemReportsPage() {
       });
     } finally {
       setIsLoading(false);
+      setIsLoadingChart(false);
     }
   }, [toast]);
 
@@ -135,6 +170,60 @@ export default function SystemReportsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Distribusi Siswa per Kelas</CardTitle>
+          <CardDescription>
+            Visualisasi jumlah siswa di setiap kelas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingChart ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+             <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Gagal Memuat Grafik</AlertTitle>
+              <AlertDescription>Tidak dapat memuat data distribusi kelas. Silakan coba muat ulang.</AlertDescription>
+            </Alert>
+          ) : classDistribution.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-4 border-2 border-dashed rounded-lg">
+              <BarChartHorizontalBig className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Belum ada data siswa untuk ditampilkan dalam grafik.</p>
+            </div>
+          ) : (
+            <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-auto">
+              <ResponsiveContainer width="100%" height={300 + classDistribution.length * 20}>
+                <BarChart 
+                  data={classDistribution} 
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 + (classDistribution.length > 10 ? classDistribution.length * 5 : 0) }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    tickLine={false} 
+                    axisLine={false}
+                    width={120} 
+                    interval={0}
+                    style={{ fontSize: '12px' }}
+                  />
+                  <RechartsTooltip 
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    content={<ChartTooltipContent />} 
+                  />
+                  <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

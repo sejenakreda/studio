@@ -3,48 +3,22 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, LogIn, Loader2, UserPlus, KeyRound } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle, LogIn, Loader2 } from 'lucide-react';
+// UserPlus and KeyRound icons are no longer needed
 
 export default function LoginPage() {
-  const [emailForReset, setEmailForReset] = useState(''); // Keep state for potential controlled input for reset
-  const [loadingReset, setLoadingReset] = useState(false);
+  // Removed emailForReset, loadingReset states as "Forgot Password" is removed
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleForgotPassword = async () => {
-    const enteredEmail = prompt("Masukkan alamat email Anda untuk reset password:");
-    if (enteredEmail) {
-      setLoadingReset(true);
-      try {
-        await sendPasswordResetEmail(auth, enteredEmail);
-        toast({
-          title: "Email Reset Password Terkirim",
-          description: "Silakan periksa inbox email Anda untuk instruksi reset password.",
-        });
-      } catch (error: any) {
-        let friendlyMessage = "Gagal mengirim email reset password.";
-        if (error.code === 'auth/user-not-found') {
-          friendlyMessage = "Email tidak terdaftar. Pastikan email yang Anda masukkan benar.";
-        }
-        toast({
-          variant: "destructive",
-          title: "Gagal Reset Password",
-          description: friendlyMessage,
-        });
-        console.error("Error sending password reset email:", error);
-      } finally {
-        setLoadingReset(false);
-      }
-    }
-  };
+  // handleForgotPassword function removed
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary to-accent flex flex-col items-center justify-center p-4">
@@ -74,31 +48,7 @@ export default function LoginPage() {
           </p>
         </div>
         <LoginForm />
-        <div className="mt-6 text-center text-sm">
-          <Button
-            variant="link"
-            onClick={handleForgotPassword}
-            className="text-primary hover:text-primary/80 p-0"
-            disabled={loadingReset}
-          >
-            <KeyRound className="mr-1.5 h-4 w-4" />
-            Lupa Password?
-          </Button>
-          <span className="mx-2 text-muted-foreground">|</span>
-          <Link href="/register">
-            <Button
-              variant="link"
-              className="text-primary hover:text-primary/80 p-0"
-              disabled={loadingReset} 
-              asChild
-            >
-              <span> 
-                <UserPlus className="mr-1.5 h-4 w-4" />
-                Buat Akun Baru
-              </span>
-            </Button>
-          </Link>
-        </div>
+        {/* "Forgot Password" and "Create New Account" links removed */}
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
         © {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.

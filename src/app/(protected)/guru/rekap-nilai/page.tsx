@@ -52,7 +52,7 @@ export default function RekapNilaiPage() {
   const router = useRouter();
   const [allGradesData, setAllGradesData] = useState<GuruGradeSummaryView[]>([]);
   const [studentsMap, setStudentsMap] = useState<Map<string, Siswa>>(new Map());
-  const [kkmSettingsMap, setKkmSettingsMap] = useState<Map<string, number>>(new Map()); // mapel_tahunAjaran -> kkmValue
+  const [kkmSettingsMap, setKkmSettingsMap] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [gradeToDelete, setGradeToDelete] = useState<GuruGradeSummaryView | null>(null);
@@ -63,7 +63,7 @@ export default function RekapNilaiPage() {
   const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
-  const [mapelFilter, setMapelFilter] = useState<string>("all"); 
+  const [mapelFilter, setMapelFilter] = useState<string>(""); // Initialized to empty string
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
@@ -88,6 +88,7 @@ export default function RekapNilaiPage() {
         setAcademicYearFilter(""); 
         toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Silakan hubungi Admin."});
       }
+      // Do NOT set mapelFilter to "all" here, let it be "" initially
       
       if (!Array.isArray(grades)) throw new Error("Gagal memuat data nilai. Format tidak sesuai.");
       if (!Array.isArray(students)) throw new Error("Gagal memuat data siswa. Format tidak sesuai.");
@@ -111,9 +112,8 @@ export default function RekapNilaiPage() {
         const kkmKey = `${grade.mapel}__${grade.tahun_ajaran}`;
         const kkm = newKkmSettingsMap.get(kkmKey) || 70;
 
-        // Stricter 'isTuntas' check
         const coreAcademicComponents = [
-          ...(grade.tugas || [0,0,0,0,0]).slice(0,5), // Assuming 5 tasks, use 0 if not present
+          ...(grade.tugas || []).slice(0,5).map(t => t || 0),
           grade.tes || 0,
           grade.pts || 0,
           grade.pas || 0,
@@ -164,17 +164,18 @@ export default function RekapNilaiPage() {
   };
 
   const filteredAndSortedGrades = useMemo(() => {
+    if (!academicYearFilter || semesterFilter === "" || mapelFilter === "") { // Added mapelFilter === ""
+        return [];
+    }
     let items = [...allGradesData];
 
     if (academicYearFilter) {
       items = items.filter(grade => grade.tahun_ajaran === academicYearFilter);
-    } else {
-       return []; 
     }
     if (semesterFilter) {
       items = items.filter(grade => String(grade.semester) === semesterFilter);
     }
-    if (mapelFilter !== "all") {
+    if (mapelFilter !== "all") { 
       items = items.filter(grade => grade.mapel === mapelFilter);
     }
     
@@ -322,7 +323,7 @@ export default function RekapNilaiPage() {
                 Pilih filter untuk melihat rekap nilai. Klik header kolom untuk mengurutkan.
               </CardDescription>
             </div>
-             {filteredAndSortedGrades.length > 0 && !isLoading && (
+             {mapelFilter !== "" && filteredAndSortedGrades.length > 0 && !isLoading && (
               <Button onClick={handleDownloadExcel} variant="outline">
                 <Download className="mr-2 h-4 w-4" />
                 Unduh Excel
@@ -334,7 +335,7 @@ export default function RekapNilaiPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
             <div>
               <Label htmlFor="academicYearFilter" className="text-sm font-medium">Filter Tahun Ajaran</Label>
-              <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={selectableYears.length === 0}>
+              <Select value={academicYearFilter || ""} onValueChange={setAcademicYearFilter} disabled={selectableYears.length === 0}>
                 <SelectTrigger id="academicYearFilter" className="w-full mt-1">
                   <SelectValue placeholder="Pilih tahun ajaran..." />
                 </SelectTrigger>
@@ -364,7 +365,7 @@ export default function RekapNilaiPage() {
             </div>
             <div>
               <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
-              <Select value={mapelFilter} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
+              <Select value={mapelFilter || ""} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
                 <SelectTrigger id="mapelFilter" className="w-full mt-1">
                   <SelectValue placeholder="Pilih mapel..." />
                 </SelectTrigger>
@@ -385,6 +386,8 @@ export default function RekapNilaiPage() {
             <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Gagal Memuat Data</AlertTitle><AlertDescription>{error}</AlertDescription><Button onClick={fetchData} variant="outline" className="mt-4">Coba Lagi</Button></Alert>
           ) : !academicYearFilter ? (
              <Alert variant="default"><Info className="h-4 w-4" /><AlertTitle>Pilih Tahun Ajaran</AlertTitle><AlertDescription>Silakan pilih tahun ajaran untuk menampilkan rekap nilai. Jika daftar kosong, hubungi Admin.</AlertDescription></Alert>
+          ) : mapelFilter === "" ? (
+             <Alert variant="default"><Info className="h-4 w-4" /><AlertTitle>Pilih Mata Pelajaran</AlertTitle><AlertDescription>Silakan pilih mata pelajaran (atau "Semua Mapel") untuk menampilkan rekap nilai.</AlertDescription></Alert>
           ) : filteredAndSortedGrades.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
               <BarChartHorizontalBig className="mx-auto h-12 w-12 text-muted-foreground" />

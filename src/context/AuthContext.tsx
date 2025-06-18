@@ -26,38 +26,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-          // Fetch user profile from Firestore
-          const userDocRef = doc(db as Firestore, 'users', firebaseUser.uid);
+    const processAuthState = async (fbUser: FirebaseUser | null) => {
+      setLoading(true); // Tetap true selama proses
+      if (fbUser) {
+        setUser(fbUser); // Set Firebase user segera
+        try {
+          const userDocRef = doc(db as Firestore, 'users', fbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             setUserProfile(userDocSnap.data() as UserProfile);
+            setLoading(false); // Baru set loading false setelah profil ada
           } else {
-            console.warn(`User profile not found in Firestore for UID: ${firebaseUser.uid}.`);
-            setUserProfile(null); 
-            // If a user is authenticated but has no profile, you might want to sign them out
-            // or redirect them to a profile creation page.
-            // await signOut(auth); // This would trigger onAuthStateChanged again with user=null
+            // Pengguna terautentikasi di Firebase, tapi tidak ada profil di Firestore.
+            // Ini adalah state yang tidak valid untuk aplikasi kita. Logout pengguna.
+            console.warn(`Profil Firestore untuk UID ${fbUser.uid} tidak ditemukan. Proses logout.`);
+            setUserProfile(null); // Hapus profil
+            await signOut(auth); // Ini akan memicu onAuthStateChanged lagi, yang akan masuk ke blok 'else' di bawah.
+                                 // setLoading(false) akan ditangani oleh panggilan onAuthStateChanged berikutnya.
           }
-        } else {
-          setUser(null);
-          setUserProfile(null);
+        } catch (error) {
+          console.error("Error mengambil profil pengguna:", error);
+          setUserProfile(null); // Hapus profil
+          await signOut(auth); // Logout jika ada error saat ambil profil. Ini juga akan memicu onAuthStateChanged.
         }
-      } catch (error) {
-        console.error("Error during authentication state change or profile fetching:", error);
+      } else {
+        // Tidak ada pengguna Firebase (logout atau state awal sebelum pengecekan auth)
         setUser(null);
         setUserProfile(null);
-        // You could set an error state here to display a message to the user
-      } finally {
-        setLoading(false);
+        setLoading(false); // Set loading false karena state sudah final (tidak ada pengguna)
       }
-    });
+    };
 
-    return () => unsubscribe();
+    // onAuthStateChanged akan memanggil processAuthState dengan user atau null
+    const unsubscribe = onAuthStateChanged(auth, processAuthState);
+
+    return () => unsubscribe(); // Cleanup listener saat unmount
   }, []);
+
 
   const isAdmin = useMemo(() => userProfile?.role === 'admin', [userProfile]);
   const isGuru = useMemo(() => userProfile?.role === 'guru', [userProfile]);
@@ -95,3 +100,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+

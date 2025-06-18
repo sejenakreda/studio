@@ -1,6 +1,8 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Added import
 import { BookUser, Edit3, BarChart2, Users } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; // Assuming you have user's name in context

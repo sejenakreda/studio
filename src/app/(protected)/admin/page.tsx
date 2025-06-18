@@ -96,7 +96,7 @@ export default function AdminDashboardPage() {
           <p className="text-muted-foreground">Ringkasan dan manajemen sistem SkorZen.</p>
         </div>
          <Button onClick={fetchDashboardData} variant="outline" disabled={isLoadingStats || isLoadingLogs}>
-          {isLoadingStats || isLoadingLogs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {(isLoadingStats || isLoadingLogs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Muat Ulang Data
         </Button>
       </div>

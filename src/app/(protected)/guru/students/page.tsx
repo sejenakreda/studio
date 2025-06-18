@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter } from "lucide-react";
 import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -39,12 +40,14 @@ type StudentFormData = z.infer<typeof studentSchema>;
 
 export default function ManageStudentsPage() {
   const { toast } = useToast();
-  const [students, setStudents] = useState<Siswa[]>([]);
+  const [allStudents, setAllStudents] = useState<Siswa[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Siswa | null>(null);
+  const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>("all");
 
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -61,12 +64,19 @@ export default function ManageStudentsPage() {
     setFetchError(null);
     try {
       const studentList = await getStudents();
-      setStudents(studentList || []);
+      setAllStudents(studentList || []);
+      if (studentList && studentList.length > 0) {
+        const klasses = [...new Set(studentList.map(s => s.kelas).filter(Boolean))].sort();
+        setUniqueClasses(klasses);
+      } else {
+        setUniqueClasses([]);
+      }
     } catch (error) {
       console.error("Error fetching students:", error);
       setFetchError("Gagal memuat daftar siswa. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: "Gagal memuat daftar siswa." });
-      setStudents([]);
+      setAllStudents([]);
+      setUniqueClasses([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -76,17 +86,24 @@ export default function ManageStudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
+  const filteredStudents = useMemo(() => {
+    if (selectedClass === "all") {
+      return allStudents;
+    }
+    return allStudents.filter(student => student.kelas === selectedClass);
+  }, [allStudents, selectedClass]);
+
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     try {
-      const existingStudentById = students.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
+      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "ID Siswa ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
-      const existingStudentByNis = students.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
+      const existingStudentByNis = allStudents.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
       if (existingStudentByNis) {
         form.setError("nis", { type: "manual", message: "NIS ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "NIS ini sudah digunakan." });
@@ -226,8 +243,28 @@ export default function ManageStudentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Siswa Terdaftar</CardTitle>
-          <CardDescription>Berikut adalah daftar semua siswa.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Daftar Siswa Terdaftar</CardTitle>
+              <CardDescription>Berikut adalah daftar semua siswa.</CardDescription>
+            </div>
+            {uniqueClasses.length > 0 && (
+              <div className="w-full sm:w-auto min-w-[200px]">
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger className="w-full" aria-label="Filter berdasarkan kelas">
+                    <Filter className="h-4 w-4 mr-2 opacity-70" />
+                    <SelectValue placeholder="Filter Kelas..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kelas</SelectItem>
+                    {uniqueClasses.map(kelas => (
+                      <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {fetchError && (
@@ -249,8 +286,8 @@ export default function ManageStudentsPage() {
                 </div>
               ))}
             </div>
-          ) : students.length === 0 && !fetchError ? (
-            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
+          ) : allStudents.length === 0 && !fetchError ? (
+             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
               <BookUser className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">
                 Belum Ada Siswa
@@ -258,6 +295,19 @@ export default function ManageStudentsPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Belum ada siswa yang terdaftar. Silakan tambahkan siswa baru menggunakan formulir di atas.
               </p>
+            </div>
+          ) : filteredStudents.length === 0 && selectedClass !== "all" ? (
+            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
+              <Filter className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">
+                Tidak Ada Siswa di Kelas {selectedClass}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tidak ada siswa yang cocok dengan filter kelas yang dipilih. Coba pilih kelas lain atau "Semua Kelas".
+              </p>
+              <Button variant="outline" className="mt-4" onClick={() => setSelectedClass("all")}>
+                Tampilkan Semua Kelas
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -272,7 +322,7 @@ export default function ManageStudentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => (
+                  {filteredStudents.map((student) => (
                     <TableRow key={student.id_siswa}>
                       <TableCell className="font-medium">{student.nama}</TableCell>
                       <TableCell>{student.nis}</TableCell>

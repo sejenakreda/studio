@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Loader2, AlertCircle, Users, ClipboardList, Info, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon } from "lucide-react";
 import { getAllGrades, getStudents } from '@/lib/firestoreService';
-import { calculateAverage } from '@/lib/utils';
+import { calculateAverage, getAcademicYears, SEMESTERS } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,12 +29,19 @@ interface SortConfig {
   direction: 'ascending' | 'descending';
 }
 
+const ACADEMIC_YEARS_FILTER = getAcademicYears();
+
 export default function ManageAllGradesPage() {
   const { toast } = useToast();
   const [allGradesData, setAllGradesData] = useState<AdminGradeView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
+
+  const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
+  const [classFilter, setClassFilter] = useState<string>("all");
+  const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
+  const [semesterFilter, setSemesterFilter] = useState<string>("all"); // "all", "1", "2"
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -66,6 +74,13 @@ export default function ManageAllGradesPage() {
 
       setAllGradesData(enrichedGrades);
 
+      if (enrichedGrades.length > 0) {
+        const klasses = [...new Set(enrichedGrades.map(g => g.kelasSiswa).filter(Boolean) as string[])].sort();
+        setUniqueClasses(klasses);
+      } else {
+        setUniqueClasses([]);
+      }
+
     } catch (err: any) {
       console.error("Error fetching all grades data:", err);
       setError("Gagal memuat data nilai. Silakan coba lagi nanti.");
@@ -91,10 +106,21 @@ export default function ManageAllGradesPage() {
     setSortConfig({ key, direction });
   };
 
-  const sortedGradesData = useMemo(() => {
-    let sortableItems = [...allGradesData];
+  const filteredAndSortedGrades = useMemo(() => {
+    let items = [...allGradesData];
+
+    if (classFilter !== "all") {
+      items = items.filter(grade => grade.kelasSiswa === classFilter);
+    }
+    if (academicYearFilter !== "all") {
+      items = items.filter(grade => grade.tahun_ajaran === academicYearFilter);
+    }
+    if (semesterFilter !== "all") {
+      items = items.filter(grade => String(grade.semester) === semesterFilter);
+    }
+    
     if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
+      items.sort((a, b) => {
         const aValue = a[sortConfig.key as keyof AdminGradeView];
         const bValue = b[sortConfig.key as keyof AdminGradeView];
 
@@ -102,11 +128,10 @@ export default function ManageAllGradesPage() {
         const bIsNull = bValue === undefined || bValue === null;
 
         if (aIsNull && bIsNull) return 0;
-        if (aIsNull) return 1; // a is null/undefined, b is not; a comes after b
-        if (bIsNull) return -1; // b is null/undefined, a is not; b comes after a
+        if (aIsNull) return 1; 
+        if (bIsNull) return -1; 
         
         let comparison = 0;
-        // Handle sorting for nilai_akhir which can be 0
         if (sortConfig.key === 'nilai_akhir' || sortConfig.key === 'rataRataTugas' || 
             sortConfig.key === 'tes' || sortConfig.key === 'pts' || sortConfig.key === 'pas' ||
             sortConfig.key === 'kehadiran' || sortConfig.key === 'eskul' || sortConfig.key === 'osis') {
@@ -115,9 +140,9 @@ export default function ManageAllGradesPage() {
             if (!isNaN(numA) && !isNaN(numB)) {
                 comparison = numA - numB;
             } else if (!isNaN(numA)) {
-                comparison = -1; // numbers first
+                comparison = -1; 
             } else if (!isNaN(numB)) {
-                comparison = 1; // numbers first
+                comparison = 1; 
             } else {
                  comparison = String(aValue).localeCompare(String(bValue));
             }
@@ -126,14 +151,13 @@ export default function ManageAllGradesPage() {
         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
           comparison = aValue.localeCompare(bValue);
         } else {
-           // Fallback for mixed types or other types
            comparison = String(aValue).localeCompare(String(bValue));
         }
         return sortConfig.direction === 'ascending' ? comparison : comparison * -1;
       });
     }
-    return sortableItems;
-  }, [allGradesData, sortConfig]);
+    return items;
+  }, [allGradesData, sortConfig, classFilter, academicYearFilter, semesterFilter]);
 
   const getSortIcon = (key: SortConfig['key']) => {
     if (sortConfig.key !== key) {
@@ -160,7 +184,7 @@ export default function ManageAllGradesPage() {
 
 
   const memoizedTableRows = useMemo(() => {
-    return sortedGradesData.map((grade) => (
+    return filteredAndSortedGrades.map((grade) => (
       <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}`}>
         <TableCell className="font-medium">{grade.namaSiswa}</TableCell>
         <TableCell>{grade.nisSiswa}</TableCell>
@@ -177,7 +201,7 @@ export default function ManageAllGradesPage() {
         <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
       </TableRow>
     ));
-  }, [sortedGradesData]);
+  }, [filteredAndSortedGrades]);
 
 
   return (
@@ -191,7 +215,7 @@ export default function ManageAllGradesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Manajemen Nilai Global</h1>
           <p className="text-muted-foreground">
-            Lihat dan kelola semua data nilai siswa secara keseluruhan. Urutkan berdasarkan kolom.
+            Lihat, filter, dan kelola semua data nilai siswa. Urutkan berdasarkan kolom.
           </p>
         </div>
       </div>
@@ -200,11 +224,58 @@ export default function ManageAllGradesPage() {
         <CardHeader>
           <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
           <CardDescription>
-            Menampilkan semua catatan nilai yang tersimpan dalam sistem. Klik header kolom untuk mengurutkan.
+            Menampilkan semua catatan nilai. Gunakan filter atau klik header kolom untuk mengurutkan.
             Jika data nilai yang baru diinput belum muncul, coba muat ulang halaman.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {allGradesData.length > 0 && !isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
+              <div>
+                <Label htmlFor="classFilter" className="text-sm font-medium">Filter Kelas</Label>
+                <Select value={classFilter} onValueChange={setClassFilter}>
+                  <SelectTrigger id="classFilter" className="w-full mt-1">
+                    <SelectValue placeholder="Pilih kelas..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kelas</SelectItem>
+                    {uniqueClasses.map(kelas => (
+                      <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="academicYearFilter" className="text-sm font-medium">Filter Tahun Ajaran</Label>
+                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
+                  <SelectTrigger id="academicYearFilter" className="w-full mt-1">
+                    <SelectValue placeholder="Pilih tahun ajaran..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Tahun</SelectItem>
+                    {ACADEMIC_YEARS_FILTER.map(year => (
+                      <SelectItem key={year} value={year}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="semesterFilter" className="text-sm font-medium">Filter Semester</Label>
+                <Select value={semesterFilter} onValueChange={setSemesterFilter}>
+                  <SelectTrigger id="semesterFilter" className="w-full mt-1">
+                    <SelectValue placeholder="Pilih semester..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Semester</SelectItem>
+                    {SEMESTERS.map(semester => (
+                      <SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="space-y-4">
               <div className="flex items-center justify-center min-h-[200px]">
@@ -232,6 +303,19 @@ export default function ManageAllGradesPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Sistem belum memiliki data nilai siswa. Guru dapat mulai menginput nilai melalui dasbor mereka.
               </p>
+            </div>
+          ) : filteredAndSortedGrades.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
+              <FilterIcon className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">
+                Tidak Ada Data Sesuai Filter
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tidak ada data nilai yang cocok dengan kriteria filter yang Anda pilih. Coba ubah pilihan filter Anda.
+              </p>
+               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter("all"); setSemesterFilter("all"); }} variant="outline" className="mt-4">
+                Reset Filter
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -264,3 +348,4 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
+

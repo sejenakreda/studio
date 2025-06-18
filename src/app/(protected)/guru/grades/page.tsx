@@ -327,10 +327,10 @@ export default function InputGradesPage() {
                             <Input 
                               type="number" 
                               placeholder={fieldInfo.name === "jumlahHariHadir" ? `0 - ${totalDaysForCurrentSemester || 'N/A'}` : "0-100"}
-                              {...field} // Spread field props (ref, name, onBlur)
-                              value={field.value ?? ""} // Override value from field to handle undefined/null/NaN for display
-                              onChange={e => { // Override onChange from field
-                                field.onChange(e.target.value); // Pass raw string value to RHF
+                              {...field} 
+                              value={field.value ?? ""} 
+                              onChange={e => { 
+                                field.onChange(e.target.value); 
                               }}
                               disabled={!selectedStudentId || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
                             />
@@ -357,6 +357,7 @@ export default function InputGradesPage() {
                     <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor)</p>
                     <p className="text-4xl font-bold text-primary">{calculatedFinalGrade.toFixed(2)}</p>
                     {!weights && <p className="text-xs text-destructive mt-1">Bobot/Hari Efektif belum dimuat, nilai akhir mungkin tidak akurat.</p>}
+                    {weights && <p className="text-xs text-muted-foreground mt-1">Dihitung berdasarkan bobot yang diatur oleh Admin.</p>}
                   </div>
                 )}
               </CardContent>

@@ -75,12 +75,17 @@ export default function LoginPage() {
           <svg
             className="mx-auto h-16 w-auto text-primary mb-4"
             viewBox="0 0 24 24"
-            fill="currentColor"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             xmlns="http://www.w3.org/2000/svg"
             aria-label="SiAP Smapna Logo"
             role="img"
           >
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+            <path d="m14 12.5 2 2 4-4"/>
           </svg>
           <h1 className="text-4xl font-bold text-primary font-headline tracking-tight">
             SiAP Smapna

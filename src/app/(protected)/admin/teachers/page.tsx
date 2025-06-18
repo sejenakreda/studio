@@ -436,10 +436,10 @@ export default function ManageTeachersPage() {
               {isImporting ? 'Mengimpor...' : 'Impor Guru'}
             </Button>
           </div>
-          <FormDesc>
+          <p className="text-sm text-muted-foreground">
             Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>.
             Data yang sudah ada (berdasarkan email) akan dilewati.
-          </FormDesc>
+          </p>
         </CardContent>
       </Card>
 
@@ -560,6 +560,4 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
-
-
     

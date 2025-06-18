@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, Edit, Trash2 } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById } from '@/lib/firestoreService';
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, Edit, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById, getKkmSetting } from '@/lib/firestoreService';
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
-import type { Nilai, Siswa } from '@/types';
+import type { Nilai, Siswa, KkmSetting } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +33,8 @@ interface GuruGradeSummaryView extends Nilai {
   nisSiswa?: string;
   kelasSiswa?: string;
   rataRataTugas?: number;
+  kkmValue?: number; // Added for storing KKM
+  isTuntas?: boolean; // Added for tuntas status
 }
 
 type SortableKeys = keyof Pick<GuruGradeSummaryView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'nilai_akhir' | 'mapel'>;
@@ -50,6 +52,7 @@ export default function RekapNilaiPage() {
   const router = useRouter();
   const [allGradesData, setAllGradesData] = useState<GuruGradeSummaryView[]>([]);
   const [studentsMap, setStudentsMap] = useState<Map<string, Siswa>>(new Map());
+  const [kkmSettingsMap, setKkmSettingsMap] = useState<Map<string, number>>(new Map()); // mapel_tahunAjaran -> kkmValue
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [gradeToDelete, setGradeToDelete] = useState<GuruGradeSummaryView | null>(null);
@@ -92,14 +95,31 @@ export default function RekapNilaiPage() {
       const studentMap = new Map(students.map(s => [s.id_siswa, s]));
       setStudentsMap(studentMap);
 
+      // Fetch KKM settings for unique mapel-TA pairs
+      const uniqueMapelTaPairs = [...new Set(grades.map(g => `${g.mapel}__${g.tahun_ajaran}`))];
+      const kkmPromises = uniqueMapelTaPairs.map(async pair => {
+        const [mapel, ta] = pair.split('__');
+        const kkmSetting = await getKkmSetting(mapel, ta);
+        return { key: pair, value: kkmSetting?.kkmValue || 70 }; // Default KKM 70 if not set
+      });
+      const kkmResults = await Promise.all(kkmPromises);
+      const newKkmSettingsMap = new Map<string, number>();
+      kkmResults.forEach(res => newKkmSettingsMap.set(res.key, res.value));
+      setKkmSettingsMap(newKkmSettingsMap);
+
       const enrichedGrades = grades.map(grade => {
         const student = studentMap.get(grade.id_siswa);
+        const kkmKey = `${grade.mapel}__${grade.tahun_ajaran}`;
+        const kkm = newKkmSettingsMap.get(kkmKey) || 70;
+        const isTuntas = (grade.nilai_akhir || 0) >= kkm;
         return {
           ...grade,
           namaSiswa: student?.nama || 'N/A',
           nisSiswa: student?.nis || 'N/A',
           kelasSiswa: student?.kelas || 'N/A',
           rataRataTugas: calculateAverage(grade.tugas || []),
+          kkmValue: kkm,
+          isTuntas: isTuntas,
         };
       });
       setAllGradesData(enrichedGrades);
@@ -193,6 +213,7 @@ export default function RekapNilaiPage() {
     { key: 'tes', label: 'Tes' }, { key: 'pts', label: 'PTS' }, { key: 'pas', label: 'PAS' },
     { key: 'kehadiran', label: 'Kehadiran (%)' }, { key: 'eskul', label: 'Eskul' },
     { key: 'osis', label: 'OSIS' }, { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
+    { label: 'Status', className: 'text-center'},
     { label: 'Aksi', className: 'text-right' },
   ];
 
@@ -204,7 +225,7 @@ export default function RekapNilaiPage() {
     const dataForExcel = filteredAndSortedGrades.map(grade => ({
       'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
       'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
-      'Mata Pelajaran': grade.mapel,
+      'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
       'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
       'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
       'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
@@ -213,15 +234,16 @@ export default function RekapNilaiPage() {
       'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
       'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
       'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
+      'Status Tuntas': grade.isTuntas ? 'Tuntas' : 'Belum Tuntas',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
     const safeMapelFilter = mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_');
     XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter} ${safeMapelFilter}`);
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, 
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, // KKM
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
-      { wch: 8 }, { wch: 8 }, { wch: 12 }, 
+      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15} // Status
     ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, `rekap_nilai_${academicYearFilter.replace('/', '-')}_smt${semesterFilter}_${safeMapelFilter}.xlsx`);
@@ -229,11 +251,13 @@ export default function RekapNilaiPage() {
   };
 
   const handleEditGrade = (grade: GuruGradeSummaryView) => {
+    const student = studentsMap.get(grade.id_siswa);
     const queryParams = new URLSearchParams({
       studentId: grade.id_siswa,
       academicYear: grade.tahun_ajaran,
       semester: String(grade.semester),
       mapel: grade.mapel,
+      class: student?.kelas || '', // Pass class for pre-selection
     });
     router.push(`/guru/grades?${queryParams.toString()}`);
   };
@@ -253,7 +277,7 @@ export default function RekapNilaiPage() {
       await deleteGradeById(gradeToDelete.id);
       toast({ title: "Sukses", description: `Nilai untuk ${gradeToDelete.namaSiswa} (${gradeToDelete.mapel}) berhasil dihapus.` });
       setGradeToDelete(null);
-      fetchData(); // Refresh data
+      fetchData(); 
     } catch (error: any) {
       console.error("Error deleting grade:", error);
       toast({ variant: "destructive", title: "Error Hapus Nilai", description: "Gagal menghapus data nilai." });
@@ -373,7 +397,19 @@ export default function RekapNilaiPage() {
                         <TableCell>{grade.tes?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.pts?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell>{grade.pas?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}%</TableCell>
                         <TableCell>{grade.eskul?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.osis?.toFixed(2) || '0.00'}</TableCell>
-                        <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
+                        <TableCell className={`font-semibold ${grade.isTuntas ? 'text-green-600' : 'text-destructive'}`}>{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">
+                          {grade.isTuntas ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                              <CheckCircle2 className="mr-1 h-3 w-3"/>Tuntas
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">
+                              <XCircle className="mr-1 h-3 w-3"/>Belum Tuntas
+                            </span>
+                          )}
+                           <div className="text-xs text-muted-foreground">(KKM: {grade.kkmValue || 70})</div>
+                        </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" onClick={() => handleEditGrade(grade)} title="Edit Nilai">
                             <Edit className="h-4 w-4" />
@@ -429,3 +465,4 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
+

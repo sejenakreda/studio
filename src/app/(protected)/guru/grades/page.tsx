@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Download, FileUp, FileDown, Target, Info } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Download, FileUp, FileDown, Target, Info, CheckCircle2, XCircle, ListFilter } from "lucide-react";
 import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears, getKkmSetting, setKkmSetting, addActivityLog } from '@/lib/firestoreService';
 import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear, calculateAverage } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai, KkmSetting } from '@/types';
@@ -23,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
 
 const gradeSchema = z.object({
+  selectedClass: z.string().optional(), // New field for class filter
   selectedStudentId: z.string().min(1, "Siswa harus dipilih"),
   selectedAcademicYear: z.string().min(1, "Tahun ajaran harus dipilih"),
   selectedSemester: z.coerce.number().min(1, "Semester harus dipilih").max(2),
@@ -60,6 +61,11 @@ interface GradeImportDataRow {
   [key: string]: any;
 }
 
+interface UntuntasComponent {
+  name: string;
+  value: number;
+}
+
 const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 
 export default function InputGradesPage() {
@@ -68,7 +74,8 @@ export default function InputGradesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [students, setStudents] = useState<Siswa[]>([]);
+  const [allStudents, setAllStudents] = useState<Siswa[]>([]); // All students fetched
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]); // Unique classes for filter
   const [studentMap, setStudentMap] = useState<Map<string, Siswa>>(new Map());
   const [weights, setWeights] = useState<Bobot | null>(null);
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
@@ -81,7 +88,7 @@ export default function InputGradesPage() {
   const [calculatedFinalGrade, setCalculatedFinalGrade] = useState<number | null>(null);
   const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
   const [currentKkm, setCurrentKkm] = useState<number>(70);
-
+  const [untuntasComponents, setUntuntasComponents] = useState<UntuntasComponent[]>([]);
 
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [isImportingFile, setIsImportingFile] = useState(false);
@@ -90,13 +97,22 @@ export default function InputGradesPage() {
   const form = useForm<GradeFormData>({
     resolver: zodResolver(gradeSchema),
     defaultValues: {
+        selectedClass: "all",
         kkmValue: 70,
         selectedMapel: "",
     }
   });
 
   const watchedFormValues = form.watch();
-  const { selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue } = watchedFormValues;
+  const { selectedClass, selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue } = watchedFormValues;
+
+  const filteredStudentsForDropdown = useMemo(() => {
+    if (!selectedClass || selectedClass === "all") {
+      return allStudents;
+    }
+    return allStudents.filter(student => student.kelas === selectedClass);
+  }, [allStudents, selectedClass]);
+
 
   const totalDaysForCurrentSemester = useMemo(() => {
     if (!weights || !selectedSemester) return undefined;
@@ -114,7 +130,10 @@ export default function InputGradesPage() {
           getActiveAcademicYears()
         ]);
         
-        setStudents(studentList || []);
+        setAllStudents(studentList || []);
+        const uniqueStudentClasses = [...new Set((studentList || []).map(s => s.kelas).filter(Boolean) as string[])].sort();
+        setAvailableClasses(uniqueStudentClasses);
+
         const newStudentMap = new Map((studentList || []).map(s => [s.id_siswa, s]));
         setStudentMap(newStudentMap);
 
@@ -128,8 +147,21 @@ export default function InputGradesPage() {
         const academicYearParam = searchParams.get('academicYear');
         const semesterParam = searchParams.get('semester');
         const mapelParam = searchParams.get('mapel');
+        const classParam = searchParams.get('class');
         
-        let defaultStudentId = studentList && studentList.length > 0 ? studentList[0].id_siswa : "";
+        let defaultStudentId = "";
+        let defaultClass = "all";
+        if (classParam && uniqueStudentClasses.includes(classParam)) {
+            defaultClass = classParam;
+            // If classParam is set, try to find first student in that class
+            const studentsInClass = (studentList || []).filter(s => s.kelas === classParam);
+            if (studentsInClass.length > 0) defaultStudentId = studentsInClass[0].id_siswa;
+        } else if (studentList && studentList.length > 0) {
+             // No class param, default to first student overall if any
+            defaultStudentId = studentList[0].id_siswa;
+        }
+
+
         let defaultYear = "";
         if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
           defaultYear = CURRENT_ACADEMIC_YEAR;
@@ -146,12 +178,20 @@ export default function InputGradesPage() {
         }
         
         if (studentIdParam && academicYearParam && semesterParam) {
-            defaultStudentId = studentIdParam;
+            defaultStudentId = studentIdParam; // StudentId from param takes precedence
             defaultYear = academicYearParam;
             defaultSemester = parseInt(semesterParam, 10);
+            // Infer class from studentIdParam if not provided directly
+            if (!classParam) {
+                const studentForClass = (studentList || []).find(s => s.id_siswa === studentIdParam);
+                if (studentForClass && studentForClass.kelas) {
+                    defaultClass = studentForClass.kelas;
+                }
+            }
         }
         
         form.reset({
+          selectedClass: defaultClass,
           selectedStudentId: defaultStudentId,
           selectedAcademicYear: defaultYear,
           selectedSemester: defaultSemester,
@@ -169,26 +209,26 @@ export default function InputGradesPage() {
         setIsLoadingInitialData(false);
       }
     }
-    if (userProfile) { // Ensure userProfile is loaded before fetching
+    if (userProfile) {
         fetchInitialData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, searchParams, userProfile]); // Removed form and router as they are stable
+  }, [toast, searchParams, userProfile, form]); 
 
-  // Fetch KKM when mapel or academic year changes
+  // Reset student selection when class filter changes
+  useEffect(() => {
+    form.setValue('selectedStudentId', '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass]);
+
   useEffect(() => {
     async function fetchKkm() {
       if (selectedMapel && selectedAcademicYear) {
         setIsLoadingGradeData(true);
         try {
           const kkmData = await getKkmSetting(selectedMapel, selectedAcademicYear);
-          if (kkmData) {
-            form.setValue("kkmValue", kkmData.kkmValue);
-            setCurrentKkm(kkmData.kkmValue);
-          } else {
-            form.setValue("kkmValue", 70); // Default if not set
-            setCurrentKkm(70);
-          }
+          const kkmVal = kkmData ? kkmData.kkmValue : 70;
+          form.setValue("kkmValue", kkmVal);
+          setCurrentKkm(kkmVal);
         } catch (error) {
           console.error("Error fetching KKM:", error);
           toast({ variant: "destructive", title: "Error KKM", description: "Gagal memuat KKM." });
@@ -196,7 +236,7 @@ export default function InputGradesPage() {
           setIsLoadingGradeData(false);
         }
       } else {
-        form.setValue("kkmValue", 70); // Reset KKM if mapel or TA not selected
+        form.setValue("kkmValue", 70); 
         setCurrentKkm(70);
       }
     }
@@ -215,6 +255,7 @@ export default function InputGradesPage() {
             });
             setCalculatedFinalGrade(null);
             setAttendancePercentage(null);
+            setUntuntasComponents([]);
         }
         return;
       }
@@ -230,8 +271,8 @@ export default function InputGradesPage() {
             calculatedJumlahHariHadir = Math.round((gradeData.kehadiran / 100) * totalDaysForSemester);
           }
           form.reset({
-            ...form.getValues(),
-            selectedMapel: gradeData.mapel,
+            ...form.getValues(), // Keep current filter values
+            selectedMapel: gradeData.mapel, // ensure mapel is from gradeData if different
             tugas1: gradeData.tugas?.[0] || 0,
             tugas2: gradeData.tugas?.[1] || 0,
             tugas3: gradeData.tugas?.[2] || 0,
@@ -246,7 +287,7 @@ export default function InputGradesPage() {
           });
         } else {
            form.reset({
-            ...form.getValues(),
+            ...form.getValues(), // Keep current filter values
             tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
             tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
           });
@@ -299,8 +340,24 @@ export default function InputGradesPage() {
       };
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
+
+      // Check for untuntas components
+      const kkm = currentKkm;
+      const newUntuntasComponents: UntuntasComponent[] = [];
+      if (finalGrade < kkm) {
+        if (watchedFormValues.tugas1 < kkm) newUntuntasComponents.push({ name: "Tugas 1", value: watchedFormValues.tugas1});
+        if (watchedFormValues.tugas2 < kkm) newUntuntasComponents.push({ name: "Tugas 2", value: watchedFormValues.tugas2});
+        if (watchedFormValues.tugas3 < kkm) newUntuntasComponents.push({ name: "Tugas 3", value: watchedFormValues.tugas3});
+        if (watchedFormValues.tugas4 < kkm) newUntuntasComponents.push({ name: "Tugas 4", value: watchedFormValues.tugas4});
+        if (watchedFormValues.tugas5 < kkm) newUntuntasComponents.push({ name: "Tugas 5", value: watchedFormValues.tugas5});
+        if ((watchedFormValues.tes || 0) < kkm) newUntuntasComponents.push({ name: "Tes/Ulangan", value: watchedFormValues.tes || 0});
+        if ((watchedFormValues.pts || 0) < kkm) newUntuntasComponents.push({ name: "PTS", value: watchedFormValues.pts || 0});
+        if ((watchedFormValues.pas || 0) < kkm) newUntuntasComponents.push({ name: "PAS", value: watchedFormValues.pas || 0});
+      }
+      setUntuntasComponents(newUntuntasComponents);
+
     }
-  }, [watchedFormValues, weights, isLoadingInitialData, selectedMapel]);
+  }, [watchedFormValues, weights, isLoadingInitialData, selectedMapel, currentKkm]);
 
   const handleSaveKkm = async () => {
     if (!selectedMapel || !selectedAcademicYear) {
@@ -315,7 +372,7 @@ export default function InputGradesPage() {
     setIsSavingKkm(true);
     try {
       await setKkmSetting({ mapel: selectedMapel, tahun_ajaran: selectedAcademicYear, kkmValue: kkmValue });
-      setCurrentKkm(kkmValue);
+      setCurrentKkm(kkmValue); // Update local KKM state immediately for UI consistency
       toast({ title: "Sukses", description: "KKM untuk " + selectedMapel + " TA " + selectedAcademicYear + " berhasil disimpan: " + kkmValue + "." });
       if (userProfile) {
         addActivityLog(
@@ -392,7 +449,7 @@ export default function InputGradesPage() {
     }
   };
   
-  const gradeInputFields: { name: keyof Omit<GradeFormData, 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'selectedMapel' | 'kkmValue' | 'kehadiran'>; label: string, type?: string, desc?: string }[] = [
+  const gradeInputFields: { name: keyof Omit<GradeFormData, 'selectedClass' | 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'selectedMapel' | 'kkmValue' | 'kehadiran'>; label: string, type?: string, desc?: string }[] = [
     { name: "tugas1", label: "Nilai Tugas 1" }, { name: "tugas2", label: "Nilai Tugas 2" },
     { name: "tugas3", label: "Nilai Tugas 3" }, { name: "tugas4", label: "Nilai Tugas 4" },
     { name: "tugas5", label: "Nilai Tugas 5" }, { name: "tes", label: "Nilai Tes / Ulangan" },
@@ -402,7 +459,7 @@ export default function InputGradesPage() {
   ];
 
   const handleDownloadGradeTemplate = async () => {
-    const { selectedAcademicYear: currentYear, selectedSemester: currentSemester, selectedMapel: currentMapel } = form.getValues();
+    const { selectedAcademicYear: currentYear, selectedSemester: currentSemester, selectedMapel: currentMapel, selectedClass: currentClassFilter } = form.getValues();
 
     if (!currentYear || !currentSemester || !currentMapel) {
         toast({
@@ -414,20 +471,25 @@ export default function InputGradesPage() {
     }
     setIsImportingFile(true);
     try {
-        const allStudentsList = await getStudents();
-        if (!allStudentsList || allStudentsList.length === 0) {
-            toast({ title: "Tidak Ada Siswa", description: "Tidak ada data siswa untuk membuat template.", variant: "default" });
+        // Use allStudents, then filter by selectedClass if needed
+        const studentsForTemplate = currentClassFilter === "all" || !currentClassFilter 
+                                    ? allStudents 
+                                    : allStudents.filter(s => s.kelas === currentClassFilter);
+
+        if (studentsForTemplate.length === 0) {
+            toast({ title: "Tidak Ada Siswa", description: `Tidak ada siswa di kelas ${currentClassFilter === "all" ? "manapun" : currentClassFilter} untuk membuat template.`, variant: "default" });
+            setIsImportingFile(false);
             return;
         }
 
-        const dataForExcel = allStudentsList.map(student => ({
+        const dataForExcel = studentsForTemplate.map(student => ({
             id_siswa: student.id_siswa,
             nama_siswa: student.nama,
             nis: student.nis,
             kelas: student.kelas,
             tahun_ajaran: currentYear,
             semester: currentSemester,
-            mapel: currentMapel, // Mapel diisi otomatis
+            mapel: currentMapel, 
             tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '',
             tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: ''
         }));
@@ -455,9 +517,10 @@ export default function InputGradesPage() {
         
         const safeYear = currentYear.replace(/\//g, '-');
         const safeMapel = currentMapel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const filename = "template_nilai_" + safeMapel + "_" + safeYear + "_smt" + currentSemester + ".xlsx";
+        const safeClass = (currentClassFilter === "all" || !currentClassFilter) ? "SemuaKelas" : currentClassFilter.replace(/[^a-z0-9]/gi, '_');
+        const filename = "template_nilai_" + safeMapel + "_" + safeYear + "_smt" + currentSemester + "_" + safeClass + ".xlsx";
         XLSX.writeFile(workbook, filename);
-        toast({ title: "Template Diunduh", description: "Template untuk mapel " + currentMapel + ", TA " + currentYear + " Semester " + currentSemester + " telah diunduh." });
+        toast({ title: "Template Diunduh", description: "Template untuk mapel " + currentMapel + ", TA " + currentYear + " Semester " + currentSemester + (currentClassFilter !== "all" && currentClassFilter ? " Kelas " + currentClassFilter : "") + " telah diunduh." });
 
     } catch (error) {
         console.error("Error downloading grade template:", error);
@@ -501,15 +564,16 @@ export default function InputGradesPage() {
       'Eskul': values.eskul || 0,
       'OSIS': values.osis || 0,
       'Nilai Akhir': calculatedFinalGrade?.toFixed(2) || '0.00',
+      'Status Tuntas': (calculatedFinalGrade !== null && calculatedFinalGrade >= (values.kkmValue || 0)) ? 'Tuntas' : 'Belum Tuntas',
     }];
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Nilai Siswa");
     const wscols = [
-      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, // mapel, kkm
+      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, 
       { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
-      { wch: 18 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 12 }
+      { wch: 18 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 15 } // Added width for Status Tuntas
     ];
     worksheet['!cols'] = wscols;
     const safeStudentName = currentStudent.nama.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -624,7 +688,7 @@ export default function InputGradesPage() {
           }
 
           const tugasScores: number[] = [];
-          for (let i = 1; i <= 20; i++) {
+          for (let i = 1; i <= 20; i++) { // Check up to tugas20 dynamically
             const tugasValue = row["tugas" + i];
             if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
                  const numValue = Number(tugasValue);
@@ -675,12 +739,12 @@ export default function InputGradesPage() {
            const reselectAcademicYear = currentFormValues.selectedAcademicYear;
            const reselectSemester = currentFormValues.selectedSemester;
            const reselectMapel = currentFormValues.selectedMapel;
-
+            // Force re-fetch of grade for the currently selected student if their data was part of the import
             form.reset({
                 ...currentFormValues,
-                selectedStudentId: '',
+                selectedStudentId: '', // Temporarily change to trigger useEffect for grade fetching
             });
-            setTimeout(() => {
+            setTimeout(() => { // Allow state to update and then reset to original student
                 form.reset({
                     ...currentFormValues,
                     selectedStudentId: reselectStudentId,
@@ -723,13 +787,13 @@ export default function InputGradesPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/guru"><Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Guru"><ArrowLeft className="h-4 w-4" /></Button></Link>
-        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Input &amp; Lihat Nilai Siswa</h1><p className="text-muted-foreground">Pilih siswa, periode, mapel yang diampu &amp; KKM, lalu input atau perbarui nilai.</p></div>
+        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Input &amp; Lihat Nilai Siswa</h1><p className="text-muted-foreground">Pilih filter, mapel yang diampu &amp; KKM, lalu input atau perbarui nilai.</p></div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <Card>
-            <CardHeader><CardTitle>Filter Data &amp; Pengaturan Mapel</CardTitle><CardDescription>Pilih siswa, periode, mata pelajaran yang Anda ampu, dan atur KKM.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Filter Data &amp; Pengaturan Mapel</CardTitle><CardDescription>Pilih kelas, siswa, periode, mata pelajaran, dan atur KKM.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
               {noMapelAssigned && !isLoadingInitialData && (
@@ -742,8 +806,9 @@ export default function InputGradesPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={students.length === 0 || noMapelAssigned}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{students.length === 0 ? (<SelectItem value="-" disabled>Belum ada siswa</SelectItem>) : (students.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                <FormField control={form.control} name="selectedClass" render={({ field }) => (<FormItem><FormLabel>Filter Kelas</FormLabel><Select onValueChange={field.onChange} value={field.value || "all"} disabled={availableClasses.length === 0 || noMapelAssigned}><FormControl><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger></FormControl><SelectContent>{availableClasses.length === 0 ? (<SelectItem value="all" disabled>Belum ada data kelas</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={filteredStudentsForDropdown.length === 0 || noMapelAssigned}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{filteredStudentsForDropdown.length === 0 ? (<SelectItem value="-" disabled>Tidak ada siswa di kelas ini</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0 || noMapelAssigned}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="-" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={noMapelAssigned}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel>
@@ -760,13 +825,12 @@ export default function InputGradesPage() {
                     </SelectContent>
                   </Select>
                 <FormMessage /></FormItem>)} />
-              </div>
-              <FormField
+                 <FormField
                 control={form.control}
                 name="kkmValue"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2 lg:col-span-1 mt-4">
-                    <FormLabel>KKM (Kriteria Ketuntasan Minimal)</FormLabel>
+                  <FormItem>
+                    <FormLabel>KKM</FormLabel>
                     <div className="flex items-center gap-2">
                         <FormControl>
                         <Input
@@ -782,17 +846,19 @@ export default function InputGradesPage() {
                         type="button"
                         onClick={handleSaveKkm}
                         variant="outline"
+                        size="icon"
+                        title="Simpan KKM"
                         disabled={isSavingKkm || noMapelAssigned || !selectedMapel || !selectedAcademicYear || kkmValue === currentKkm}
                         >
-                        {isSavingKkm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Target className="mr-2 h-4 w-4" />}
-                        Simpan KKM
+                        {isSavingKkm ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
                         </Button>
                     </div>
-                    <FormDescription>KKM saat ini untuk {selectedMapel || "mapel ini"} TA {selectedAcademicYear || ""} adalah: <span className="font-bold">{currentKkm}</span></FormDescription>
+                    <FormDescription>KKM saat ini: <span className="font-bold">{currentKkm}</span></FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </div>
             </CardContent>
           </Card>
 
@@ -842,16 +908,28 @@ export default function InputGradesPage() {
                   ))}
                 </div>
                 {calculatedFinalGrade !== null && selectedStudentId && selectedMapel && (
-                  <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + (calculatedFinalGrade < currentKkm ? 'border-destructive' : 'border-primary/50')}>
+                  <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + (calculatedFinalGrade < currentKkm ? 'border-destructive' : 'border-green-600/50')}>
                     <BarChartHorizontalBig className="mx-auto h-10 w-10 text-primary mb-2" />
                     <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor) untuk {selectedMapel}</p>
-                    <p className={"text-4xl font-bold " + (calculatedFinalGrade < currentKkm ? 'text-destructive' : 'text-primary')}>{calculatedFinalGrade.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      KKM: {currentKkm} -
-                      Status: <span className={"font-semibold " + (calculatedFinalGrade < currentKkm ? 'text-destructive' : 'text-green-600')}>
-                        {calculatedFinalGrade < currentKkm ? 'Belum Tuntas' : 'Tuntas'}
-                      </span>
+                    <p className={"text-4xl font-bold " + (calculatedFinalGrade < currentKkm ? 'text-destructive' : 'text-green-600')}>{calculatedFinalGrade.toFixed(2)}</p>
+                    <p className="text-base text-muted-foreground mt-1">
+                      KKM: {currentKkm} - 
+                      Status: {calculatedFinalGrade < currentKkm ? (
+                        <span className="font-semibold text-destructive inline-flex items-center"><XCircle className="mr-1 h-4 w-4"/>Belum Tuntas</span>
+                      ) : (
+                        <span className="font-semibold text-green-600 inline-flex items-center"><CheckCircle2 className="mr-1 h-4 w-4"/>Tuntas</span>
+                      )}
                     </p>
+                    {untuntasComponents.length > 0 && calculatedFinalGrade < currentKkm && (
+                      <div className="mt-2 text-sm text-destructive">
+                        <p className="font-medium">Komponen belum tuntas (di bawah KKM {currentKkm}):</p>
+                        <ul className="list-disc list-inside text-left max-w-md mx-auto">
+                          {untuntasComponents.map(comp => (
+                            <li key={comp.name}>{comp.name}: {comp.value}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {!weights && <p className="text-xs text-destructive mt-1">Bobot/Hari Efektif belum dimuat, nilai akhir mungkin tidak akurat.</p>}
                   </div>
                 )}
@@ -908,6 +986,4 @@ export default function InputGradesPage() {
     </div>
   );
 }
-
-
     

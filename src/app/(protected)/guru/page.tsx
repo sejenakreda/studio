@@ -2,10 +2,10 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button"; // Added import
+import { Button } from "@/components/ui/button";
 import { BookUser, Edit3, BarChart2, Users } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext"; // Assuming you have user's name in context
+import { useAuth } from "@/context/AuthContext"; 
 
 export default function GuruDashboardPage() {
   const { userProfile } = useAuth();
@@ -28,21 +28,23 @@ export default function GuruDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {quickStats.map((stat) => (
-          <Link href={stat.href} key={stat.title} legacyBehavior>
-            <a className="block hover:shadow-lg transition-shadow duration-300 rounded-lg">
-              <Card className="overflow-hidden h-full flex flex-col">
-                <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
-                  <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-center">
-                  <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-                   <p className="text-xs text-muted-foreground pt-1">
-                    Lihat Detail
-                  </p>
-                </CardContent>
-              </Card>
-            </a>
+          <Link 
+            href={stat.href} 
+            key={stat.title} 
+            className="block hover:shadow-lg transition-shadow duration-300 rounded-lg"
+          >
+            <Card className="overflow-hidden h-full flex flex-col">
+              <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
+                <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
+                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col justify-center">
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+                 <p className="text-xs text-muted-foreground pt-1">
+                  Lihat Detail
+                </p>
+              </CardContent>
+            </Card>
           </Link>
         ))}
       </div>
@@ -77,12 +79,12 @@ export default function GuruDashboardPage() {
             <CardDescription>Akses cepat ke fitur yang sering digunakan.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Link href="/guru/students" passHref legacyBehavior>
+            <Link href="/guru/students">
               <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
                 <BookUser className="h-6 w-6" /> Kelola Data Siswa
               </Button>
             </Link>
-            <Link href="/guru/grades" passHref legacyBehavior>
+            <Link href="/guru/grades">
               <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
                 <Edit3 className="h-6 w-6" /> Input & Lihat Nilai
               </Button>

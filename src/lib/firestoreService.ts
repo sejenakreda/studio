@@ -21,8 +21,8 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting } from '@/types';
-import { User } from 'firebase/auth'; // UserCredential removed as it's not directly used here
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting } from '@/types';
+import { User } from 'firebase/auth'; 
 import { getCurrentAcademicYear } from './utils';
 
 
@@ -92,7 +92,7 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
     return {
       id: snapshot.id,
       id_siswa: data.id_siswa,
-      mapel: data.mapel || "Umum", // Default if mapel is missing
+      mapel: data.mapel, // mapel is now mandatory
       semester: data.semester,
       tahun_ajaran: data.tahun_ajaran,
       tugas: data.tugas || [],
@@ -165,7 +165,6 @@ const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
 
 const academicYearSettingConverter: FirestoreDataConverter<AcademicYearSetting> = {
   toFirestore: (setting: AcademicYearSetting): DocumentData => {
-    // id is the document ID, year is the display string, isActive is the status
     return {
       year: setting.year,
       isActive: setting.isActive,
@@ -177,12 +176,37 @@ const academicYearSettingConverter: FirestoreDataConverter<AcademicYearSetting> 
   ): AcademicYearSetting => {
     const data = snapshot.data(options)!;
     return {
-      id: snapshot.id, // e.g., "2023_2024"
-      year: data.year, // e.g., "2023/2024"
+      id: snapshot.id, 
+      year: data.year, 
       isActive: data.isActive,
     };
   }
 };
+
+const kkmSettingConverter: FirestoreDataConverter<KkmSetting> = {
+  toFirestore: (setting: Omit<KkmSetting, 'id'>): DocumentData => {
+    return {
+      mapel: setting.mapel,
+      tahun_ajaran: setting.tahun_ajaran,
+      kkmValue: setting.kkmValue,
+      updatedAt: serverTimestamp(),
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): KkmSetting => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      mapel: data.mapel,
+      tahun_ajaran: data.tahun_ajaran,
+      kkmValue: data.kkmValue,
+      updatedAt: data.updatedAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -284,13 +308,11 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  // Index required: id_siswa (asc), tahun_ajaran (desc), semester (asc)
-  // May need additional index for mapel if we sort by it later.
   const q = query(collRef, 
                   where('id_siswa', '==', id_siswa), 
                   orderBy("tahun_ajaran", "desc"), 
-                  orderBy("semester", "asc")
-                  // orderBy("mapel", "asc") // Add if needed, requires new composite index
+                  orderBy("semester", "asc"),
+                  orderBy("mapel", "asc") 
               );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
@@ -305,7 +327,6 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
     where('tahun_ajaran', '==', tahun_ajaran),
     limit(1) 
   );
-  // Firestore may require a composite index for: id_siswa, mapel, semester, tahun_ajaran
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
     return querySnapshot.docs[0].data();
@@ -316,10 +337,23 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(collRef, orderBy("updatedAt", "desc")); 
-  // Consider adding orderBy mapel if useful for default admin view, requires index
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
+
+export const getUniqueMapelNamesFromGrades = async (): Promise<string[]> => {
+  const gradesCollRef = collection(db, 'nilai'); // No converter needed, just reading 'mapel' field
+  const querySnapshot = await getDocs(gradesCollRef);
+  const mapelSet = new Set<string>();
+  querySnapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (data.mapel && typeof data.mapel === 'string') {
+      mapelSet.add(data.mapel);
+    }
+  });
+  return Array.from(mapelSet).sort();
+};
+
 
 // --- User Profile Service ---
 export const createUserProfile = async (firebaseUser: User, role: Role, displayName?: string): Promise<void> => {
@@ -394,7 +428,7 @@ export const getAcademicYearSettings = async (): Promise<AcademicYearSetting[]> 
 };
 
 export const setAcademicYearActiveStatus = async (year: string, isActive: boolean): Promise<void> => {
-  const docId = year.replace(/\//g, '_'); // e.g., "2023/2024" -> "2023_2024"
+  const docId = year.replace(/\//g, '_'); 
   const docRef = doc(db, ACADEMIC_YEAR_CONFIGS_COLLECTION, docId).withConverter(academicYearSettingConverter);
   await setDoc(docRef, { year, isActive }, { merge: true });
 };
@@ -404,11 +438,35 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
   const activeYears = settings
     .filter(setting => setting.isActive)
     .map(setting => setting.year)
-    .sort((a, b) => b.localeCompare(a)); // Sort descending, e.g., "2024/2025" before "2023/2024"
+    .sort((a, b) => b.localeCompare(a)); 
 
   if (activeYears.length === 0) {
-    return [getCurrentAcademicYear()]; // Fallback to current academic year if none are active
+    return [getCurrentAcademicYear()]; 
   }
   return activeYears;
 };
 
+// --- KKM Settings Service ---
+const KKM_SETTINGS_COLLECTION = 'kkm_settings';
+
+// Generates a composite ID for KKM settings to ensure uniqueness per mapel per TA
+const generateKkmDocId = (mapel: string, tahun_ajaran: string): string => {
+  return `${mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_')}_${tahun_ajaran.replace('/', '-')}`;
+};
+
+export const getKkmSetting = async (mapel: string, tahun_ajaran: string): Promise<KkmSetting | null> => {
+  if (!mapel || !tahun_ajaran) return null;
+  const docId = generateKkmDocId(mapel, tahun_ajaran);
+  const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : null;
+};
+
+export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'>): Promise<void> => {
+  if (!kkmData.mapel || !kkmData.tahun_ajaran) {
+    throw new Error("Mapel and Tahun Ajaran are required to set KKM.");
+  }
+  const docId = generateKkmDocId(kkmData.mapel, kkmData.tahun_ajaran);
+  const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
+  await setDoc(docRef, kkmData, { merge: true }); // merge: true will update if exists, create if not
+};

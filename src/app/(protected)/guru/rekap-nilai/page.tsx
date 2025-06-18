@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, BookOpen } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears } from '@/lib/firestoreService';
-import { calculateAverage, SEMESTERS, getCurrentAcademicYear, MATA_PELAJARAN } from '@/lib/utils';
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig } from "lucide-react";
+import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,22 +43,26 @@ export default function RekapNilaiPage() {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
 
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
+  const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
-  const [mapelFilter, setMapelFilter] = useState<string>("all"); // "all" or specific mapel
+  const [mapelFilter, setMapelFilter] = useState<string>("all"); 
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [grades, students, activeYears] = await Promise.all([
+      const [grades, students, activeYears, uniqueMapelList] = await Promise.all([
         getAllGrades(),
         getStudents(),
-        getActiveAcademicYears()
+        getActiveAcademicYears(),
+        getUniqueMapelNamesFromGrades()
       ]);
 
       setSelectableYears(activeYears);
+      setAvailableMapelFilters(uniqueMapelList);
+
       if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
         setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
       } else if (activeYears.length > 0) {
@@ -200,7 +204,7 @@ export default function RekapNilaiPage() {
     const safeMapelFilter = mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_');
     XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter} ${safeMapelFilter}`);
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, // mapel
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, 
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
       { wch: 8 }, { wch: 8 }, { wch: 12 }, 
     ];
@@ -276,15 +280,16 @@ export default function RekapNilaiPage() {
             </div>
             <div>
               <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
-              <Select value={mapelFilter} onValueChange={setMapelFilter}>
+              <Select value={mapelFilter} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
                 <SelectTrigger id="mapelFilter" className="w-full mt-1">
                   <SelectValue placeholder="Pilih mapel..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Mapel</SelectItem>
-                  {MATA_PELAJARAN.map(mapel => (
+                  {availableMapelFilters.map(mapel => (
                     <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
                   ))}
+                  {availableMapelFilters.length === 0 && <SelectItem value="no_mapel_data_placeholder" disabled>Belum ada data mapel</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -340,7 +345,3 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
-
-    
-
-    

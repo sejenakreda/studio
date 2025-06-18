@@ -77,3 +77,10 @@ export interface AcademicYearSetting {
   isActive: boolean;
 }
 
+export interface KkmSetting {
+  id?: string; // Firestore document ID, could be composite like mapel_tahunAjaran
+  mapel: string;
+  tahun_ajaran: string;
+  kkmValue: number;
+  updatedAt?: Timestamp;
+}

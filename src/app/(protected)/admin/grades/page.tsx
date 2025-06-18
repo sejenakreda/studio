@@ -5,13 +5,13 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BookOpen } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears } from '@/lib/firestoreService';
-import { calculateAverage, SEMESTERS, getCurrentAcademicYear, MATA_PELAJARAN } from '@/lib/utils';
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +43,7 @@ export default function ManageAllGradesPage() {
 
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
+  const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
@@ -53,13 +54,16 @@ export default function ManageAllGradesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [grades, students, activeYears] = await Promise.all([
+      const [grades, students, activeYears, uniqueMapelList] = await Promise.all([
         getAllGrades(),
         getStudents(),
-        getActiveAcademicYears()
+        getActiveAcademicYears(),
+        getUniqueMapelNamesFromGrades()
       ]);
 
       setSelectableYears(activeYears);
+      setAvailableMapelFilters(uniqueMapelList);
+
       if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
         setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
       } else if (activeYears.length > 0) {
@@ -67,7 +71,6 @@ export default function ManageAllGradesPage() {
       } else {
         setAcademicYearFilter("all"); 
       }
-
 
       if (!Array.isArray(grades)) {
         throw new Error("Gagal memuat data nilai. Data yang diterima bukan array.");
@@ -271,7 +274,7 @@ export default function ManageAllGradesPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Semua Nilai Siswa");
 
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, // mapel
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, 
       { wch: 10 }, { wch: 8 },  { wch: 8 },  { wch: 8 }, { wch: 15 }, 
       { wch: 8 },  { wch: 8 },  { wch: 12 }, 
     ];
@@ -366,15 +369,16 @@ export default function ManageAllGradesPage() {
               </div>
               <div>
                 <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
-                <Select value={mapelFilter} onValueChange={setMapelFilter}>
+                <Select value={mapelFilter} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
                   <SelectTrigger id="mapelFilter" className="w-full mt-1">
                     <SelectValue placeholder="Pilih mapel..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Mapel</SelectItem>
-                    {MATA_PELAJARAN.map(mapel => (
+                    {availableMapelFilters.map(mapel => (
                       <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
                     ))}
+                     {availableMapelFilters.length === 0 && <SelectItem value="no_mapel_data_placeholder" disabled>Belum ada data mapel</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -482,4 +486,3 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
-

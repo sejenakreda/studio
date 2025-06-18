@@ -62,17 +62,4 @@ export const SEMESTERS = [
   { value: 2, label: 'Genap' },
 ];
 
-export const MATA_PELAJARAN = [
-  "Matematika",
-  "Bahasa Indonesia",
-  "Bahasa Inggris",
-  "IPA Terpadu",
-  "IPS Terpadu",
-  "PKN",
-  "Pendidikan Agama",
-  "Seni Budaya",
-  "Penjaskes",
-  "Informatika",
-  "Prakarya",
-];
-
+// MATA_PELAJARAN constant removed as mapel will be dynamic

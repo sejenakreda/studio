@@ -15,6 +15,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger,
   SidebarFooter,
+  SidebarMenuBadge, // Import SidebarMenuBadge
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
@@ -24,6 +25,7 @@ import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import { getPengumumanUntukGuru } from "@/lib/firestoreService"; // Import service to fetch announcements
 
 interface NavItem {
   href: string;
@@ -42,6 +44,7 @@ const navItems: NavItem[] = [
   { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'] },
+  { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] }, // New menu for guru
   { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
   { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
@@ -51,6 +54,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { userProfile, loading } = useAuth();
   const router = useRouter();
+  const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number | null>(null);
+  const [isLoadingBadge, setIsLoadingBadge] = React.useState(false);
+
+  React.useEffect(() => {
+    // Fetch announcement count for guru badge
+    if (userProfile?.role === 'guru' && announcementBadgeCount === null && !isLoadingBadge) {
+      setIsLoadingBadge(true);
+      const fetchBadgeCount = async () => {
+        try {
+          const announcements = await getPengumumanUntukGuru(5); // Get latest 5 for badge count
+          setAnnouncementBadgeCount(announcements.length);
+        } catch (error) {
+          console.error("Error fetching announcement count for badge:", error);
+          setAnnouncementBadgeCount(0); 
+        } finally {
+          setIsLoadingBadge(false);
+        }
+      };
+      fetchBadgeCount();
+    } else if (userProfile?.role !== 'guru') {
+      setAnnouncementBadgeCount(null); // Reset if not guru or profile changes
+    }
+  // Add announcementBadgeCount to dependency array if you want it to reset and refetch if it becomes null again for some reason
+  // For now, it fetches once when role is guru and count is null.
+  }, [userProfile, isLoadingBadge, announcementBadgeCount]);
+
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -81,9 +110,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     isActive={pathname === item.href || (item.href !== (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname.startsWith(item.href))}
                     tooltip={{ children: item.label, side: "right", align: "center" }}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} className="relative"> {/* Added relative for badge positioning */}
                       <item.icon className="h-5 w-5" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                      {item.href === "/guru/announcements" && announcementBadgeCount !== null && announcementBadgeCount > 0 && (
+                        <SidebarMenuBadge 
+                           className="absolute top-1 right-1 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-[16px] group-data-[collapsible=icon]:px-1 bg-destructive text-destructive-foreground"
+                        >
+                          {announcementBadgeCount}
+                        </SidebarMenuBadge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -108,7 +144,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
              <SidebarTrigger className="md:hidden" />
              <h1 className="text-lg font-semibold text-foreground font-headline">
-              {filteredNavItems.find(item => pathname === item.href || pathname.startsWith(item.href + '/'))?.label || 'Dasbor'}
+              {filteredNavItems.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/')) || (item.href === (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname === item.href))?.label || 
+               (userProfile?.role === 'admin' ? 'Dasbor Admin' : userProfile?.role === 'guru' ? 'Dasbor Guru' : 'Dasbor')}
             </h1>
           </div>
           <UserNav />

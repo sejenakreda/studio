@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, BarChart2, Users, Loader2, FileClock, Presentation, BarChartHorizontalBig, Megaphone } from "lucide-react";
+import { BookUser, Edit3, BarChart2, Users, Loader2, FileClock, Presentation, BarChartHorizontalBig, Megaphone, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents, getPengumumanUntukGuru } from '@/lib/firestoreService';
@@ -190,6 +190,15 @@ export default function GuruDashboardPage() {
               </ul>
             )}
           </CardContent>
+           {announcements.length > 0 && (
+            <CardFooter>
+              <Link href="/guru/announcements" className="w-full">
+                <Button variant="outline" className="w-full">
+                  Lihat Semua Pengumuman <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardFooter>
+          )}
         </Card>
         <Card>
           <CardHeader>

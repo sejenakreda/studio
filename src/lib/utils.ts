@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Nilai, Bobot } from "@/types";
@@ -60,3 +61,18 @@ export const SEMESTERS = [
   { value: 1, label: 'Ganjil' },
   { value: 2, label: 'Genap' },
 ];
+
+export const MATA_PELAJARAN = [
+  "Matematika",
+  "Bahasa Indonesia",
+  "Bahasa Inggris",
+  "IPA Terpadu",
+  "IPS Terpadu",
+  "PKN",
+  "Pendidikan Agama",
+  "Seni Budaya",
+  "Penjaskes",
+  "Informatika",
+  "Prakarya",
+];
+

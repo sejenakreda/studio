@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, BookOpen } from "lucide-react";
 import { getAllGrades, getStudents, getActiveAcademicYears } from '@/lib/firestoreService';
-import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { calculateAverage, SEMESTERS, getCurrentAcademicYear, MATA_PELAJARAN } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ interface GuruGradeSummaryView extends Nilai {
   rataRataTugas?: number;
 }
 
-type SortableKeys = keyof Pick<GuruGradeSummaryView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'nilai_akhir'>;
+type SortableKeys = keyof Pick<GuruGradeSummaryView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'nilai_akhir' | 'mapel'>;
 
 interface SortConfig {
   key: SortableKeys | 'rataRataTugas' | 'tes' | 'pts' | 'pas' | 'kehadiran' | 'eskul' | 'osis' | null;
@@ -45,6 +45,7 @@ export default function RekapNilaiPage() {
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
+  const [mapelFilter, setMapelFilter] = useState<string>("all"); // "all" or specific mapel
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
@@ -104,7 +105,7 @@ export default function RekapNilaiPage() {
   
   useEffect(() => {
     setCurrentPage(1); 
-  }, [academicYearFilter, semesterFilter, sortConfig]);
+  }, [academicYearFilter, semesterFilter, mapelFilter, sortConfig]);
 
   const requestSort = (key: SortConfig['key']) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -124,6 +125,9 @@ export default function RekapNilaiPage() {
     }
     if (semesterFilter) {
       items = items.filter(grade => String(grade.semester) === semesterFilter);
+    }
+    if (mapelFilter !== "all") {
+      items = items.filter(grade => grade.mapel === mapelFilter);
     }
     
     if (sortConfig.key !== null) {
@@ -149,7 +153,7 @@ export default function RekapNilaiPage() {
       });
     }
     return items;
-  }, [allGradesData, sortConfig, academicYearFilter, semesterFilter]);
+  }, [allGradesData, sortConfig, academicYearFilter, semesterFilter, mapelFilter]);
   
   const totalPages = Math.ceil(filteredAndSortedGrades.length / ITEMS_PER_PAGE);
 
@@ -166,7 +170,8 @@ export default function RekapNilaiPage() {
 
   const tableHeaders: { key: SortConfig['key'], label: string, className?: string }[] = [
     { key: 'namaSiswa', label: 'Nama Siswa' }, { key: 'nisSiswa', label: 'NIS' },
-    { key: 'kelasSiswa', label: 'Kelas' }, { key: 'rataRataTugas', label: 'Avg. Tugas' },
+    { key: 'kelasSiswa', label: 'Kelas' }, { key: 'mapel', label: 'Mapel'},
+    { key: 'rataRataTugas', label: 'Avg. Tugas' },
     { key: 'tes', label: 'Tes' }, { key: 'pts', label: 'PTS' }, { key: 'pas', label: 'PAS' },
     { key: 'kehadiran', label: 'Kehadiran (%)' }, { key: 'eskul', label: 'Eskul' },
     { key: 'osis', label: 'OSIS' }, { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
@@ -180,6 +185,7 @@ export default function RekapNilaiPage() {
     const dataForExcel = filteredAndSortedGrades.map(grade => ({
       'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
       'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
+      'Mata Pelajaran': grade.mapel,
       'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
       'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
       'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
@@ -191,14 +197,15 @@ export default function RekapNilaiPage() {
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter}`);
+    const safeMapelFilter = mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_');
+    XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter} ${safeMapelFilter}`);
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, 
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, // mapel
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
       { wch: 8 }, { wch: 8 }, { wch: 12 }, 
     ];
     worksheet['!cols'] = wscols;
-    XLSX.writeFile(workbook, `rekap_nilai_${academicYearFilter.replace('/', '-')}_smt${semesterFilter}.xlsx`);
+    XLSX.writeFile(workbook, `rekap_nilai_${academicYearFilter.replace('/', '-')}_smt${semesterFilter}_${safeMapelFilter}.xlsx`);
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap nilai sedang disiapkan." });
   };
 
@@ -213,7 +220,7 @@ export default function RekapNilaiPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Rekap Nilai Semester</h1>
           <p className="text-muted-foreground">
-            Lihat rekapitulasi nilai siswa per tahun ajaran dan semester.
+            Lihat rekapitulasi nilai siswa per tahun ajaran, semester, dan mata pelajaran.
           </p>
         </div>
       </div>
@@ -224,7 +231,7 @@ export default function RekapNilaiPage() {
             <div>
               <CardTitle>Filter dan Tampilan Rekap Nilai</CardTitle>
               <CardDescription>
-                Pilih tahun ajaran dan semester untuk melihat rekap nilai. Klik header kolom untuk mengurutkan.
+                Pilih filter untuk melihat rekap nilai. Klik header kolom untuk mengurutkan.
               </CardDescription>
             </div>
              {filteredAndSortedGrades.length > 0 && !isLoading && (
@@ -236,7 +243,7 @@ export default function RekapNilaiPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
             <div>
               <Label htmlFor="academicYearFilter" className="text-sm font-medium">Filter Tahun Ajaran</Label>
               <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={selectableYears.length === 0}>
@@ -267,6 +274,20 @@ export default function RekapNilaiPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
+              <Select value={mapelFilter} onValueChange={setMapelFilter}>
+                <SelectTrigger id="mapelFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih mapel..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Mapel</SelectItem>
+                  {MATA_PELAJARAN.map(mapel => (
+                    <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isLoading ? (
@@ -279,7 +300,7 @@ export default function RekapNilaiPage() {
             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
               <BarChartHorizontalBig className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">Tidak Ada Data Sesuai Filter</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Tidak ada data rekap nilai yang cocok dengan tahun ajaran dan semester yang Anda pilih.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Tidak ada data rekap nilai yang cocok dengan filter yang Anda pilih.</p>
             </div>
           ) : (
             <>
@@ -290,9 +311,10 @@ export default function RekapNilaiPage() {
                   </TableHeader>
                   <TableBody>
                     {paginatedGrades.map((grade) => (
-                      <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}`}>
+                      <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}-${grade.mapel}`}>
                         <TableCell className="font-medium">{grade.namaSiswa}</TableCell><TableCell>{grade.nisSiswa}</TableCell>
-                        <TableCell>{grade.kelasSiswa}</TableCell><TableCell>{(grade.rataRataTugas || 0).toFixed(2)}</TableCell>
+                        <TableCell>{grade.kelasSiswa}</TableCell><TableCell>{grade.mapel}</TableCell>
+                        <TableCell>{(grade.rataRataTugas || 0).toFixed(2)}</TableCell>
                         <TableCell>{grade.tes?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.pts?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell>{grade.pas?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}%</TableCell>
                         <TableCell>{grade.eskul?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.osis?.toFixed(2) || '0.00'}</TableCell>

@@ -28,6 +28,7 @@ export interface Siswa {
 export interface Nilai {
   id?: string; // Firestore document ID
   id_siswa: string;
+  mapel: string; // Mata Pelajaran
   semester: number; // e.g., 1 or 2
   tahun_ajaran: string; // e.g., "2023/2024"
   tugas: number[];
@@ -75,3 +76,4 @@ export interface AcademicYearSetting {
   year: string; // Display string (e.g., "2023/2024")
   isActive: boolean;
 }
+

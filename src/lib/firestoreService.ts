@@ -92,6 +92,7 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
     return {
       id: snapshot.id,
       id_siswa: data.id_siswa,
+      mapel: data.mapel || "Umum", // Default if mapel is missing
       semester: data.semester,
       tahun_ajaran: data.tahun_ajaran,
       tugas: data.tugas || [],
@@ -256,6 +257,7 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(gradesCollRef, 
     where('id_siswa', '==', nilai.id_siswa),
+    where('mapel', '==', nilai.mapel),
     where('semester', '==', nilai.semester),
     where('tahun_ajaran', '==', nilai.tahun_ajaran)
   );
@@ -283,23 +285,27 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
   // Index required: id_siswa (asc), tahun_ajaran (desc), semester (asc)
+  // May need additional index for mapel if we sort by it later.
   const q = query(collRef, 
                   where('id_siswa', '==', id_siswa), 
                   orderBy("tahun_ajaran", "desc"), 
                   orderBy("semester", "asc")
+                  // orderBy("mapel", "asc") // Add if needed, requires new composite index
               );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
 
-export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran: string): Promise<Nilai | null> => {
+export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran: string, mapel: string): Promise<Nilai | null> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(gradesCollRef, 
     where('id_siswa', '==', id_siswa),
+    where('mapel', '==', mapel),
     where('semester', '==', semester),
     where('tahun_ajaran', '==', tahun_ajaran),
     limit(1) 
   );
+  // Firestore may require a composite index for: id_siswa, mapel, semester, tahun_ajaran
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
     return querySnapshot.docs[0].data();
@@ -310,6 +316,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(collRef, orderBy("updatedAt", "desc")); 
+  // Consider adding orderBy mapel if useful for default admin view, requires index
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -404,3 +411,4 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
   }
   return activeYears;
 };
+

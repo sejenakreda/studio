@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Download, FileUp, FileDown } from "lucide-react";
 import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears } from '@/lib/firestoreService';
-import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear, calculateAverage } from '@/lib/utils';
+import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear, calculateAverage, MATA_PELAJARAN } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,7 @@ const gradeSchema = z.object({
   selectedStudentId: z.string().min(1, "Siswa harus dipilih"),
   selectedAcademicYear: z.string().min(1, "Tahun ajaran harus dipilih"),
   selectedSemester: z.coerce.number().min(1, "Semester harus dipilih").max(2),
+  selectedMapel: z.string().min(1, "Mata pelajaran harus dipilih"),
   tugas1: z.coerce.number().min(0).max(100).optional().default(0),
   tugas2: z.coerce.number().min(0).max(100).optional().default(0),
   tugas3: z.coerce.number().min(0).max(100).optional().default(0),
@@ -45,6 +46,7 @@ interface GradeImportDataRow {
   nis?: string; 
   kelas?: string; 
   tahun_ajaran: string;
+  mapel: string;
   semester: number | string; 
   // Tugas columns will be accessed dynamically, e.g., row[`tugas${i}`]
   tes?: number;
@@ -82,7 +84,7 @@ export default function InputGradesPage() {
   });
 
   const watchedFormValues = form.watch();
-  const { selectedStudentId, selectedAcademicYear, selectedSemester } = watchedFormValues;
+  const { selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel } = watchedFormValues;
 
   const totalDaysForCurrentSemester = useMemo(() => {
     if (!weights || !selectedSemester) return undefined;
@@ -118,6 +120,7 @@ export default function InputGradesPage() {
           selectedStudentId: studentList && studentList.length > 0 ? studentList[0].id_siswa : "",
           selectedAcademicYear: defaultYear,
           selectedSemester: SEMESTERS[0]?.value || 1,
+          selectedMapel: MATA_PELAJARAN[0] || "",
           tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
           tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
         });
@@ -135,7 +138,7 @@ export default function InputGradesPage() {
 
   useEffect(() => {
     async function fetchGrade() {
-      if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !weights || isLoadingInitialData) {
+      if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights || isLoadingInitialData) {
         if (!isLoadingInitialData) {
             form.reset({
                 ...form.getValues(), 
@@ -150,7 +153,7 @@ export default function InputGradesPage() {
       setIsLoadingGradeData(true);
       setFetchError(null);
       try {
-        const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear);
+        const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear, selectedMapel);
         const totalDaysForSemester = selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
         let calculatedJumlahHariHadir = 0;
 
@@ -159,7 +162,7 @@ export default function InputGradesPage() {
             calculatedJumlahHariHadir = Math.round((gradeData.kehadiran / 100) * totalDaysForSemester);
           }
           form.reset({
-            ...form.getValues(),
+            ...form.getValues(), // Keep selected student, year, semester, mapel
             tugas1: gradeData.tugas?.[0] || 0,
             tugas2: gradeData.tugas?.[1] || 0,
             tugas3: gradeData.tugas?.[2] || 0,
@@ -174,7 +177,7 @@ export default function InputGradesPage() {
           });
         } else {
            form.reset({
-            ...form.getValues(),
+            ...form.getValues(), // Keep selected student, year, semester, mapel
             tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
             tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
           });
@@ -188,14 +191,15 @@ export default function InputGradesPage() {
       }
     }
     
-    if (selectedStudentId && selectedAcademicYear && selectedSemester && weights && !isLoadingInitialData) {
+    if (selectedStudentId && selectedAcademicYear && selectedSemester && selectedMapel && weights && !isLoadingInitialData) {
        fetchGrade();
     }
-  }, [selectedStudentId, selectedAcademicYear, selectedSemester, form, weights, toast, isLoadingInitialData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, toast, isLoadingInitialData]);
 
 
   useEffect(() => {
-    if (weights && !isLoadingInitialData) { 
+    if (weights && !isLoadingInitialData && selectedMapel) { 
       const totalDaysForSemester = watchedFormValues.selectedSemester === 1 
         ? weights.totalHariEfektifGanjil 
         : weights.totalHariEfektifGenap;
@@ -213,6 +217,7 @@ export default function InputGradesPage() {
 
       const currentNilai: Nilai = {
         id_siswa: watchedFormValues.selectedStudentId,
+        mapel: watchedFormValues.selectedMapel,
         semester: watchedFormValues.selectedSemester,
         tahun_ajaran: watchedFormValues.selectedAcademicYear,
         tugas: tugasScores,
@@ -226,7 +231,7 @@ export default function InputGradesPage() {
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
     }
-  }, [watchedFormValues, weights, isLoadingInitialData]);
+  }, [watchedFormValues, weights, isLoadingInitialData, selectedMapel]);
 
 
   const onSubmit = async (data: GradeFormData) => {
@@ -237,6 +242,12 @@ export default function InputGradesPage() {
       setIsSubmitting(false);
       return;
     }
+    if (!data.selectedMapel) {
+      toast({ variant: "destructive", title: "Error", description: "Mata pelajaran harus dipilih." });
+      setIsSubmitting(false);
+      return;
+    }
+
 
     const totalDaysForSemester = data.selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
     let calculatedKehadiranPercentage = 0;
@@ -254,6 +265,7 @@ export default function InputGradesPage() {
 
     const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
       id_siswa: data.selectedStudentId,
+      mapel: data.selectedMapel,
       semester: data.selectedSemester,
       tahun_ajaran: data.selectedAcademicYear,
       tugas: tugasScores,
@@ -270,7 +282,7 @@ export default function InputGradesPage() {
 
     try {
       await addOrUpdateGrade(nilaiWithFinal);
-      toast({ title: "Sukses", description: "Data nilai siswa berhasil disimpan." });
+      toast({ title: "Sukses", description: `Data nilai siswa untuk mapel ${data.selectedMapel} berhasil disimpan.` });
     } catch (error) {
       console.error("Error saving grade data:", error);
       setFetchError("Gagal menyimpan data nilai. Silakan coba lagi.");
@@ -280,7 +292,7 @@ export default function InputGradesPage() {
     }
   };
   
-  const gradeInputFields: { name: keyof Omit<GradeFormData, 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'kehadiran'>; label: string, type?: string, desc?: string }[] = [
+  const gradeInputFields: { name: keyof Omit<GradeFormData, 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'selectedMapel' | 'kehadiran'>; label: string, type?: string, desc?: string }[] = [
     { name: "tugas1", label: "Nilai Tugas 1" }, { name: "tugas2", label: "Nilai Tugas 2" },
     { name: "tugas3", label: "Nilai Tugas 3" }, { name: "tugas4", label: "Nilai Tugas 4" },
     { name: "tugas5", label: "Nilai Tugas 5" }, { name: "tes", label: "Nilai Tes / Ulangan" },
@@ -290,12 +302,12 @@ export default function InputGradesPage() {
   ];
 
   const handleDownloadGradeTemplate = async () => {
-    const { selectedAcademicYear: currentYear, selectedSemester: currentSemester } = form.getValues();
+    const { selectedAcademicYear: currentYear, selectedSemester: currentSemester, selectedMapel: currentMapel } = form.getValues();
 
-    if (!currentYear || !currentSemester) {
+    if (!currentYear || !currentSemester || !currentMapel) {
         toast({
             title: "Filter Belum Dipilih",
-            description: "Silakan pilih Tahun Ajaran dan Semester terlebih dahulu untuk membuat template yang sesuai.",
+            description: "Silakan pilih Tahun Ajaran, Semester, dan Mata Pelajaran terlebih dahulu untuk membuat template yang sesuai.",
             variant: "default"
         });
         return;
@@ -315,6 +327,7 @@ export default function InputGradesPage() {
             kelas: student.kelas,
             tahun_ajaran: currentYear, 
             semester: currentSemester, 
+            mapel: currentMapel,
             tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', 
             tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: '' 
         }));
@@ -322,15 +335,15 @@ export default function InputGradesPage() {
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const headers = [
             "id_siswa", "nama_siswa", "nis", "kelas", 
-            "tahun_ajaran", "semester", 
-            "tugas1", "tugas2", "tugas3", "tugas4", "tugas5",
+            "tahun_ajaran", "semester", "mapel",
+            "tugas1", "tugas2", "tugas3", "tugas4", "tugas5", // Example tasks, guru can add more like tugas6, etc.
             "tes", "pts", "pas", "jumlah_hari_hadir", "eskul", "osis"
         ];
         XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
 
         const wscols = [
             { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, 
-            { wch: 15 }, { wch: 10 }, 
+            { wch: 15 }, { wch: 10 }, { wch: 20}, // mapel
             { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, 
             { wch: 8 }, { wch: 8 }, { wch: 8 }, 
             { wch: 18 }, { wch: 8 }, { wch: 8 } 
@@ -341,9 +354,10 @@ export default function InputGradesPage() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Template Nilai");
         
         const safeYear = currentYear.replace('/', '-');
-        const filename = `template_nilai_${safeYear}_smt${currentSemester}.xlsx`;
+        const safeMapel = currentMapel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const filename = `template_nilai_${safeMapel}_${safeYear}_smt${currentSemester}.xlsx`;
         XLSX.writeFile(workbook, filename);
-        toast({ title: "Template Diunduh", description: `Template untuk ${currentYear} Semester ${currentSemester} telah diunduh.` });
+        toast({ title: "Template Diunduh", description: `Template untuk mapel ${currentMapel}, TA ${currentYear} Semester ${currentSemester} telah diunduh.` });
 
     } catch (error) {
         console.error("Error downloading grade template:", error);
@@ -354,8 +368,8 @@ export default function InputGradesPage() {
   };
 
   const handleExportCurrentGrade = () => {
-    if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !weights) {
-      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Pilih siswa, tahun ajaran, dan semester terlebih dahulu." });
+    if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights) {
+      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Pilih siswa, tahun ajaran, semester, dan mapel terlebih dahulu." });
       return;
     }
     const currentStudent = studentMap.get(selectedStudentId);
@@ -372,6 +386,7 @@ export default function InputGradesPage() {
       'Kelas': currentStudent.kelas,
       'Tahun Ajaran': selectedAcademicYear,
       'Semester': selectedSemester === 1 ? 'Ganjil' : 'Genap',
+      'Mata Pelajaran': selectedMapel,
       'Tugas 1': values.tugas1 || 0,
       'Tugas 2': values.tugas2 || 0,
       'Tugas 3': values.tugas3 || 0,
@@ -391,15 +406,16 @@ export default function InputGradesPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Nilai Siswa");
     const wscols = [
-      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 },
+      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, // mapel
       { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
       { wch: 18 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 12 }
     ];
     worksheet['!cols'] = wscols;
     const safeStudentName = currentStudent.nama.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const safeYear = selectedAcademicYear.replace('/', '-');
-    XLSX.writeFile(workbook, `nilai_${safeStudentName}_${safeYear}_smt${selectedSemester}.xlsx`);
-    toast({ title: "Nilai Diekspor", description: `Nilai untuk ${currentStudent.nama} semester ${selectedSemester} TA ${selectedAcademicYear} telah diekspor.` });
+    const safeMapel = selectedMapel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    XLSX.writeFile(workbook, `nilai_${safeStudentName}_${safeMapel}_${safeYear}_smt${selectedSemester}.xlsx`);
+    toast({ title: "Nilai Diekspor", description: `Nilai untuk mapel ${selectedMapel}, siswa ${currentStudent.nama}, semester ${selectedSemester} TA ${selectedAcademicYear} telah diekspor.` });
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -437,7 +453,7 @@ export default function InputGradesPage() {
         }
 
         const firstRow = jsonData[0];
-         const expectedHeadersBase = ["id_siswa", "tahun_ajaran", "semester"];
+        const expectedHeadersBase = ["id_siswa", "tahun_ajaran", "semester", "mapel"];
         const actualHeaders = Object.keys(firstRow);
         if (!expectedHeadersBase.every(header => actualHeaders.includes(header))) {
           toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai. Pastikan minimal ada kolom: ${expectedHeadersBase.join(', ')}.` });
@@ -471,6 +487,11 @@ export default function InputGradesPage() {
              errorDetails.push(`Tahun ajaran ${row.tahun_ajaran} tidak aktif/valid untuk siswa ${row.id_siswa}. Baris dilewati.`);
              continue;
           }
+          if (!row.mapel || typeof row.mapel !== 'string' || !MATA_PELAJARAN.includes(row.mapel)) {
+            failCount++;
+            errorDetails.push(`Mata pelajaran "${row.mapel || ''}" tidak valid atau tidak ada untuk siswa ${row.id_siswa}. Baris dilewati.`);
+            continue;
+          }
 
           const totalDaysForSemester = semesterNum === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
           let calculatedKehadiranPercentage = 0;
@@ -482,16 +503,15 @@ export default function InputGradesPage() {
           }
 
           const tugasScores: number[] = [];
-          for (let i = 1; i <= 20; i++) { 
+          for (let i = 1; i <= 20; i++) { // Check up to 20 task columns
             const tugasValue = row[`tugas${i}`];
             if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
                  const numValue = Number(tugasValue);
                  if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
                     tugasScores.push(numValue);
                 } else {
-                    
                     tugasScores.push(0); 
-                    errorDetails.push(`Nilai tugas${i} (${tugasValue}) tidak valid untuk ${row.id_siswa}. Dianggap 0.`);
+                    errorDetails.push(`Nilai tugas${i} (${tugasValue}) tidak valid untuk ${row.id_siswa} mapel ${row.mapel}. Dianggap 0.`);
                 }
             }
           }
@@ -499,6 +519,7 @@ export default function InputGradesPage() {
 
           const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
             id_siswa: row.id_siswa,
+            mapel: row.mapel,
             semester: semesterNum,
             tahun_ajaran: row.tahun_ajaran,
             tugas: tugasScores,
@@ -517,7 +538,7 @@ export default function InputGradesPage() {
             successCount++;
           } catch (err: any) {
             failCount++;
-            errorDetails.push(`Gagal simpan nilai ${row.id_siswa} TA ${row.tahun_ajaran} Smt ${semesterNum}: ${err.message}.`);
+            errorDetails.push(`Gagal simpan nilai ${row.id_siswa} mapel ${row.mapel} TA ${row.tahun_ajaran} Smt ${semesterNum}: ${err.message}.`);
           }
         }
 
@@ -529,22 +550,25 @@ export default function InputGradesPage() {
         if (errorDetails.length > 0) console.warn("Detail Error Impor Nilai:", errorDetails.join("\n"));
 
         
-        if (watchedFormValues.selectedStudentId && watchedFormValues.selectedAcademicYear && watchedFormValues.selectedSemester) {
+        if (watchedFormValues.selectedStudentId && watchedFormValues.selectedAcademicYear && watchedFormValues.selectedSemester && watchedFormValues.selectedMapel) {
            const currentFormValues = form.getValues();
            const reselectStudentId = currentFormValues.selectedStudentId;
            const reselectAcademicYear = currentFormValues.selectedAcademicYear;
            const reselectSemester = currentFormValues.selectedSemester;
+           const reselectMapel = currentFormValues.selectedMapel;
 
-            form.reset({
+
+            form.reset({ // Temporarily change one of the deps of fetchGrade to force re-fetch
                 ...currentFormValues,
                 selectedStudentId: '', 
             });
-            setTimeout(() => {
+            setTimeout(() => { // Then revert to original values to trigger fetch for the correct context
                 form.reset({
                     ...currentFormValues, 
                     selectedStudentId: reselectStudentId,
                     selectedAcademicYear: reselectAcademicYear,
                     selectedSemester: reselectSemester,
+                    selectedMapel: reselectMapel,
                 });
             }, 0);
         }
@@ -570,7 +594,7 @@ export default function InputGradesPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
-        <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}</div></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}</div></CardContent></Card>
       </div>
     );
   }
@@ -579,19 +603,20 @@ export default function InputGradesPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/guru"><Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Guru"><ArrowLeft className="h-4 w-4" /></Button></Link>
-        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Input & Lihat Nilai Siswa</h1><p className="text-muted-foreground">Pilih siswa, periode, lalu input atau perbarui nilai.</p></div>
+        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Input & Lihat Nilai Siswa</h1><p className="text-muted-foreground">Pilih siswa, periode, mapel, lalu input atau perbarui nilai.</p></div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <Card>
-            <CardHeader><CardTitle>Filter Data Nilai</CardTitle><CardDescription>Pilih siswa dan periode untuk melihat atau menginput nilai.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Filter Data Nilai</CardTitle><CardDescription>Pilih siswa, periode, dan mata pelajaran untuk melihat atau menginput nilai.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={students.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{students.length === 0 ? (<SelectItem value="-" disabled>Belum ada siswa</SelectItem>) : (students.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="-" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={MATA_PELAJARAN.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih mapel..." /></SelectTrigger></FormControl><SelectContent>{MATA_PELAJARAN.length === 0 ? (<SelectItem value="-" disabled>Belum ada mapel</SelectItem>) : (MATA_PELAJARAN.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
               </div>
             </CardContent>
           </Card>
@@ -618,7 +643,7 @@ export default function InputGradesPage() {
                               {...field} 
                               value={field.value ?? ""} 
                               onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                              disabled={!selectedStudentId || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
+                              disabled={!selectedStudentId || !selectedMapel || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
                             />
                           </FormControl>
                           {fieldInfo.name === "jumlahHariHadir" && (
@@ -637,10 +662,10 @@ export default function InputGradesPage() {
                     />
                   ))}
                 </div>
-                {calculatedFinalGrade !== null && selectedStudentId && (
+                {calculatedFinalGrade !== null && selectedStudentId && selectedMapel && (
                   <div className="mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center">
                     <BarChartHorizontalBig className="mx-auto h-10 w-10 text-primary mb-2" />
-                    <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor)</p>
+                    <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor) untuk {selectedMapel}</p>
                     <p className="text-4xl font-bold text-primary">{calculatedFinalGrade.toFixed(2)}</p>
                     {!weights && <p className="text-xs text-destructive mt-1">Bobot/Hari Efektif belum dimuat, nilai akhir mungkin tidak akurat.</p>}
                     {weights && <p className="text-xs text-muted-foreground mt-1">Dihitung berdasarkan bobot yang diatur oleh Admin.</p>}
@@ -648,10 +673,10 @@ export default function InputGradesPage() {
                 )}
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear}>
+                <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear || !selectedMapel}>
                   {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
                 </Button>
-                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={!selectedStudentId || !selectedAcademicYear || !selectedSemester}>
+                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel}>
                   <FileDown className="mr-2 h-4 w-4" /> Ekspor Nilai Ini
                 </Button>
               </CardFooter>
@@ -663,7 +688,7 @@ export default function InputGradesPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Impor & Ekspor Nilai Massal</CardTitle>
-          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal. Template akan menyertakan daftar siswa, tahun ajaran, dan semester yang terpilih di filter atas.</CardDescription>
+          <CardDescription>Gunakan template Excel untuk impor nilai secara massal. Template akan menyertakan daftar siswa, serta tahun ajaran, semester, dan mapel yang terpilih di filter atas.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -680,9 +705,8 @@ export default function InputGradesPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Unduh template di bawah ini. Template akan berisi `id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, dan `semester` yang sudah terisi sesuai filter.
-            Guru tinggal mengisi komponen nilai.
-            Sistem akan membaca kolom `tugas1`, `tugas2`, ..., `tugasN` secara dinamis.
+            Unduh template di bawah ini. Template akan berisi `id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, `semester`, dan `mapel` yang sudah terisi sesuai filter.
+            Guru tinggal mengisi komponen nilai. Sistem akan membaca kolom `tugas1`, `tugas2`, ..., `tugasN` secara dinamis.
           </p>
         </CardContent>
         <CardFooter>
@@ -690,7 +714,7 @@ export default function InputGradesPage() {
             type="button" 
             variant="outline" 
             onClick={handleDownloadGradeTemplate} 
-            disabled={isImportingFile || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester}
+            disabled={isImportingFile || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester || !watchedFormValues.selectedMapel}
           >
             <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
           </Button>
@@ -699,3 +723,4 @@ export default function InputGradesPage() {
     </div>
   );
 }
+

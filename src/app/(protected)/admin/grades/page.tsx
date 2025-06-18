@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BookOpen } from "lucide-react";
 import { getAllGrades, getStudents, getActiveAcademicYears } from '@/lib/firestoreService';
-import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { calculateAverage, SEMESTERS, getCurrentAcademicYear, MATA_PELAJARAN } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ interface AdminGradeView extends Nilai {
   rataRataTugas?: number;
 }
 
-type SortableKeys = keyof Pick<AdminGradeView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'tahun_ajaran' | 'semester' | 'nilai_akhir'>;
+type SortableKeys = keyof Pick<AdminGradeView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'tahun_ajaran' | 'semester' | 'nilai_akhir' | 'mapel'>;
 
 interface SortConfig {
   key: SortableKeys | 'rataRataTugas' | 'tes' | 'pts' | 'pas' | 'kehadiran' | 'eskul' | 'osis' | null;
@@ -46,6 +46,7 @@ export default function ManageAllGradesPage() {
   const [classFilter, setClassFilter] = useState<string>("all");
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
+  const [mapelFilter, setMapelFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
@@ -62,9 +63,9 @@ export default function ManageAllGradesPage() {
       if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
         setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
       } else if (activeYears.length > 0) {
-        setAcademicYearFilter(activeYears[0]); // Default to the first active year if current is not active
+        setAcademicYearFilter(activeYears[0]); 
       } else {
-        setAcademicYearFilter("all"); // Or "all" if no active years and fallback from getActiveAcademicYears is just one.
+        setAcademicYearFilter("all"); 
       }
 
 
@@ -116,7 +117,7 @@ export default function ManageAllGradesPage() {
   
   useEffect(() => {
     setCurrentPage(1); 
-  }, [classFilter, academicYearFilter, semesterFilter, sortConfig]);
+  }, [classFilter, academicYearFilter, semesterFilter, mapelFilter, sortConfig]);
 
 
   const requestSort = (key: SortConfig['key']) => {
@@ -138,6 +139,9 @@ export default function ManageAllGradesPage() {
     }
     if (semesterFilter !== "all") {
       items = items.filter(grade => String(grade.semester) === semesterFilter);
+    }
+    if (mapelFilter !== "all") {
+      items = items.filter(grade => grade.mapel === mapelFilter);
     }
     
     if (sortConfig.key !== null) {
@@ -178,7 +182,7 @@ export default function ManageAllGradesPage() {
       });
     }
     return items;
-  }, [allGradesData, sortConfig, classFilter, academicYearFilter, semesterFilter]);
+  }, [allGradesData, sortConfig, classFilter, academicYearFilter, semesterFilter, mapelFilter]);
   
   const totalPages = Math.ceil(filteredAndSortedGrades.length / ITEMS_PER_PAGE);
 
@@ -202,6 +206,7 @@ export default function ManageAllGradesPage() {
     { key: 'kelasSiswa', label: 'Kelas' },
     { key: 'tahun_ajaran', label: 'Tahun Ajaran' },
     { key: 'semester', label: 'Semester' },
+    { key: 'mapel', label: 'Mapel'},
     { key: 'rataRataTugas', label: 'Avg. Tugas' },
     { key: 'tes', label: 'Tes' },
     { key: 'pts', label: 'PTS' },
@@ -215,12 +220,13 @@ export default function ManageAllGradesPage() {
 
   const memoizedTableRows = useMemo(() => {
     return paginatedGrades.map((grade) => (
-      <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}`}>
+      <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}-${grade.mapel}`}>
         <TableCell className="font-medium">{grade.namaSiswa}</TableCell>
         <TableCell>{grade.nisSiswa}</TableCell>
         <TableCell>{grade.kelasSiswa}</TableCell>
         <TableCell>{grade.tahun_ajaran}</TableCell>
         <TableCell>{grade.semester === 1 ? 'Ganjil' : 'Genap'}</TableCell>
+        <TableCell>{grade.mapel}</TableCell>
         <TableCell>{(grade.rataRataTugas || 0).toFixed(2)}</TableCell>
         <TableCell>{grade.tes?.toFixed(2) || '0.00'}</TableCell>
         <TableCell>{grade.pts?.toFixed(2) || '0.00'}</TableCell>
@@ -249,6 +255,7 @@ export default function ManageAllGradesPage() {
       'Kelas': grade.kelasSiswa,
       'Tahun Ajaran': grade.tahun_ajaran,
       'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
+      'Mata Pelajaran': grade.mapel,
       'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
       'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
       'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
@@ -264,7 +271,7 @@ export default function ManageAllGradesPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Semua Nilai Siswa");
 
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, 
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, // mapel
       { wch: 10 }, { wch: 8 },  { wch: 8 },  { wch: 8 }, { wch: 15 }, 
       { wch: 8 },  { wch: 8 },  { wch: 12 }, 
     ];
@@ -313,7 +320,7 @@ export default function ManageAllGradesPage() {
         </CardHeader>
         <CardContent>
           {allGradesData.length > 0 && !isLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
               <div>
                 <Label htmlFor="classFilter" className="text-sm font-medium">Filter Kelas</Label>
                 <Select value={classFilter} onValueChange={setClassFilter}>
@@ -353,6 +360,20 @@ export default function ManageAllGradesPage() {
                     <SelectItem value="all">Semua Semester</SelectItem>
                     {SEMESTERS.map(semester => (
                       <SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
+                <Select value={mapelFilter} onValueChange={setMapelFilter}>
+                  <SelectTrigger id="mapelFilter" className="w-full mt-1">
+                    <SelectValue placeholder="Pilih mapel..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Mapel</SelectItem>
+                    {MATA_PELAJARAN.map(mapel => (
+                      <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -397,7 +418,7 @@ export default function ManageAllGradesPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Tidak ada data nilai yang cocok dengan kriteria filter yang Anda pilih. Coba ubah pilihan filter Anda.
               </p>
-               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter("all"); setSemesterFilter("all"); }} variant="outline" className="mt-4">
+               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter("all"); setSemesterFilter("all"); setMapelFilter("all"); }} variant="outline" className="mt-4">
                 Reset Filter
               </Button>
             </div>
@@ -409,7 +430,7 @@ export default function ManageAllGradesPage() {
                     <TableRow>
                       {tableHeaders.map(header => (
                         <TableHead 
-                          key={header.key} 
+                          key={header.key as string} 
                           onClick={() => header.key && requestSort(header.key)}
                           className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`}
                           title={`Urutkan berdasarkan ${header.label}`}
@@ -461,3 +482,4 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
+

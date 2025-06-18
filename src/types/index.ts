@@ -30,7 +30,7 @@ export interface Nilai {
   tes: number;
   pts: number; // Penilaian Tengah Semester
   pas: number; // Penilaian Akhir Semester
-  kehadiran: number;
+  kehadiran: number; // Stores attendance as a percentage
   eskul: number; // Extracurricular
   osis: number;
   nilai_akhir?: number; // Calculated final grade
@@ -42,9 +42,11 @@ export interface Bobot {
   tes: number;
   pts: number;
   pas: number;
-  kehadiran: number;
+  kehadiran: number; // Weight for the attendance component in final grade calculation
   eskul: number;
   osis: number;
+  totalHariEfektifGanjil?: number;
+  totalHariEfektifGenap?: number;
 }
 
 export type StudentTableEntry = Siswa & {

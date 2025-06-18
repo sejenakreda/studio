@@ -25,7 +25,13 @@ import { UserCredential } from 'firebase/auth';
 const bobotConverter: FirestoreDataConverter<Bobot> = {
   toFirestore: (bobot: Bobot): DocumentData => {
     const data: any = { ...bobot };
-    delete data.id; // Ensure id is not written to Firestore
+    // Ensure id is not written to Firestore
+    // totalHariEfektifGanjil and Genap can be undefined if not set by admin,
+    // but Firestore handles undefined by not writing the field, which is fine.
+    // Or ensure they are numbers before saving if specific logic is needed.
+    if (typeof data.totalHariEfektifGanjil !== 'number') delete data.totalHariEfektifGanjil;
+    if (typeof data.totalHariEfektifGenap !== 'number') delete data.totalHariEfektifGenap;
+    delete data.id; 
     return data;
   },
   fromFirestore: (
@@ -35,13 +41,15 @@ const bobotConverter: FirestoreDataConverter<Bobot> = {
     const data = snapshot.data(options)!;
     return {
       id: snapshot.id,
-      tugas: data.tugas,
-      tes: data.tes,
-      pts: data.pts,
-      pas: data.pas,
-      kehadiran: data.kehadiran,
-      eskul: data.eskul,
-      osis: data.osis,
+      tugas: data.tugas || 0, // Default to 0 if not set
+      tes: data.tes || 0,
+      pts: data.pts || 0,
+      pas: data.pas || 0,
+      kehadiran: data.kehadiran || 0, // This is the weight for attendance component
+      eskul: data.eskul || 0,
+      osis: data.osis || 0,
+      totalHariEfektifGanjil: data.totalHariEfektifGanjil, // Keep as undefined if not set
+      totalHariEfektifGenap: data.totalHariEfektifGenap,   // Keep as undefined if not set
     };
   }
 };
@@ -89,12 +97,10 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
       tes: data.tes,
       pts: data.pts,
       pas: data.pas,
-      kehadiran: data.kehadiran,
+      kehadiran: data.kehadiran, // This is attendance percentage
       eskul: data.eskul,
       osis: data.osis,
       nilai_akhir: data.nilai_akhir,
-      // createdAt: data.createdAt, // Keep Timestamps if needed
-      // updatedAt: data.updatedAt,
     };
   }
 };
@@ -131,16 +137,28 @@ export const getWeights = async (): Promise<Bobot | null> => {
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    return docSnap.data();
+    const data = docSnap.data();
+    // Provide defaults for new fields if they are undefined from Firestore
+    return {
+      ...data,
+      totalHariEfektifGanjil: typeof data.totalHariEfektifGanjil === 'number' ? data.totalHariEfektifGanjil : 90, // Default 90 days
+      totalHariEfektifGenap: typeof data.totalHariEfektifGenap === 'number' ? data.totalHariEfektifGenap : 90,   // Default 90 days
+    };
   }
-  // Default weights if not found
-  return { tugas: 20, tes: 20, pts: 20, pas: 25, kehadiran: 5, eskul: 5, osis: 5 };
+  // Default weights if not found, including new total days fields
+  return { 
+    tugas: 20, tes: 20, pts: 20, pas: 25, 
+    kehadiran: 5, // weight for attendance component
+    eskul: 5, osis: 5, 
+    totalHariEfektifGanjil: 90, 
+    totalHariEfektifGenap: 90 
+  };
 };
 
-export const updateWeights = async (bobot: Bobot): Promise<void> => {
+export const updateWeights = async (bobotData: Partial<Bobot>): Promise<void> => {
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
-  // Use setDoc with merge:true to create if not exists or update if exists
-  await setDoc(docRef, bobot, { merge: true }); 
+  // Explicitly cast to Bobot to satisfy converter, even if it's Partial for update
+  await setDoc(docRef, bobotData as Bobot, { merge: true }); 
 };
 
 
@@ -153,7 +171,7 @@ export const addStudent = async (siswa: Omit<Siswa, 'id'>): Promise<Siswa> => {
 
 export const getStudents = async (): Promise<Siswa[]> => {
   const collRef = collection(db, 'siswa').withConverter(siswaConverter);
-  const q = query(collRef); // Add ordering if needed: orderBy('nama')
+  const q = query(collRef); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -170,10 +188,8 @@ export const updateStudent = async (id: string, siswaData: Partial<Siswa>): Prom
 };
 
 export const deleteStudent = async (id: string): Promise<void> => {
-  // Consider deleting related grades as well, or handle orphaned grades
   const docRef = doc(db, 'siswa', id);
   await deleteDoc(docRef);
-  // TODO: Delete associated grades
   const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', id));
   const gradesSnapshot = await getDocs(gradesQuery);
   const batch = writeBatch(db);
@@ -182,8 +198,7 @@ export const deleteStudent = async (id: string): Promise<void> => {
 };
 
 // --- Nilai (Grade) Service ---
-export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id' | 'nilai_akhir'>): Promise<Nilai> => {
-  // Check if a grade for this student, semester, and year already exists
+export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(gradesCollRef, 
     where('id_siswa', '==', nilai.id_siswa),
@@ -194,16 +209,16 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id' | 'nilai_akhir'>)
 
   let docId: string;
   if (!querySnapshot.empty) {
-    // Update existing grade
     const existingDoc = querySnapshot.docs[0];
     docId = existingDoc.id;
     await updateDoc(existingDoc.ref, nilai);
   } else {
-    // Add new grade
     const docRef = await addDoc(gradesCollRef, nilai);
     docId = docRef.id;
   }
-  return { ...nilai, id: docId };
+  // Cast nilai to Nilai because it's an Omit type
+  const savedNilai = { ...nilai, id: docId } as Nilai;
+  return savedNilai;
 };
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
@@ -229,7 +244,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef); // Potentially order by tahun_ajaran, semester, etc.
+  const q = query(collRef); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -267,5 +282,4 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
 export const deleteUserRecord = async (uid: string): Promise<void> => {
   const userDocRef = doc(db, 'users', uid);
   await deleteDoc(userDocRef);
-  // Note: This does not delete the Firebase Auth user. That must be done separately.
 };

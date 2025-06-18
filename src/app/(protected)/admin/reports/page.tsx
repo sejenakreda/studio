@@ -51,7 +51,8 @@ export default function SystemReportsPage() {
       if (studentList && studentList.length > 0) {
         const counts: { [key: string]: number } = {};
         studentList.forEach(student => {
-          counts[student.kelas] = (counts[student.kelas] || 0) + 1;
+          const className = typeof student.kelas === 'string' && student.kelas ? student.kelas : "Tidak Diketahui";
+          counts[className] = (counts[className] || 0) + 1;
         });
         const distributionData = Object.entries(counts).map(([name, total]) => ({
           name,
@@ -195,7 +196,7 @@ export default function SystemReportsPage() {
               <p className="text-sm text-muted-foreground">Belum ada data siswa untuk ditampilkan dalam grafik.</p>
             </div>
           ) : (
-            <ChartContainer config={chartConfig} className="min-h-[200px] w-full aspect-auto">
+            <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
               <ResponsiveContainer width="100%" height={300 + classDistribution.length * 20}>
                 <BarChart 
                   data={classDistribution} 
@@ -245,3 +246,4 @@ export default function SystemReportsPage() {
     </div>
   );
 }
+

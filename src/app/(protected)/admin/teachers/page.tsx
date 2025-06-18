@@ -114,7 +114,7 @@ export default function ManageTeachersPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       
-      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName); // assignedMapel default to []
+      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName); 
       
       await addActivityLog(
           "Guru Baru Ditambahkan (Manual)", 
@@ -126,13 +126,10 @@ export default function ManageTeachersPage() {
       if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
           await signOut(auth); 
       }
-
-      toast({ title: "Sukses", description: "Guru " + data.displayName + " berhasil ditambahkan. Memuat ulang daftar..." });
-      form.reset();
       
-      setTimeout(() => {
-         window.location.reload();
-      }, 1500); 
+      toast({ title: "Sukses", description: "Guru " + data.displayName + " berhasil ditambahkan." });
+      form.reset();
+      fetchTeachers(); // Re-fetch data instead of reloading
 
     } catch (error: any) {
       console.error("Error adding teacher:", error);
@@ -143,7 +140,8 @@ export default function ManageTeachersPage() {
         errorMessage = "Password terlalu lemah. Gunakan password yang lebih kuat.";
       }
       toast({ variant: "destructive", title: "Error", description: errorMessage });
-      setIsSubmitting(false); 
+    } finally {
+        setIsSubmitting(false); 
     }
   };
 
@@ -271,6 +269,10 @@ export default function ManageTeachersPage() {
         let successCount = 0;
         let failCount = 0;
         const errorMessages: string[] = [];
+        let anyInvalidMapelDetected = false;
+
+        // Fetch current students list once before the loop for duplicate checking
+        const currentStudentList = await getAllUsersByRole('guru'); // or relevant function to get existing teachers
 
         for (const teacher of json) {
           if (!teacher.displayName || !teacher.email || !teacher.password) {
@@ -284,6 +286,15 @@ export default function ManageTeachersPage() {
             continue;
           }
 
+          // Check for existing teacher by email before proceeding
+          const existingTeacherByEmail = currentStudentList.find(t => t.email === teacher.email);
+          if (existingTeacherByEmail) {
+            failCount++;
+            errorMessages.push("Email " + teacher.email + " sudah terdaftar. Dilewati.");
+            continue;
+          }
+
+
           let finalAssignedMapel: string[] = [];
           if (teacher.assignedMapel && typeof teacher.assignedMapel === 'string') {
             const importedMapelArray = teacher.assignedMapel.split(',').map(m => m.trim()).filter(m => m);
@@ -295,6 +306,7 @@ export default function ManageTeachersPage() {
                 validMapelForTeacher.push(impMapel);
               } else {
                 invalidMapelForTeacher.push(impMapel);
+                anyInvalidMapelDetected = true;
               }
             }
             finalAssignedMapel = validMapelForTeacher;
@@ -310,9 +322,9 @@ export default function ManageTeachersPage() {
             
             await addActivityLog(
               "Guru Baru Diimpor dari Excel",
-              "Guru: " + teacher.displayName + " (" + teacher.email + ") Mapel: " + (finalAssignedMapel.join(', ') || 'Tidak ada') + " oleh Admin: " + currentAdminProfile.displayName,
+              "Guru: " + teacher.displayName + " (" + teacher.email + ") Mapel: " + (finalAssignedMapel.join(', ') || 'Tidak ada') + " oleh Admin: " + (currentAdminProfile.displayName || currentAdminProfile.email),
               currentAdminProfile.uid,
-              currentAdminProfile.displayName
+              currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
             );
             
             if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
@@ -321,22 +333,31 @@ export default function ManageTeachersPage() {
             successCount++;
           } catch (error: any) {
             failCount++;
+            // Email already in use might be caught by pre-check, but keep for safety
             if (error.code === 'auth/email-already-in-use') {
-              errorMessages.push("Email " + teacher.email + " sudah terdaftar. Dilewati.");
+              errorMessages.push("Email " + teacher.email + " sudah terdaftar (gagal saat pembuatan). Dilewati.");
             } else {
               errorMessages.push("Gagal impor " + teacher.email + ": " + error.message + ". Dilewati.");
             }
           }
         }
+        
+        let summaryMessage = successCount + " guru berhasil diimpor. " + failCount + " guru gagal diimpor.";
+        if (anyInvalidMapelDetected) {
+            summaryMessage += " Beberapa mapel yang diimpor tidak valid dan tidak ditugaskan.";
+        }
+        if (failCount > 0 || anyInvalidMapelDetected) {
+            summaryMessage += " Lihat konsol untuk detail error/peringatan mapel.";
+        }
 
         toast({
           title: "Proses Impor Selesai",
-          description: successCount + " guru berhasil diimpor. " + failCount + " guru gagal diimpor. " + (failCount > 0 ? 'Lihat konsol untuk detail error.' : ''),
-          duration: failCount > 0 ? 10000 : 5000,
+          description: summaryMessage,
+          duration: (failCount > 0 || anyInvalidMapelDetected) ? 10000 : 5000,
         });
 
         if (errorMessages.length > 0) {
-          console.warn("Detail error impor guru:", errorMessages.join("\n"));
+          console.warn("Detail error/peringatan impor guru:", errorMessages.join("\n"));
         }
         
         fetchTeachers();

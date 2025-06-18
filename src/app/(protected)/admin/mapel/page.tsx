@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatDistanceToNow } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
+import { Timestamp } from 'firebase/firestore';
+
 
 const addMapelSchema = z.object({
   namaMapel: z.string().min(3, "Nama mata pelajaran minimal 3 karakter").max(100, "Nama mata pelajaran maksimal 100 karakter"),
@@ -85,11 +87,11 @@ export default function ManageMataPelajaranPage() {
       await addMataPelajaranMaster(data.namaMapel);
       await addActivityLog(
         "Mata Pelajaran Ditambahkan",
-        \`Mapel: \${data.namaMapel} oleh Admin: \${userProfile.displayName || userProfile.email}\`,
+        "Mapel: " + data.namaMapel + " oleh Admin: " + (userProfile.displayName || userProfile.email),
         userProfile.uid,
         userProfile.displayName || userProfile.email || "Admin"
       );
-      toast({ title: "Sukses", description: \`Mata pelajaran "\${data.namaMapel}" berhasil ditambahkan.\` });
+      toast({ title: "Sukses", description: "Mata pelajaran \"" + data.namaMapel + "\" berhasil ditambahkan." });
       form.reset();
       fetchMapel();
     } catch (error: any) {
@@ -115,11 +117,11 @@ export default function ManageMataPelajaranPage() {
       await deleteMataPelajaranMaster(mapelToDelete.id);
       await addActivityLog(
         "Mata Pelajaran Dihapus",
-        \`Mapel: \${mapelToDelete.namaMapel} dihapus oleh Admin: \${userProfile.displayName || userProfile.email}\`,
+        "Mapel: " + mapelToDelete.namaMapel + " dihapus oleh Admin: " + (userProfile.displayName || userProfile.email),
         userProfile.uid,
         userProfile.displayName || userProfile.email || "Admin"
       );
-      toast({ title: "Sukses", description: \`Mata pelajaran "\${mapelToDelete.namaMapel}" berhasil dihapus.\` });
+      toast({ title: "Sukses", description: "Mata pelajaran \"" + mapelToDelete.namaMapel + "\" berhasil dihapus." });
       setMapelToDelete(null);
       fetchMapel();
     } catch (error: any) {
@@ -232,7 +234,7 @@ export default function ManageMataPelajaranPage() {
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDeleteConfirmation(mapel)}
                           disabled={isDeleting && mapelToDelete?.id === mapel.id}
-                          title={`Hapus \${mapel.namaMapel}`}
+                          title={"Hapus " + mapel.namaMapel}
                         >
                           {isDeleting && mapelToDelete?.id === mapel.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           <span className="sr-only">Hapus</span>
@@ -275,3 +277,4 @@ export default function ManageMataPelajaranPage() {
     </div>
   );
 }
+

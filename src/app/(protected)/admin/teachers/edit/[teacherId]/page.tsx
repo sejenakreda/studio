@@ -96,7 +96,7 @@ export default function EditTeacherPage() {
     try {
       await updateUserProfile(teacherId, {
         displayName: data.displayName,
-        assignedMapel: data.assignedMapel || [],
+        assignedMapel: data.assignedMapel || [], // Ensure it's always an array
       });
 
       const oldMapel = teacherData.assignedMapel?.join(', ') || 'Belum ada';
@@ -237,7 +237,7 @@ export default function EditTeacherPage() {
                     </div>
                     <ScrollArea className="h-72 w-full rounded-md border p-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {AVAILABLE_MAPEL_FOR_ASSIGNMENT.map((mapel) => (
+                        {(AVAILABLE_MAPEL_FOR_ASSIGNMENT || []).map((mapel) => (
                           <FormField
                             key={mapel}
                             control={form.control}

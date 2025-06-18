@@ -34,10 +34,11 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   roles: Array<'admin' | 'guru'>;
+  isExact?: boolean; // Untuk menandai apakah path harus cocok persis
 }
 
 const navItems: NavItem[] = [
-  { href: "/admin", label: "Dasbor Admin", icon: Home, roles: ['admin'] },
+  { href: "/admin", label: "Dasbor Admin", icon: Home, roles: ['admin'], isExact: true },
   { href: "/admin/teachers", label: "Kelola Guru", icon: Users, roles: ['admin'] },
   { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks, roles: ['admin'] },
   { href: "/admin/announcements", label: "Pengumuman", icon: Megaphone, roles: ['admin'] },
@@ -45,7 +46,7 @@ const navItems: NavItem[] = [
   { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog, roles: ['admin'] },
   { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
-  { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'] },
+  { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'], isExact: true },
   { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
   { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
@@ -73,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const newestTimestamp = allFetchedAnnouncements[0].createdAt.toMillis();
               localStorage.setItem(lastSeenKey, newestTimestamp.toString());
             } else {
+              // If no announcements, still update last seen to now to prevent old badge if announcements are deleted
               localStorage.setItem(lastSeenKey, Timestamp.now().toMillis().toString());
             }
             setAnnouncementBadgeCount(0); 
@@ -100,6 +102,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       updateBadgeLogic();
     } else {
       setAnnouncementBadgeCount(0);
+      // Clear localStorage for other roles or if userProfile.uid is not available
+      // This prevents a logged-out admin from seeing a guru's badge count if IDs were mixed up (unlikely but safe)
       if(userProfile?.uid) { 
         localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
       }
@@ -109,10 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 
   const handleLogout = async () => {
-    if (userProfile?.uid) {
-       // Optional: Clear lastSeen timestamp on logout if desired, though not strictly necessary
-       // localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
-    }
+    // No need to clear specific localStorage here, as new login or different user will use their own key
     await signOut(auth);
     router.push("/login");
   };
@@ -122,39 +123,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return navItems.filter(item => item.roles.includes(userProfile.role));
   }, [userProfile, loading]);
 
-  // Determine the correct current page label for the header
   const currentPageLabel = React.useMemo(() => {
-    const currentTopLevelPath = `/${pathname.split('/')[1]}`; // e.g., /admin or /guru
-    const defaultDashboardLabel = userProfile?.role === 'admin' ? 'Dasbor Admin' : (userProfile?.role === 'guru' ? 'Dasbor Guru' : 'Dasbor');
-    
-    // Find a direct match or a prefix match for nested routes
-    let foundLabel = defaultDashboardLabel;
-    let longestMatchLength = currentTopLevelPath.length;
+    if (loading || !userProfile) return "Memuat...";
 
+    const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
+    
+    // Find an exact match first
+    const exactMatch = filteredNavItems.find(item => item.href === pathname);
+    if (exactMatch) {
+      return exactMatch.label;
+    }
+
+    // Find the longest prefix match for nested routes
+    let bestMatch = null;
     for (const item of filteredNavItems) {
-      if (item.href === pathname) { // Exact match
-        foundLabel = item.label;
-        break; 
-      }
-      // Check for prefix match for nested routes, but ensure it's more specific than just /admin or /guru
-      if (pathname.startsWith(item.href) && item.href.length > longestMatchLength) {
-        if (item.href === currentTopLevelPath && pathname !== currentTopLevelPath) {
-          // If item.href is /admin and pathname is /admin/something, we need a more specific label if available
-          // This case is tricky. We look for a more specific match first.
-          // Example: if on /admin/teachers/edit/xyz, we want "Kelola Guru" not "Dasbor Admin"
-        } else {
-            // A more specific path like /admin/teachers matched /admin/teachers/edit/xyz
-            foundLabel = item.label;
-            longestMatchLength = item.href.length;
+      // Skip if it's an exact-only item and not an exact match
+      if (item.isExact) continue; 
+
+      if (pathname.startsWith(item.href)) {
+        if (!bestMatch || item.href.length > bestMatch.href.length) {
+          bestMatch = item;
         }
       }
     }
-    // Special handling for root dashboard if no more specific label found from nested paths
-    if (pathname === "/admin" && userProfile?.role === 'admin') foundLabel = "Dasbor Admin";
-    if (pathname === "/guru" && userProfile?.role === 'guru') foundLabel = "Dasbor Guru";
     
-    return foundLabel;
-  }, [pathname, filteredNavItems, userProfile]);
+    return bestMatch ? bestMatch.label : defaultDashboardLabel;
+  }, [pathname, filteredNavItems, userProfile, loading]);
 
 
   return (
@@ -173,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href || (item.href !== (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname.startsWith(item.href) && item.href.length > (userProfile?.role === 'admin' ? '/admin'.length : '/guru'.length) )}
+                    isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
                     tooltip={{ children: item.label, side: "right", align: "center" }}
                   >
                     <Link href={item.href} className="relative">

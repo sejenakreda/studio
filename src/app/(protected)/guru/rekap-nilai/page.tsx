@@ -88,7 +88,7 @@ export default function RekapNilaiPage() {
         setAcademicYearFilter(""); 
         toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Silakan hubungi Admin."});
       }
-      // Do NOT set mapelFilter to "all" here, let it be "" initially
+      // Do NOT set mapelFilter here initially. Let user choose.
       
       if (!Array.isArray(grades)) throw new Error("Gagal memuat data nilai. Format tidak sesuai.");
       if (!Array.isArray(students)) throw new Error("Gagal memuat data siswa. Format tidak sesuai.");
@@ -113,7 +113,7 @@ export default function RekapNilaiPage() {
         const kkm = newKkmSettingsMap.get(kkmKey) || 70;
 
         const coreAcademicComponents = [
-          ...(grade.tugas || []).slice(0,5).map(t => t || 0),
+          ...(grade.tugas || []).slice(0,5).map(t => t || 0), // Consider up to 5 tasks
           grade.tes || 0,
           grade.pts || 0,
           grade.pas || 0,
@@ -164,7 +164,7 @@ export default function RekapNilaiPage() {
   };
 
   const filteredAndSortedGrades = useMemo(() => {
-    if (!academicYearFilter || semesterFilter === "" || mapelFilter === "") { // Added mapelFilter === ""
+    if (!academicYearFilter || semesterFilter === "" || mapelFilter === "") {
         return [];
     }
     let items = [...allGradesData];
@@ -247,17 +247,42 @@ export default function RekapNilaiPage() {
       'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
       'Status Tuntas': grade.isTuntas ? 'Tuntas' : 'Belum Tuntas',
     }));
+
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
-    const safeMapelFilter = mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_');
-    XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter} ${safeMapelFilter}`);
+    
+    const safeTa = academicYearFilter.replace('/', '-');
+    const safeSmt = semesterFilter;
+    const safeMapel = (mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_'));
+
+    let desiredSheetName = `Rekap ${safeTa} S${safeSmt} ${safeMapel}`;
+    let sheetName = desiredSheetName;
+
+    if (sheetName.length > 31) {
+        const prefixPart = `Rekap ${safeTa} S${safeSmt} `;
+        const maxMapelLength = 31 - prefixPart.length;
+        
+        if (maxMapelLength > 3) { 
+            sheetName = prefixPart + safeMapel.substring(0, maxMapelLength);
+        } else {
+            sheetName = desiredSheetName.substring(0, 31);
+        }
+    }
+
+    if (sheetName.trim().length < 1) {
+        sheetName = "RekapNilai"; // Fallback
+    }
+    sheetName = sheetName.substring(0, 31); // Final length check
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    
     const wscols = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, 
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
       { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15} 
     ];
     worksheet['!cols'] = wscols;
-    XLSX.writeFile(workbook, `rekap_nilai_${academicYearFilter.replace('/', '-')}_smt${semesterFilter}_${safeMapelFilter}.xlsx`);
+    XLSX.writeFile(workbook, `rekap_nilai_${safeTa}_smt${safeSmt}_${safeMapel}.xlsx`);
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap nilai sedang disiapkan." });
   };
 

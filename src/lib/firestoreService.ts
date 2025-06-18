@@ -21,7 +21,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster } from '@/types';
 import { User } from 'firebase/auth'; 
 import { getCurrentAcademicYear } from './utils';
 
@@ -209,6 +209,26 @@ const kkmSettingConverter: FirestoreDataConverter<KkmSetting> = {
   }
 };
 
+const mataPelajaranMasterConverter: FirestoreDataConverter<MataPelajaranMaster> = {
+  toFirestore: (mapel: Omit<MataPelajaranMaster, 'id'>): DocumentData => {
+    return {
+      namaMapel: mapel.namaMapel,
+      createdAt: mapel.createdAt || serverTimestamp(),
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): MataPelajaranMaster => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      namaMapel: data.namaMapel,
+      createdAt: data.createdAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -382,7 +402,7 @@ export const createUserProfile = async (firebaseUser: User, role: Role, displayN
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef);
+  const docSnap = await getDoc(docSnap);
   return docSnap.exists() ? docSnap.data() : null;
 };
 
@@ -487,3 +507,33 @@ export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'
   const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
   await setDoc(docRef, kkmData, { merge: true }); 
 };
+
+// --- Mata Pelajaran Master Service ---
+const MATA_PELAJARAN_MASTER_COLLECTION = 'mataPelajaranMaster';
+
+export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPelajaranMaster> => {
+  const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
+  // Check if mapel already exists (case-insensitive check could be added if needed)
+  const q = query(collRef, where("namaMapel", "==", namaMapel));
+  const querySnapshot = await getDocs(q);
+  if (!querySnapshot.empty) {
+    throw new Error(`Mata pelajaran "${namaMapel}" sudah ada.`);
+  }
+  const docRef = await addDoc(collRef, { namaMapel, createdAt: serverTimestamp() });
+  return { id: docRef.id, namaMapel, createdAt: Timestamp.now() };
+};
+
+export const getMataPelajaranMaster = async (): Promise<MataPelajaranMaster[]> => {
+  const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
+  const q = query(collRef, orderBy("namaMapel", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const deleteMataPelajaranMaster = async (id: string): Promise<void> => {
+  const docRef = doc(db, MATA_PELAJARAN_MASTER_COLLECTION, id);
+  await deleteDoc(docRef);
+};
+
+
+    

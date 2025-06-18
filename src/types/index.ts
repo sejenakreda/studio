@@ -85,3 +85,9 @@ export interface KkmSetting {
   kkmValue: number;
   updatedAt?: Timestamp;
 }
+
+export interface MataPelajaranMaster {
+  id?: string; // Firestore document ID
+  namaMapel: string;
+  createdAt?: Timestamp;
+}

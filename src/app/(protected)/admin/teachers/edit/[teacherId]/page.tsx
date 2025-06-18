@@ -13,13 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Save, Loader2, AlertCircle, UserCog, BookOpen } from "lucide-react";
-import { getUserProfile, updateUserProfile, addActivityLog } from '@/lib/firestoreService';
-import type { UserProfile } from '@/types';
+import { getUserProfile, updateUserProfile, addActivityLog, getMataPelajaranMaster } from '@/lib/firestoreService';
+import type { UserProfile, MataPelajaranMaster } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
-import { AVAILABLE_MAPEL_FOR_ASSIGNMENT } from '@/lib/utils';
+// AVAILABLE_MAPEL_FOR_ASSIGNMENT is removed
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const editTeacherSchema = z.object({
@@ -37,7 +37,9 @@ export default function EditTeacherPage() {
   const { userProfile: currentAdminProfile } = useAuth();
 
   const [teacherData, setTeacherData] = useState<UserProfile | null>(null);
+  const [masterMapelList, setMasterMapelList] = useState<MataPelajaranMaster[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMapel, setIsLoadingMapel] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export default function EditTeacherPage() {
     },
   });
 
-  const fetchTeacherData = useCallback(async (id: string) => {
+  const fetchInitialData = useCallback(async (id: string) => {
     if (!id) {
       setIsLoadingData(false);
       setFetchError("ID Guru tidak valid.");
@@ -58,9 +60,14 @@ export default function EditTeacherPage() {
       return;
     }
     setIsLoadingData(true);
+    setIsLoadingMapel(true);
     setFetchError(null);
     try {
-      const fetchedTeacher = await getUserProfile(id);
+      const [fetchedTeacher, fetchedMasterMapel] = await Promise.all([
+        getUserProfile(id),
+        getMataPelajaranMaster()
+      ]);
+      
       if (fetchedTeacher && fetchedTeacher.role === 'guru') {
         setTeacherData(fetchedTeacher);
         form.reset({
@@ -72,20 +79,22 @@ export default function EditTeacherPage() {
         toast({ variant: "destructive", title: "Error", description: "Data guru tidak ditemukan." });
         router.push('/admin/teachers');
       }
+      setMasterMapelList(fetchedMasterMapel || []);
     } catch (error) {
-      console.error("Error fetching teacher data:", error);
-      setFetchError("Gagal memuat data guru. Silakan coba lagi.");
-      toast({ variant: "destructive", title: "Error", description: "Gagal memuat data guru." });
+      console.error("Error fetching initial data for edit teacher:", error);
+      setFetchError("Gagal memuat data guru atau daftar mapel. Silakan coba lagi.");
+      toast({ variant: "destructive", title: "Error", description: "Gagal memuat data." });
     } finally {
       setIsLoadingData(false);
+      setIsLoadingMapel(false);
     }
   }, [toast, form, router]);
 
   useEffect(() => {
     if (teacherId) {
-      fetchTeacherData(teacherId);
+      fetchInitialData(teacherId);
     }
-  }, [teacherId, fetchTeacherData]);
+  }, [teacherId, fetchInitialData]);
 
   const onSubmit = async (data: EditTeacherFormData) => {
     if (!teacherId || !teacherData || !currentAdminProfile?.uid || !currentAdminProfile?.displayName) {
@@ -96,19 +105,19 @@ export default function EditTeacherPage() {
     try {
       await updateUserProfile(teacherId, {
         displayName: data.displayName,
-        assignedMapel: data.assignedMapel || [], // Ensure it's always an array
+        assignedMapel: data.assignedMapel || [], 
       });
 
       const oldMapel = teacherData.assignedMapel?.join(', ') || 'Belum ada';
       const newMapel = data.assignedMapel?.join(', ') || 'Tidak ada';
       await addActivityLog(
         "Profil & Mapel Guru Diperbarui",
-        `Profil Guru ${teacherData.email}: Nama -> ${data.displayName}. Mapel: ${oldMapel} -> ${newMapel}. Oleh Admin: ${currentAdminProfile.displayName}`,
+        \`Profil Guru \${teacherData.email}: Nama -> \${data.displayName}. Mapel: \${oldMapel} -> \${newMapel}. Oleh Admin: \${currentAdminProfile.displayName}\`,
         currentAdminProfile.uid,
         currentAdminProfile.displayName
       );
 
-      toast({ title: "Sukses", description: `Data guru ${data.displayName} berhasil diperbarui.` });
+      toast({ title: "Sukses", description: \`Data guru \${data.displayName} berhasil diperbarui.\` });
       router.push('/admin/teachers');
     } catch (error: any) {
       console.error("Error updating teacher:", error);
@@ -118,7 +127,7 @@ export default function EditTeacherPage() {
     }
   };
 
-  if (isLoadingData) {
+  if (isLoadingData || isLoadingMapel) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -233,45 +242,60 @@ export default function EditTeacherPage() {
                         <BookOpen className="h-5 w-5 text-primary"/>
                         Tugaskan Mata Pelajaran
                       </FormLabel>
-                      <FormDesc>Pilih mata pelajaran yang akan diajarkan oleh guru ini.</FormDesc>
+                      <FormDesc>Pilih mata pelajaran yang akan diajarkan oleh guru ini. Daftar mapel diambil dari Pengaturan Master Mapel.</FormDesc>
                     </div>
-                    <ScrollArea className="h-72 w-full rounded-md border p-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {(AVAILABLE_MAPEL_FOR_ASSIGNMENT || []).map((mapel) => (
-                          <FormField
-                            key={mapel}
-                            control={form.control}
-                            name="assignedMapel"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={mapel}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(mapel)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...(field.value || []), mapel])
-                                          : field.onChange(
-                                              (field.value || []).filter(
-                                                (value) => value !== mapel
-                                              )
-                                            )
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="text-sm font-normal">
-                                    {mapel}
-                                  </FormLabel>
-                                </FormItem>
-                              )
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </ScrollArea>
+                    {isLoadingMapel ? (
+                         <Skeleton className="h-72 w-full rounded-md border p-4" />
+                    ) : masterMapelList.length === 0 ? (
+                        <Alert variant="default">
+                            <BookOpen className="h-4 w-4"/>
+                            <AlertTitle>Belum Ada Master Mapel</AlertTitle>
+                            <AlertDescription>
+                                Belum ada mata pelajaran yang terdaftar di sistem. Silakan tambahkan terlebih dahulu melalui menu "Kelola Mapel".
+                                <Link href="/admin/mapel" className="ml-2 text-primary hover:underline">
+                                    Kelola Mapel Sekarang
+                                </Link>
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <ScrollArea className="h-72 w-full rounded-md border p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {(masterMapelList || []).map((mapelItem) => (
+                            <FormField
+                                key={mapelItem.id}
+                                control={form.control}
+                                name="assignedMapel"
+                                render={({ field }) => {
+                                return (
+                                    <FormItem
+                                    key={mapelItem.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                    >
+                                    <FormControl>
+                                        <Checkbox
+                                        checked={field.value?.includes(mapelItem.namaMapel)}
+                                        onCheckedChange={(checked) => {
+                                            return checked
+                                            ? field.onChange([...(field.value || []), mapelItem.namaMapel])
+                                            : field.onChange(
+                                                (field.value || []).filter(
+                                                    (value) => value !== mapelItem.namaMapel
+                                                )
+                                                )
+                                        }}
+                                        />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal">
+                                        {mapelItem.namaMapel}
+                                    </FormLabel>
+                                    </FormItem>
+                                )
+                                }}
+                            />
+                            ))}
+                        </div>
+                        </ScrollArea>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

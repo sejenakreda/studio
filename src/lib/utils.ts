@@ -39,7 +39,7 @@ export function getAcademicYears(startYear = 2020): string[] {
   const endYear = 2049; // Target end year for the academic period like 2049/2050
   const years: string[] = [];
   for (let year = startYear; year <= endYear; year++) {
-    years.push(`${year}/${year + 1}`);
+    years.push(\`\${year}/\${year + 1}\`);
   }
   return years.reverse(); // Show most recent first
 }
@@ -51,9 +51,9 @@ export function getCurrentAcademicYear(): string {
 
   // Assuming new academic year starts in July (month index 6)
   if (currentMonth >= 6) { // July to December
-    return `${currentYear}/${currentYear + 1}`;
+    return \`\${currentYear}/\${currentYear + 1}\`;
   } else { // January to June
-    return `${currentYear - 1}/${currentYear}`;
+    return \`\${currentYear - 1}/\${currentYear}\`;
   }
 }
 
@@ -62,24 +62,6 @@ export const SEMESTERS = [
   { value: 2, label: 'Genap' },
 ];
 
-export const AVAILABLE_MAPEL_FOR_ASSIGNMENT = [
-  "Matematika Wajib",
-  "Matematika Peminatan",
-  "Bahasa Indonesia",
-  "Bahasa Inggris",
-  "Fisika",
-  "Kimia",
-  "Biologi",
-  "Sejarah Indonesia",
-  "Sejarah Peminatan",
-  "Geografi",
-  "Sosiologi",
-  "Ekonomi",
-  "Pendidikan Pancasila dan Kewarganegaraan (PPKn)",
-  "Pendidikan Agama dan Budi Pekerti",
-  "Seni Budaya",
-  "Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)",
-  "Prakarya dan Kewirausahaan (PKWU)",
-  "Informatika",
-  "Bahasa Asing Lainnya (Arab, Mandarin, Jerman, dll.)"
-].sort();
+// AVAILABLE_MAPEL_FOR_ASSIGNMENT is removed as mapel will be managed from Firestore.
+// If you need a default list for initial seeding or fallback, it could be defined elsewhere
+// or handled during initial app setup.

@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +63,14 @@ export default function AdminDashboardPage() {
       href: "/admin/teachers" 
     },
     { 
+      title: "Kelola Mapel", 
+      value: "Master Data", 
+      icon: ListChecks, 
+      color: "text-indigo-500", 
+      bgColor: "bg-indigo-100 dark:bg-indigo-900/30", 
+      href: "/admin/mapel" 
+    },
+    { 
       title: "Bobot Penilaian", 
       value: "Dikonfigurasi", 
       icon: Settings, 
@@ -80,7 +88,7 @@ export default function AdminDashboardPage() {
     },
      { 
       title: "Aktivitas Terbaru", 
-      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : `${activityLogs.length} Log`,
+      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : \`\${activityLogs.length} Log\`,
       icon: History, 
       color: "text-yellow-500", 
       bgColor: "bg-yellow-100 dark:bg-yellow-900/30", 
@@ -101,7 +109,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {stats.map((stat) => (
           <Link 
             href={stat.href} 
@@ -109,12 +117,12 @@ export default function AdminDashboardPage() {
             className="block hover:shadow-lg transition-shadow duration-300 rounded-lg"
           >
             <Card className="overflow-hidden h-full flex flex-col">
-              <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
-                <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              <CardHeader className={\`flex flex-row items-center justify-between space-y-0 pb-2 \${stat.bgColor}\`}>
+                <CardTitle className={\`text-sm font-medium \${stat.color}\`}>{stat.title}</CardTitle>
+                <stat.icon className={\`h-6 w-6 \${stat.color}\`} />
               </CardHeader>
               <CardContent className="flex-grow flex flex-col justify-center">
-                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+                <div className={\`text-2xl font-bold \${stat.color}\`}>{stat.value}</div>
                 <p className="text-xs text-muted-foreground pt-1">
                   Lihat Detail
                 </p>
@@ -166,6 +174,11 @@ export default function AdminDashboardPage() {
             <Link href="/admin/teachers">
               <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
                 <Users className="h-5 w-5" /> Kelola Guru
+              </Button>
+            </Link>
+            <Link href="/admin/mapel">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <ListChecks className="h-5 w-5" /> Kelola Mapel
               </Button>
             </Link>
             <Link href="/admin/weights">

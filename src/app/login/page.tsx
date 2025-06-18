@@ -14,19 +14,17 @@ import { AlertTriangle, LogIn, Loader2, UserPlus, KeyRound } from 'lucide-react'
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [emailForReset, setEmailForReset] = useState(''); // Keep state for potential controlled input for reset
+  const [loadingReset, setLoadingReset] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   const handleForgotPassword = async () => {
-    const emailForReset = prompt("Masukkan alamat email Anda untuk reset password:");
-    if (emailForReset) {
-      setLoading(true);
+    const enteredEmail = prompt("Masukkan alamat email Anda untuk reset password:");
+    if (enteredEmail) {
+      setLoadingReset(true);
       try {
-        await sendPasswordResetEmail(auth, emailForReset);
+        await sendPasswordResetEmail(auth, enteredEmail);
         toast({
           title: "Email Reset Password Terkirim",
           description: "Silakan periksa inbox email Anda untuk instruksi reset password.",
@@ -43,7 +41,7 @@ export default function LoginPage() {
         });
         console.error("Error sending password reset email:", error);
       } finally {
-        setLoading(false);
+        setLoadingReset(false);
       }
     }
   };
@@ -52,7 +50,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary to-accent flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-card shadow-2xl rounded-xl p-8 space-y-8">
         <div className="text-center">
-          <svg
+           <svg
             className="mx-auto h-16 w-auto text-primary mb-4"
             viewBox="0 0 24 24"
             fill="none"
@@ -63,18 +61,11 @@ export default function LoginPage() {
             xmlns="http://www.w3.org/2000/svg"
             aria-label="SiAP Smapna Logo"
             role="img"
-          >
-            <path d="M10 8H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3" />
-            <path d="m10.5 10.5-5 5" />
-            <path d="M10 14h.01" />
-            <path d="M13 11h.01" />
-            <path d="M16 8h.01" />
-            <path d="M13 8h.01" />
-            <path d="M16 11h.01" />
-            <path d="M7 19.5c.942-1.014 2.364-1.501 4-1.5h2" />
-            <path d="M12.914 4.914a2 2 0 0 1 2.828 0l1.344 1.344a2 2 0 0 1 0 2.828l-5.086 5.086a2 2 0 0 1-2.828 0l-1.344-1.344a2 2 0 0 1 0-2.828z" />
-            <path d="m19 5-4 4" />
-          </svg>
+            >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                <path d="m9 12 2 2 4-4" />
+            </svg>
           <h1 className="text-4xl font-bold text-primary font-headline tracking-tight">
             SiAP Smapna
           </h1>
@@ -88,7 +79,7 @@ export default function LoginPage() {
             variant="link"
             onClick={handleForgotPassword}
             className="text-primary hover:text-primary/80 p-0"
-            disabled={loading}
+            disabled={loadingReset}
           >
             <KeyRound className="mr-1.5 h-4 w-4" />
             Lupa Password?
@@ -98,8 +89,8 @@ export default function LoginPage() {
             <Button
               variant="link"
               className="text-primary hover:text-primary/80 p-0"
-              disabled={loading}
-              asChild 
+              disabled={loadingReset} 
+              asChild
             >
               <span> 
                 <UserPlus className="mr-1.5 h-4 w-4" />
@@ -107,11 +98,6 @@ export default function LoginPage() {
               </span>
             </Button>
           </Link>
-          {/* 
-            TODO: Halaman /register perlu dibuat.
-            Fungsionalitasnya akan melibatkan form input (nama, email, password, konfirmasi password, mungkin peran jika user bisa memilih),
-            validasi, pemanggilan createUserWithEmailAndPassword, dan createUserProfile.
-          */}
         </div>
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
@@ -121,12 +107,11 @@ export default function LoginPage() {
   );
 }
 
-// LoginForm component remains the same as provided in context
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorLoginForm, setErrorLoginForm] = useState<string | null>(null); // Renamed to avoid conflict
-  const [loadingLoginForm, setLoadingLoginForm] = useState(false); // Renamed to avoid conflict
+  const [errorLoginForm, setErrorLoginForm] = useState<string | null>(null);
+  const [loadingLoginForm, setLoadingLoginForm] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -220,4 +205,3 @@ function LoginForm() {
     </form>
   );
 }
-

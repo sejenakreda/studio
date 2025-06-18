@@ -210,7 +210,7 @@ const kkmSettingConverter: FirestoreDataConverter<KkmSetting> = {
 };
 
 const mataPelajaranMasterConverter: FirestoreDataConverter<MataPelajaranMaster> = {
-  toFirestore: (mapel: Omit<MataPelajaranMaster, 'id'>): DocumentData => {
+  toFirestore: (mapel: Omit<MataPelajaranMaster, 'id' | 'createdAt'> & { createdAt?: Timestamp }): DocumentData => {
     return {
       namaMapel: mapel.namaMapel,
       createdAt: mapel.createdAt || serverTimestamp(),
@@ -282,7 +282,7 @@ export const deleteStudent = async (id: string): Promise<void> => {
   const docRef = doc(db, 'siswa', id);
   const studentSnapshot = await getDoc(doc(db, 'siswa', id).withConverter(siswaConverter));
   if (!studentSnapshot.exists()) {
-    console.warn(`Siswa dengan ID (dokumen) ${id} tidak ditemukan untuk dihapus.`);
+    console.warn("Siswa dengan ID (dokumen) " + id + " tidak ditemukan untuk dihapus.");
     return; 
   }
   const studentData = studentSnapshot.data();
@@ -295,7 +295,7 @@ export const deleteStudent = async (id: string): Promise<void> => {
   const batch = writeBatch(db);
   gradesSnapshot.docs.forEach(nilaiDoc => batch.delete(nilaiDoc.ref));
   await batch.commit();
-  console.log(`Siswa dengan id_siswa ${studentSpecificId} dan nilai terkait telah dihapus.`);
+  console.log("Siswa dengan id_siswa " + studentSpecificId + " dan nilai terkait telah dihapus.");
 };
 
 // --- Nilai (Grade) Service ---
@@ -402,7 +402,7 @@ export const createUserProfile = async (firebaseUser: User, role: Role, displayN
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(docSnap);
+  const docSnap = await getDoc(userDocRef); // Corrected typo here
   return docSnap.exists() ? docSnap.data() : null;
 };
 
@@ -488,7 +488,7 @@ const KKM_SETTINGS_COLLECTION = 'kkm_settings';
 
 // Generates a composite ID for KKM settings to ensure uniqueness per mapel per TA
 const generateKkmDocId = (mapel: string, tahun_ajaran: string): string => {
-  return `${mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_')}_${tahun_ajaran.replace('/', '-')}`;
+  return "" + mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_') + "_" + tahun_ajaran.replace('/', '-');
 };
 
 export const getKkmSetting = async (mapel: string, tahun_ajaran: string): Promise<KkmSetting | null> => {
@@ -517,9 +517,9 @@ export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPel
   const q = query(collRef, where("namaMapel", "==", namaMapel));
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
-    throw new Error(`Mata pelajaran "${namaMapel}" sudah ada.`);
+    throw new Error("Mata pelajaran \"" + namaMapel + "\" sudah ada.");
   }
-  const docRef = await addDoc(collRef, { namaMapel, createdAt: serverTimestamp() });
+  const docRef = await addDoc(collRef, { namaMapel, createdAt: serverTimestamp() } as Omit<MataPelajaranMaster, 'id' | 'createdAt'> & { createdAt: Timestamp });
   return { id: docRef.id, namaMapel, createdAt: Timestamp.now() };
 };
 
@@ -534,6 +534,3 @@ export const deleteMataPelajaranMaster = async (id: string): Promise<void> => {
   const docRef = doc(db, MATA_PELAJARAN_MASTER_COLLECTION, id);
   await deleteDoc(docRef);
 };
-
-
-    

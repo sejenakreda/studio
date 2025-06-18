@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -70,6 +70,14 @@ export default function AdminDashboardPage() {
       bgColor: "bg-indigo-100 dark:bg-indigo-900/30", 
       href: "/admin/mapel" 
     },
+     { 
+      title: "Pengumuman", 
+      value: "Untuk Guru", 
+      icon: Megaphone, 
+      color: "text-cyan-500", 
+      bgColor: "bg-cyan-100 dark:bg-cyan-900/30", 
+      href: "/admin/announcements" 
+    },
     { 
       title: "Bobot Penilaian", 
       value: "Dikonfigurasi", 
@@ -101,7 +109,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Admin</h1>
-          <p className="text-muted-foreground">Ringkasan dan manajemen sistem SkorZen.</p>
+          <p className="text-muted-foreground">Ringkasan dan manajemen sistem SiAP Smapna.</p>
         </div>
          <Button onClick={fetchDashboardData} variant="outline" disabled={isLoadingStats || isLoadingLogs}>
           {(isLoadingStats || isLoadingLogs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -109,7 +117,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
           <Link 
             href={stat.href} 
@@ -181,6 +189,11 @@ export default function AdminDashboardPage() {
                 <ListChecks className="h-5 w-5" /> Kelola Mapel
               </Button>
             </Link>
+            <Link href="/admin/announcements">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <Megaphone className="h-5 w-5" /> Pengumuman
+              </Button>
+            </Link>
             <Link href="/admin/weights">
               <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
                 <Settings className="h-5 w-5" /> Atur Bobot
@@ -191,14 +204,14 @@ export default function AdminDashboardPage() {
                 <FileText className="h-5 w-5" /> Lihat Semua Nilai
               </Button>
             </Link>
-            <Link href="/admin/reports">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <BarChart3 className="h-5 w-5" /> Laporan Sistem
-              </Button>
-            </Link>
             <Link href="/admin/academic-years">
               <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
                 <CalendarCog className="h-5 w-5" /> Tahun Ajaran
+              </Button>
+            </Link>
+             <Link href="/admin/reports">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <BarChart3 className="h-5 w-5" /> Laporan Sistem
               </Button>
             </Link>
           </CardContent>
@@ -207,5 +220,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
     

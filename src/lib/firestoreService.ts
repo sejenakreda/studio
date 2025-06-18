@@ -21,7 +21,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman } from '@/types';
 import { User } from 'firebase/auth'; 
 import { getCurrentAcademicYear } from './utils';
 
@@ -229,6 +229,36 @@ const mataPelajaranMasterConverter: FirestoreDataConverter<MataPelajaranMaster> 
   }
 };
 
+const pengumumanConverter: FirestoreDataConverter<Pengumuman> = {
+  toFirestore: (pengumuman: Omit<Pengumuman, 'id'>): DocumentData => {
+    return {
+      judul: pengumuman.judul,
+      isi: pengumuman.isi,
+      prioritas: pengumuman.prioritas,
+      infoTambahan: pengumuman.infoTambahan || null,
+      createdAt: pengumuman.createdAt || serverTimestamp(),
+      createdByUid: pengumuman.createdByUid || null,
+      createdByDisplayName: pengumuman.createdByDisplayName || null,
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): Pengumuman => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      judul: data.judul,
+      isi: data.isi,
+      prioritas: data.prioritas,
+      infoTambahan: data.infoTambahan,
+      createdAt: data.createdAt,
+      createdByUid: data.createdByUid,
+      createdByDisplayName: data.createdByDisplayName,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -241,7 +271,9 @@ export const getWeights = async (): Promise<Bobot | null> => {
   }
   return { 
     tugas: 20, tes: 20, pts: 20, pas: 25, 
-    kehadiran: 5, eskul: 5, osis: 5, 
+    kehadiran: 15, // total 100
+    eskul: 5, // Max bonus points
+    osis: 5,  // Max bonus points
     totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90 
   }; 
 };
@@ -534,5 +566,40 @@ export const getMataPelajaranMaster = async (): Promise<MataPelajaranMaster[]> =
 
 export const deleteMataPelajaranMaster = async (id: string): Promise<void> => {
   const docRef = doc(db, MATA_PELAJARAN_MASTER_COLLECTION, id);
+  await deleteDoc(docRef);
+};
+
+// --- Pengumuman (Announcement) Service ---
+const PENGUMUMAN_COLLECTION = 'pengumuman';
+
+export const addPengumuman = async (
+  data: Omit<Pengumuman, 'id' | 'createdAt'>
+): Promise<Pengumuman> => {
+  const collRef = collection(db, PENGUMUMAN_COLLECTION).withConverter(pengumumanConverter);
+  const dataToSave = {
+    ...data,
+    createdAt: serverTimestamp() as Timestamp,
+  };
+  const docRef = await addDoc(collRef, dataToSave);
+  return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() }; // Return with ID and resolved timestamp
+};
+
+export const getPengumumanUntukGuru = async (count: number = 5): Promise<Pengumuman[]> => {
+  const collRef = collection(db, PENGUMUMAN_COLLECTION).withConverter(pengumumanConverter);
+  // Currently, all announcements are for gurus. Filter by role if needed in future.
+  const q = query(collRef, orderBy('createdAt', 'desc'), limit(count));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const getAllPengumuman = async (): Promise<Pengumuman[]> => {
+  const collRef = collection(db, PENGUMUMAN_COLLECTION).withConverter(pengumumanConverter);
+  const q = query(collRef, orderBy('createdAt', 'desc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const deletePengumuman = async (id: string): Promise<void> => {
+  const docRef = doc(db, PENGUMUMAN_COLLECTION, id);
   await deleteDoc(docRef);
 };

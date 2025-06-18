@@ -51,8 +51,8 @@ export interface Bobot {
   pts: number;
   pas: number;
   kehadiran: number; // Weight for the attendance component in final grade calculation
-  eskul: number;
-  osis: number;
+  eskul: number; // Max bonus points
+  osis: number;  // Max bonus points
   totalHariEfektifGanjil?: number;
   totalHariEfektifGenap?: number;
 }
@@ -90,4 +90,17 @@ export interface MataPelajaranMaster {
   id?: string; // Firestore document ID
   namaMapel: string;
   createdAt?: Timestamp;
+}
+
+export type PrioritasPengumuman = 'Tinggi' | 'Sedang' | 'Rendah';
+
+export interface Pengumuman {
+  id?: string; // Firestore document ID
+  judul: string;
+  isi: string;
+  prioritas: PrioritasPengumuman;
+  infoTambahan?: string; // e.g., "Semua Guru", "Wali Kelas XII", "Untuk Mapel Matematika"
+  createdAt: Timestamp;
+  createdByUid?: string;
+  createdByDisplayName?: string;
 }

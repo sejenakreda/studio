@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
@@ -28,7 +29,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="SiAP Smapna" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" /> {/* Anda perlu menyediakan ikon ini */}
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon (2).png" /> {/* Updated filename here */}
 
       </head>
       <body className="font-body antialiased">

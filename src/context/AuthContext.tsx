@@ -7,8 +7,7 @@ import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth
 import { doc, getDoc, Firestore } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile, Role } from '@/types';
-import { Skeleton } from '@/components/ui/skeleton';
-
+// Removed Skeleton import as it's no longer used directly here for full page skeleton
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -27,30 +26,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const processAuthState = async (fbUser: FirebaseUser | null) => {
-      setLoading(true); 
+      // Keep loading true until all async operations are done
+      // setLoading(true) was implicitly here, but let's be clear.
+      // The initial state of loading is true, so we only set it to false once resolved.
+
       if (fbUser) {
-        setUser(fbUser); 
+        setUser(fbUser);
         try {
           const userDocRef = doc(db as Firestore, 'users', fbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             setUserProfile(userDocSnap.data() as UserProfile);
-            setLoading(false); 
           } else {
-            console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} not found. User might exist in Auth but not in Firestore users collection. Logging out.`);
+            console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} not found. Logging out.`);
             setUserProfile(null);
-            await signOut(auth); 
+            await signOut(auth); // This will trigger onAuthStateChanged again with null
+            // setLoading(false) will be handled in the 'else' branch of the next onAuthStateChanged call
+            return; // Exit early as state will change again
           }
         } catch (error) {
           console.error("AuthContext: Error fetching user profile for UID " + fbUser.uid + ". Logging out.", error);
-          setUserProfile(null); 
-          await signOut(auth); 
+          setUserProfile(null);
+          await signOut(auth); // This will trigger onAuthStateChanged again with null
+          // setLoading(false) will be handled in the 'else' branch of the next onAuthStateChanged call
+          return; // Exit early as state will change again
         }
       } else {
         setUser(null);
         setUserProfile(null);
-        setLoading(false); 
       }
+      setLoading(false); // Set loading to false only after all processing for current auth state is done
     };
 
     const unsubscribe = onAuthStateChanged(auth, processAuthState);
@@ -69,22 +74,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isGuru,
   }), [user, userProfile, loading, isAdmin, isGuru]);
 
-  if (loading && typeof window !== 'undefined' && window.location.pathname !== '/login') {
-    // Show full page skeleton only if loading and not already on login page (to avoid skeleton flash on login)
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
-        <div className="w-full max-w-md space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-32 w-full" />
-           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary mx-auto my-8"></div>
-          <p className="text-center text-lg font-semibold text-foreground">Memuat SkorZen...</p>
-        </div>
-      </div>
-    );
-  }
-
-
+  // Removed the conditional skeleton rendering logic from here.
+  // Components consuming this context (like ProtectedLayout or HomePage)
+  // are responsible for showing their own loading UI based on the 'loading' state.
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
@@ -95,4 +87,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

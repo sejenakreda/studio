@@ -63,7 +63,7 @@ export default function RekapNilaiPage() {
   const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
-  const [mapelFilter, setMapelFilter] = useState<string>(""); // Initialized to empty string
+  const [mapelFilter, setMapelFilter] = useState<string>(""); 
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
@@ -88,7 +88,6 @@ export default function RekapNilaiPage() {
         setAcademicYearFilter(""); 
         toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Silakan hubungi Admin."});
       }
-      // Do NOT set mapelFilter here initially. Let user choose.
       
       if (!Array.isArray(grades)) throw new Error("Gagal memuat data nilai. Format tidak sesuai.");
       if (!Array.isArray(students)) throw new Error("Gagal memuat data siswa. Format tidak sesuai.");
@@ -113,7 +112,7 @@ export default function RekapNilaiPage() {
         const kkm = newKkmSettingsMap.get(kkmKey) || 70;
 
         const coreAcademicComponents = [
-          ...(grade.tugas || []).slice(0,5).map(t => t || 0), // Consider up to 5 tasks
+          ...(grade.tugas || [0,0,0,0,0]).slice(0,5).map(t => t || 0), 
           grade.tes || 0,
           grade.pts || 0,
           grade.pas || 0,
@@ -233,20 +232,48 @@ export default function RekapNilaiPage() {
       toast({ variant: "default", title: "Tidak Ada Data", description: "Tidak ada data rekap nilai yang sesuai untuk diunduh." });
       return;
     }
-    const dataForExcel = filteredAndSortedGrades.map(grade => ({
-      'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
-      'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
-      'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
-      'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
-      'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
-      'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
-      'PAS': parseFloat(grade.pas?.toFixed(2) || '0.00'),
-      'Kehadiran (%)': parseFloat(grade.kehadiran?.toFixed(2) || '0.00'),
-      'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
-      'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
-      'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
-      'Status Tuntas': grade.isTuntas ? 'Tuntas' : 'Belum Tuntas',
-    }));
+    const dataForExcel = filteredAndSortedGrades.map(grade => {
+      let keterangan = "";
+      if (grade.isTuntas) {
+        keterangan = "Semua nilai tuntas.";
+      } else {
+        const kkm = grade.kkmValue || 70;
+        const messages: string[] = [];
+        const tugasScores = grade.tugas || [0,0,0,0,0]; 
+        for (let i = 0; i < 5; i++) {
+          if ((tugasScores[i] || 0) < kkm) {
+            messages.push(`Tgs${i + 1}: ${tugasScores[i] || 0}`);
+          }
+        }
+        if ((grade.tes || 0) < kkm) messages.push(`Tes: ${grade.tes || 0}`);
+        if ((grade.pts || 0) < kkm) messages.push(`PTS: ${grade.pts || 0}`);
+        if ((grade.pas || 0) < kkm) messages.push(`PAS: ${grade.pas || 0}`);
+
+        if (messages.length > 0) {
+          keterangan = `Blm Tuntas (KKM ${kkm}) - ${messages.join(', ')}.`;
+        } else if ((grade.nilai_akhir || 0) < kkm) {
+          keterangan = `Nilai Akhir (${(grade.nilai_akhir || 0).toFixed(2)}) di bawah KKM (${kkm}).`;
+        } else {
+          keterangan = "Belum tuntas (periksa detail nilai).";
+        }
+      }
+
+      return {
+        'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
+        'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
+        'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
+        'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
+        'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
+        'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
+        'PAS': parseFloat(grade.pas?.toFixed(2) || '0.00'),
+        'Kehadiran (%)': parseFloat(grade.kehadiran?.toFixed(2) || '0.00'),
+        'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
+        'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
+        'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
+        'Status Tuntas': grade.isTuntas ? 'Tuntas' : 'Belum Tuntas',
+        'Keterangan': keterangan,
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
@@ -270,16 +297,16 @@ export default function RekapNilaiPage() {
     }
 
     if (sheetName.trim().length < 1) {
-        sheetName = "RekapNilai"; // Fallback
+        sheetName = "RekapNilai"; 
     }
-    sheetName = sheetName.substring(0, 31); // Final length check
+    sheetName = sheetName.substring(0, 31); 
 
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     
     const wscols = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, 
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
-      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15} 
+      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15}, { wch: 40 } 
     ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, `rekap_nilai_${safeTa}_smt${safeSmt}_${safeMapel}.xlsx`);

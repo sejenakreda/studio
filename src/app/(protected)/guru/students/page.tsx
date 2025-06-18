@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight, FileText, Download, FileUp } from "lucide-react";
 import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,13 @@ const studentSchema = z.object({
 
 type StudentFormData = z.infer<typeof studentSchema>;
 
+interface StudentImportData {
+  nama: string;
+  nis: string;
+  kelas: string;
+  id_siswa: string;
+}
+
 const ITEMS_PER_PAGE = 15;
 
 export default function ManageStudentsPage() {
@@ -52,6 +59,10 @@ export default function ManageStudentsPage() {
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -112,17 +123,17 @@ export default function ManageStudentsPage() {
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     try {
-      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); 
+      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa); 
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
-        toast({ variant: "destructive", title: "Error", description: "ID Siswa ini sudah digunakan." });
+        toast({ variant: "destructive", title: "Error Validasi", description: "ID Siswa ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
-      const existingStudentByNis = allStudents.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); 
+      const existingStudentByNis = allStudents.find(s => s.nis === data.nis); 
       if (existingStudentByNis) {
         form.setError("nis", { type: "manual", message: "NIS ini sudah digunakan." });
-        toast({ variant: "destructive", title: "Error", description: "NIS ini sudah digunakan." });
+        toast({ variant: "destructive", title: "Error Validasi", description: "NIS ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
@@ -191,6 +202,128 @@ export default function ManageStudentsPage() {
     toast({ title: "Data Diekspor", description: "Data siswa telah diekspor ke Excel." });
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const handleImportStudents = async () => {
+    if (!selectedFile) {
+      toast({ variant: "destructive", title: "Tidak Ada File", description: "Silakan pilih file Excel terlebih dahulu." });
+      return;
+    }
+    setIsImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<StudentImportData>(worksheet);
+
+        if (json.length === 0) {
+          toast({ variant: "destructive", title: "File Kosong", description: "File Excel tidak mengandung data siswa." });
+          setIsImporting(false);
+          return;
+        }
+
+        const firstRow = json[0];
+        if (!firstRow || !('nama' in firstRow) || !('nis' in firstRow) || !('kelas' in firstRow) || !('id_siswa' in firstRow)) {
+          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai. Harap gunakan template (nama, nis, kelas, id_siswa)." });
+          setIsImporting(false);
+          return;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+        const errorMessages: string[] = [];
+        
+        // Fetch current students again to ensure `allStudents` is up-to-date for duplicate checks
+        // This could be optimized if we are sure allStudents is always fresh.
+        const currentStudentList = await getStudents(); 
+
+        for (const student of json) {
+          if (!student.nama || !student.nis || !student.kelas || !student.id_siswa) {
+            failCount++;
+            errorMessages.push(`Baris tidak lengkap untuk NIS: ${student.nis || 'NIS tidak ada'}. Dilewati.`);
+            continue;
+          }
+
+          const nisRegex = /^[0-9]+$/;
+          if (student.nis.length < 5 || !nisRegex.test(student.nis)) {
+            failCount++;
+            errorMessages.push(`Format NIS salah atau kurang dari 5 karakter untuk: ${student.nis}. Dilewati.`);
+            continue;
+          }
+
+          const idSiswaRegex = /^[a-zA-Z0-9_.-]+$/;
+          if (student.id_siswa.length < 3 || !idSiswaRegex.test(student.id_siswa)) {
+            failCount++;
+            errorMessages.push(`Format ID Siswa salah atau kurang dari 3 karakter untuk: ${student.id_siswa}. Dilewati.`);
+            continue;
+          }
+
+          const existingStudentById = currentStudentList.find(s => s.id_siswa === student.id_siswa);
+          if (existingStudentById) {
+            failCount++;
+            errorMessages.push(`ID Siswa ${student.id_siswa} sudah digunakan. Dilewati.`);
+            continue;
+          }
+          const existingStudentByNis = currentStudentList.find(s => s.nis === student.nis);
+          if (existingStudentByNis) {
+            failCount++;
+            errorMessages.push(`NIS ${student.nis} sudah digunakan. Dilewati.`);
+            continue;
+          }
+
+          try {
+            await addStudent({
+              nama: student.nama,
+              nis: student.nis,
+              kelas: student.kelas,
+              id_siswa: student.id_siswa,
+            });
+            successCount++;
+          } catch (error: any) {
+            failCount++;
+            errorMessages.push(`Gagal impor ${student.nama} (NIS: ${student.nis}): ${error.message}. Dilewati.`);
+          }
+        }
+
+        toast({
+          title: "Proses Impor Siswa Selesai",
+          description: `${successCount} siswa berhasil diimpor. ${failCount} siswa gagal diimpor. ${failCount > 0 ? 'Lihat konsol untuk detail error.' : ''}`,
+          duration: failCount > 0 ? 10000 : 5000,
+        });
+
+        if (errorMessages.length > 0) {
+          console.warn("Detail error impor siswa:", errorMessages.join("\n"));
+        }
+        
+        fetchStudents(); // Refresh student list in table
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+
+      } catch (error) {
+        console.error("Error processing Excel file for students:", error);
+        toast({ variant: "destructive", title: "Error Baca File", description: "Gagal memproses file Excel siswa." });
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.onerror = () => {
+      toast({ variant: "destructive", title: "Error Baca File", description: "Tidak dapat membaca file yang dipilih." });
+      setIsImporting(false);
+    };
+    reader.readAsBinaryString(selectedFile);
+  };
 
   return (
     <div className="space-y-6">
@@ -203,15 +336,15 @@ export default function ManageStudentsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Data Siswa</h1>
           <p className="text-muted-foreground">
-            Tambah, lihat, edit atau hapus data siswa yang terdaftar.
+            Tambah, impor, lihat, edit atau hapus data siswa yang terdaftar.
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tambah Siswa Baru</CardTitle>
-          <CardDescription>Masukkan detail siswa untuk mendaftarkannya.</CardDescription>
+          <CardTitle>Tambah Siswa Baru (Manual)</CardTitle>
+          <CardDescription>Masukkan detail siswa untuk mendaftarkannya satu per satu.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -287,6 +420,32 @@ export default function ManageStudentsPage() {
             </CardFooter>
           </form>
         </Form>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Impor Siswa dari Excel</CardTitle>
+          <CardDescription>Impor banyak data siswa sekaligus menggunakan file Excel. Gunakan template yang disediakan.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <Input
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleFileChange}
+              ref={fileInputRef}
+              className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+            <Button onClick={handleImportStudents} disabled={isImporting || !selectedFile} className="w-full sm:w-auto">
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              {isImporting ? 'Mengimpor...' : 'Impor Siswa'}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">nama</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">nis</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">kelas</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">id_siswa</code>.
+            Data yang sudah ada (berdasarkan NIS atau ID Siswa) akan dilewati.
+          </p>
+        </CardContent>
       </Card>
 
       <Card>
@@ -406,10 +565,10 @@ export default function ManageStudentsPage() {
                             size="icon" 
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDeleteConfirmation(student)}
-                            disabled={isDeleting}
+                            disabled={isDeleting && studentToDelete?.id === student.id}
                             title="Hapus Siswa"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {isDeleting && studentToDelete?.id === student.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                             <span className="sr-only">Hapus</span>
                           </Button>
                         </TableCell> 

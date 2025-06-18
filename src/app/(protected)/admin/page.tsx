@@ -1,17 +1,80 @@
 
 "use client";
 
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, ShieldAlert } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, ShieldAlert, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { getAllUsersByRole, getStudents } from '@/lib/firestoreService';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminDashboardPage() {
+  const { toast } = useToast();
+  const [teacherCount, setTeacherCount] = useState<number | null>(null);
+  const [studentCount, setStudentCount] = useState<number | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  const fetchDashboardStats = useCallback(async () => {
+    setIsLoadingStats(true);
+    try {
+      const [guruUsers, studentList] = await Promise.all([
+        getAllUsersByRole('guru'),
+        getStudents()
+      ]);
+      setTeacherCount(guruUsers?.length || 0);
+      setStudentCount(studentList?.length || 0);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      toast({
+        variant: "destructive",
+        title: "Error Memuat Statistik",
+        description: "Gagal mengambil data statistik untuk dasbor.",
+      });
+      setTeacherCount(0); // Fallback on error
+      setStudentCount(0); // Fallback on error
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [fetchDashboardStats]);
+
   const stats = [
-    { title: "Total Guru", value: "12", icon: Users, color: "text-blue-500", bgColor: "bg-blue-100", href: "/admin/teachers" },
-    { title: "Bobot Penilaian", value: "Dikonfigurasi", icon: Settings, color: "text-green-500", bgColor: "bg-green-100", href: "/admin/weights" },
-    { title: "Total Siswa (Global)", value: "350", icon: FileText, color: "text-purple-500", bgColor: "bg-purple-100", href: "/admin/grades" },
-    { title: "Aktivitas Terbaru", value: "Update Bobot", icon: ShieldAlert, color: "text-yellow-500", bgColor: "bg-yellow-100", href: "#" },
+    { 
+      title: "Total Guru", 
+      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (teacherCount !== null ? teacherCount.toString() : "N/A"), 
+      icon: Users, 
+      color: "text-blue-500", 
+      bgColor: "bg-blue-100", 
+      href: "/admin/teachers" 
+    },
+    { 
+      title: "Bobot Penilaian", 
+      value: "Dikonfigurasi", 
+      icon: Settings, 
+      color: "text-green-500", 
+      bgColor: "bg-green-100", 
+      href: "/admin/weights" 
+    },
+    { 
+      title: "Total Siswa (Global)", 
+      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
+      icon: FileText, 
+      color: "text-purple-500", 
+      bgColor: "bg-purple-100", 
+      href: "/admin/grades" 
+    },
+    { 
+      title: "Aktivitas Terbaru", 
+      value: "Update Bobot", // This can be made dynamic later
+      icon: ShieldAlert, 
+      color: "text-yellow-500", 
+      bgColor: "bg-yellow-100", 
+      href: "#" 
+    },
   ];
 
   return (
@@ -21,7 +84,6 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Admin</h1>
           <p className="text-muted-foreground">Ringkasan dan manajemen sistem SkorZen.</p>
         </div>
-        {/* Optional: Add a primary action button here, e.g., "Tambah Guru Baru" */}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

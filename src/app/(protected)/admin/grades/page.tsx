@@ -3,12 +3,12 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label"; // Added import for Label
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { getAllGrades, getStudents } from '@/lib/firestoreService';
 import { calculateAverage, getAcademicYears, SEMESTERS } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
@@ -31,6 +31,7 @@ interface SortConfig {
 }
 
 const ACADEMIC_YEARS_FILTER = getAcademicYears();
+const ITEMS_PER_PAGE = 15;
 
 export default function ManageAllGradesPage() {
   const { toast } = useToast();
@@ -42,7 +43,8 @@ export default function ManageAllGradesPage() {
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
-  const [semesterFilter, setSemesterFilter] = useState<string>("all"); // "all", "1", "2"
+  const [semesterFilter, setSemesterFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -98,6 +100,11 @@ export default function ManageAllGradesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [classFilter, academicYearFilter, semesterFilter, sortConfig]);
+
 
   const requestSort = (key: SortConfig['key']) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -159,6 +166,15 @@ export default function ManageAllGradesPage() {
     }
     return items;
   }, [allGradesData, sortConfig, classFilter, academicYearFilter, semesterFilter]);
+  
+  const totalPages = Math.ceil(filteredAndSortedGrades.length / ITEMS_PER_PAGE);
+
+  const paginatedGrades = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredAndSortedGrades.slice(startIndex, endIndex);
+  }, [filteredAndSortedGrades, currentPage]);
+
 
   const getSortIcon = (key: SortConfig['key']) => {
     if (sortConfig.key !== key) {
@@ -185,7 +201,7 @@ export default function ManageAllGradesPage() {
 
 
   const memoizedTableRows = useMemo(() => {
-    return filteredAndSortedGrades.map((grade) => (
+    return paginatedGrades.map((grade) => (
       <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}`}>
         <TableCell className="font-medium">{grade.namaSiswa}</TableCell>
         <TableCell>{grade.nisSiswa}</TableCell>
@@ -202,7 +218,7 @@ export default function ManageAllGradesPage() {
         <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
       </TableRow>
     ));
-  }, [filteredAndSortedGrades]);
+  }, [paginatedGrades]);
 
 
   return (
@@ -319,30 +335,59 @@ export default function ManageAllGradesPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {tableHeaders.map(header => (
-                      <TableHead 
-                        key={header.key} 
-                        onClick={() => header.key && requestSort(header.key)}
-                        className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`}
-                        title={`Urutkan berdasarkan ${header.label}`}
-                      >
-                        <div className="flex items-center">
-                          {header.label}
-                          {header.key ? getSortIcon(header.key) : null}
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {memoizedTableRows}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {tableHeaders.map(header => (
+                        <TableHead 
+                          key={header.key} 
+                          onClick={() => header.key && requestSort(header.key)}
+                          className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`}
+                          title={`Urutkan berdasarkan ${header.label}`}
+                        >
+                          <div className="flex items-center">
+                            {header.label}
+                            {header.key ? getSortIcon(header.key) : null}
+                          </div>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {memoizedTableRows}
+                  </TableBody>
+                </Table>
+              </div>
+              {totalPages > 1 && (
+                <CardFooter className="flex items-center justify-between border-t pt-4 mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Halaman {currentPage} dari {totalPages}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Sebelumnya
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Berikutnya
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

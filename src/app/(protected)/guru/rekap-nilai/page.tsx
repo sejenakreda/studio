@@ -112,12 +112,38 @@ export default function RekapNilaiPage() {
         const kkm = newKkmSettingsMap.get(kkmKey) || 70;
 
         const coreAcademicComponents = [
-          ...(grade.tugas || [0,0,0,0,0]).slice(0,5).map(t => t || 0), 
+          ...(grade.tugas || []).map(t => t || 0), // Iterate through all tasks
           grade.tes || 0,
           grade.pts || 0,
           grade.pas || 0,
         ];
-        const allCoreComponentsTuntas = coreAcademicComponents.every(score => score >= kkm);
+        // Ensure there's at least one task score to check if tugas array is empty,
+        // or if policy requires at least one task score to be present.
+        // For now, if 'tugas' is empty, it won't fail the 'allCoreComponentsTuntas' unless specific logic is added.
+        // Let's assume an empty tugas array means no tasks were assigned or it's an error state if tasks are mandatory.
+        // For robustness, if tugas array is empty, let's consider it NOT tuntas if KKM > 0 for tasks.
+        // Or, more simply, if tugas array is empty, it's like no tasks were submitted or all got 0.
+        // The current logic of `every(score => score >= kkm)` on an empty array returns true, which might be an issue.
+        let allTasksTuntas = true;
+        if (grade.tugas && grade.tugas.length > 0) {
+            allTasksTuntas = (grade.tugas || []).every(score => (score || 0) >= kkm);
+        } else {
+            // If no tasks, consider it tuntas for tasks component IF kkm is 0, else not.
+            // Or, if tasks are mandatory, this case should lead to 'Belum Tuntas'.
+            // For now, if no tasks, it doesn't make 'allCoreComponentsTuntas' false directly
+            // unless we explicitly handle empty 'grade.tugas'.
+            // Let's refine: if grade.tugas is empty and the weight for tugas > 0, it should be handled.
+            // For simplicity now: if tasks are defined, all must be >= KKM.
+            // If tasks are not defined (empty array), this part of check is "passed" for now.
+        }
+
+
+        const allCoreComponentsTuntas = 
+          allTasksTuntas &&
+          (grade.tes || 0) >= kkm &&
+          (grade.pts || 0) >= kkm &&
+          (grade.pas || 0) >= kkm;
+
         const finalGradeTuntas = (grade.nilai_akhir || 0) >= kkm;
         const effectiveTuntasStatus = finalGradeTuntas && allCoreComponentsTuntas;
 
@@ -144,7 +170,7 @@ export default function RekapNilaiPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast]); // Removed studentsMap, kkmSettingsMap from dependencies as they are set within this effect
 
   useEffect(() => {
     fetchData();
@@ -239,12 +265,11 @@ export default function RekapNilaiPage() {
       } else {
         const kkm = grade.kkmValue || 70;
         const messages: string[] = [];
-        const tugasScores = grade.tugas || [0,0,0,0,0]; 
-        for (let i = 0; i < 5; i++) {
-          if ((tugasScores[i] || 0) < kkm) {
-            messages.push(`Tgs${i + 1}: ${tugasScores[i] || 0}`);
+        (grade.tugas || []).forEach((tugasScore, index) => {
+          if ((tugasScore || 0) < kkm) {
+            messages.push(`Tgs Ke-${index + 1}: ${tugasScore || 0}`);
           }
-        }
+        });
         if ((grade.tes || 0) < kkm) messages.push(`Tes: ${grade.tes || 0}`);
         if ((grade.pts || 0) < kkm) messages.push(`PTS: ${grade.pts || 0}`);
         if ((grade.pas || 0) < kkm) messages.push(`PAS: ${grade.pas || 0}`);
@@ -254,25 +279,41 @@ export default function RekapNilaiPage() {
         } else if ((grade.nilai_akhir || 0) < kkm) {
           keterangan = `Nilai Akhir (${(grade.nilai_akhir || 0).toFixed(2)}) di bawah KKM (${kkm}).`;
         } else {
-          keterangan = "Belum tuntas (periksa detail nilai).";
+          // This case implies all components >= KKM but final grade still makes it 'Belum Tuntas' (rare if logic correct)
+          // Or, more likely, isTuntas was false due to finalGrade < KKM but all components were >= KKM (also rare)
+          keterangan = "Belum tuntas (periksa detail nilai, mungkin nilai akhir di bawah KKM meskipun komponen tuntas).";
         }
       }
 
-      return {
+      const excelRow: any = {
         'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
         'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
         'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
         'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
-        'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
-        'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
-        'PAS': parseFloat(grade.pas?.toFixed(2) || '0.00'),
-        'Kehadiran (%)': parseFloat(grade.kehadiran?.toFixed(2) || '0.00'),
-        'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
-        'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
-        'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
-        'Status Tuntas': grade.isTuntas ? 'Tuntas' : 'Belum Tuntas',
-        'Keterangan': keterangan,
       };
+      
+      // Add individual task scores
+      (grade.tugas || []).forEach((tScore, index) => {
+        excelRow[`Tugas ${index + 1}`] = parseFloat((tScore || 0).toFixed(2));
+      });
+      // Pad with empty if less than 5 tasks for consistent columns, or adjust based on max tasks
+      const maxTugasDisplay = Math.max(5, (grade.tugas || []).length);
+      for (let i = (grade.tugas || []).length; i < maxTugasDisplay; i++) {
+         if (!excelRow.hasOwnProperty(`Tugas ${i + 1}`)) excelRow[`Tugas ${i + 1}`] = '';
+      }
+
+
+      excelRow['Tes'] = parseFloat(grade.tes?.toFixed(2) || '0.00');
+      excelRow['PTS'] = parseFloat(grade.pts?.toFixed(2) || '0.00');
+      excelRow['PAS'] = parseFloat(grade.pas?.toFixed(2) || '0.00');
+      excelRow['Kehadiran (%)'] = parseFloat(grade.kehadiran?.toFixed(2) || '0.00');
+      excelRow['Eskul'] = parseFloat(grade.eskul?.toFixed(2) || '0.00');
+      excelRow['OSIS'] = parseFloat(grade.osis?.toFixed(2) || '0.00');
+      excelRow['Nilai Akhir'] = parseFloat((grade.nilai_akhir || 0).toFixed(2));
+      excelRow['Status Tuntas'] = grade.isTuntas ? 'Tuntas' : 'Belum Tuntas';
+      excelRow['Keterangan'] = keterangan;
+      
+      return excelRow;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -303,12 +344,23 @@ export default function RekapNilaiPage() {
 
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     
-    const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, 
-      { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
+    // Dynamically adjust column widths
+    const baseWscols = [
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, {wch: 10} // KKM, Avg.Tugas
+    ];
+    const maxTugasCountInExport = dataForExcel.reduce((max, row) => {
+        let count = 0;
+        for (const key in row) if (key.startsWith("Tugas ")) count++;
+        return Math.max(max, count);
+    }, 0);
+    const tugasWscols = Array(maxTugasCountInExport).fill({ wch: 8 });
+
+    const remainingWscols = [
+      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
       { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15}, { wch: 40 } 
     ];
-    worksheet['!cols'] = wscols;
+    worksheet['!cols'] = [...baseWscols, ...tugasWscols, ...remainingWscols];
+
     XLSX.writeFile(workbook, `rekap_nilai_${safeTa}_smt${safeSmt}_${safeMapel}.xlsx`);
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap nilai sedang disiapkan." });
   };
@@ -531,3 +583,5 @@ export default function RekapNilaiPage() {
   );
 }
 
+
+    

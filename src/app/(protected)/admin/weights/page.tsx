@@ -24,18 +24,21 @@ const weightsSchema = z.object({
   pts: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
   pas: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
   kehadiran: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
-  eskul: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"), // Represents max bonus points
-  osis: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),   // Represents max bonus points
+  // Eskul & OSIS are now max bonus points, not part of the 100% sum for academic weights
+  eskul: z.coerce.number().min(0, "Min 0").max(100, "Maks 100").optional().default(0),
+  osis: z.coerce.number().min(0, "Min 0").max(100, "Maks 100").optional().default(0),
   totalHariEfektifGanjil: z.coerce.number().min(1, "Minimal 1 hari").max(200, "Maksimal 200 hari").optional().default(90),
   totalHariEfektifGenap: z.coerce.number().min(1, "Minimal 1 hari").max(200, "Maksimal 200 hari").optional().default(90),
 }).refine(
   (data) => {
     const { tugas, tes, pts, pas, kehadiran } = data;
+    // Only sum academic components for the 100% check
     const totalAcademicWeights = (tugas || 0) + (tes || 0) + (pts || 0) + (pas || 0) + (kehadiran || 0);
     return totalAcademicWeights === 100;
   },
   {
-    message: "Total bobot dari komponen akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus 100%.",
+    message: "Total bobot dari komponen penilaian akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus 100%.",
+    // Path can point to a relevant field or a general form error
     path: ["tugas"], 
   }
 );
@@ -43,13 +46,13 @@ const weightsSchema = z.object({
 type WeightsFormData = z.infer<typeof weightsSchema>;
 
 const defaultWeights: WeightsFormData = {
-  tugas: 20, // Example default, sum to 100 for academic
+  tugas: 20, 
   tes: 20,
   pts: 20,
   pas: 25,
-  kehadiran: 15,
-  eskul: 5, // Default max bonus
-  osis: 5,  // Default max bonus
+  kehadiran: 15, // These 5 sum to 100
+  eskul: 5, // Default max bonus points
+  osis: 5,  // Default max bonus points
   totalHariEfektifGanjil: 90,
   totalHariEfektifGenap: 90,
 };
@@ -88,8 +91,8 @@ export default function ManageWeightsPage() {
             pts: currentWeights.pts || 0,
             pas: currentWeights.pas || 0,
             kehadiran: currentWeights.kehadiran || 0,
-            eskul: currentWeights.eskul || 0,
-            osis: currentWeights.osis || 0,
+            eskul: currentWeights.eskul || 0, // This is max bonus points
+            osis: currentWeights.osis || 0,   // This is max bonus points
             totalHariEfektifGanjil: currentWeights.totalHariEfektifGanjil || 90,
             totalHariEfektifGenap: currentWeights.totalHariEfektifGenap || 90,
           };
@@ -112,7 +115,7 @@ export default function ManageWeightsPage() {
   const onSubmit = async (data: WeightsFormData) => {
     setIsSubmitting(true);
     setFormError(null);
-    form.clearErrors("root");
+    form.clearErrors("root"); // Clear previous root errors
 
     const { tugas, tes, pts, pas, kehadiran } = data;
     const currentTotalAcademicPercentage = (tugas || 0) + (tes || 0) + (pts || 0) + (pas || 0) + (kehadiran || 0);
@@ -132,7 +135,7 @@ export default function ManageWeightsPage() {
       if (userProfile) {
         await addActivityLog(
             "Konfigurasi Bobot Diperbarui", 
-            `Bobot Akd: Tgs(${data.tugas}),Tes(${data.tes}),PTS(${data.pts}),PAS(${data.pas}),Keh(${data.kehadiran}). Bonus: Eskul(${data.eskul}),Osis(${data.osis}). HrGjl(${data.totalHariEfektifGanjil}),HrGnp(${data.totalHariEfektifGenap}).`,
+            `Bobot Akd: Tgs(${data.tugas}),Tes(${data.tes}),PTS(${data.pts}),PAS(${data.pas}),Keh(${data.kehadiran}). Poin Bonus Maks: Eskul(${data.eskul}),Osis(${data.osis}). HrGjl(${data.totalHariEfektifGanjil}),HrGnp(${data.totalHariEfektifGenap}).`,
             userProfile.uid,
             userProfile.displayName || userProfile.email || "Admin"
           );
@@ -154,9 +157,10 @@ export default function ManageWeightsPage() {
     { name: "kehadiran", label: "Kehadiran (Bobot Komponen) (%)" },
   ];
   
-  const bonusWeightFields: { name: keyof Pick<WeightsFormData, 'eskul' | 'osis'>; label: string }[] = [
-    { name: "eskul", label: "Ekstrakurikuler (Poin Bonus Maks.)" },
-    { name: "osis", label: "OSIS / Kegiatan (Poin Bonus Maks.)" },
+  // Changed labels for clarity
+  const bonusPointFields: { name: keyof Pick<WeightsFormData, 'eskul' | 'osis'>; label: string }[] = [
+    { name: "eskul", label: "Poin Bonus Maks. Ekstrakurikuler" },
+    { name: "osis", label: "Poin Bonus Maks. OSIS/Kegiatan" },
   ];
 
 
@@ -176,13 +180,13 @@ export default function ManageWeightsPage() {
             <Skeleton className="h-4 w-72 rounded-md" />
           </CardHeader>
           <CardContent className="space-y-4">
-            {[...Array(9)].map((_, i) => (
+            {[...Array(7)].map((_, i) => ( // Reduced array size as Eskul & OSIS are separate
               <div key={i} className="space-y-2">
                 <Skeleton className="h-5 w-32 rounded-md" />
                 <Skeleton className="h-10 w-full rounded-md" />
               </div>
             ))}
-            <Skeleton className="h-6 w-40 mt-4 rounded-md" />
+            <Skeleton className="h-6 w-40 mt-4 rounded-md" /> 
           </CardContent>
           <CardFooter>
             <Skeleton className="h-10 w-28 rounded-md" />
@@ -201,7 +205,7 @@ export default function ManageWeightsPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Atur Bobot & Hari Efektif</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Atur Bobot &amp; Hari Efektif</h1>
           <p className="text-muted-foreground">
             Sesuaikan persentase bobot penilaian akademik, poin bonus, dan total hari efektif per semester.
           </p>
@@ -214,14 +218,15 @@ export default function ManageWeightsPage() {
             <CardHeader>
               <CardTitle>Konfigurasi Global</CardTitle>
               <CardDescription>
-                Total bobot komponen akademik harus 100%. Bobot Eskul & OSIS adalah poin bonus maksimal.
+                Total bobot komponen akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus 100%. 
+                Nilai untuk Eskul &amp; OSIS adalah poin bonus maksimal yang dapat ditambahkan.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
               {formError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
+                  <AlertTitle>Error Menyimpan</AlertTitle>
                   <AlertDescription>{formError}</AlertDescription>
                 </Alert>
               )}
@@ -232,6 +237,7 @@ export default function ManageWeightsPage() {
                   <AlertDescription>{form.formState.errors.root.serverError.message}</AlertDescription>
                 </Alert>
               )}
+              {/* Check for other root errors that aren't serverError (like refine failing) */}
               {form.formState.errors.root && !form.formState.errors.root.serverError && (
                  <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -246,7 +252,7 @@ export default function ManageWeightsPage() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>Informasi Bobot Akademik</AlertTitle>
                   <AlertDescription>
-                    Total bobot dari komponen akademik (Tugas, Tes, PTS, PAS, Kehadiran) harus mencapai 100%.
+                    Total bobot dari 5 komponen akademik ini (Tugas, Tes, PTS, PAS, Kehadiran) harus mencapai 100%.
                     Ini akan menjadi dasar perhitungan nilai akademik siswa sebelum ditambahkan poin bonus.
                   </AlertDescription>
                 </Alert>
@@ -284,13 +290,13 @@ export default function ManageWeightsPage() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>Informasi Poin Bonus</AlertTitle>
                   <AlertDescription>
-                    Bobot untuk Ekstrakurikuler dan OSIS/Kegiatan di sini menentukan **poin bonus maksimal** yang dapat ditambahkan ke nilai akhir siswa.
-                    Contoh: Jika Eskul diberi bobot 5, dan siswa mendapat nilai 80 untuk Eskul, maka siswa akan mendapat tambahan `(80/100) * 5 = 4` poin.
+                    Nilai yang dimasukkan untuk Ekstrakurikuler dan OSIS/Kegiatan di sini adalah **poin bonus maksimal** yang dapat ditambahkan ke nilai akhir akademik siswa.
+                    Contoh: Jika "Poin Bonus Maks. Eskul" diatur ke 5, dan siswa mendapat nilai 80 untuk Eskul di form input nilai guru, maka siswa akan mendapat tambahan `(80/100) * 5 = 4` poin pada nilai akhirnya.
                     Jika diatur ke 0, komponen tersebut tidak akan memberi bonus. Nilai akhir total tidak akan melebihi 100.
                   </AlertDescription>
                 </Alert>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {bonusWeightFields.map((fieldInfo) => (
+                  {bonusPointFields.map((fieldInfo) => (
                     <FormField
                       key={fieldInfo.name}
                       control={form.control}
@@ -299,8 +305,9 @@ export default function ManageWeightsPage() {
                         <FormItem>
                           <FormLabel>{fieldInfo.label}</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="0-100" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                            <Input type="number" placeholder="cth: 5" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                           </FormControl>
+                          <FormDescription>Masukkan angka antara 0-100.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

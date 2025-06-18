@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { href: "/admin/teachers", label: "Kelola Guru", icon: Users, roles: ['admin'] },
   { href: "/admin/weights", label: "Atur Bobot", icon: Settings, roles: ['admin'] },
   { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
+  { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'] },
   { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },

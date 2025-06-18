@@ -178,9 +178,11 @@ export default function AdminDashboardPage() {
                 <FileText className="h-5 w-5" /> Lihat Semua Nilai
               </Button>
             </Link>
-            <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground" disabled>
-              <ShieldAlert className="h-5 w-5" /> Laporan Sistem
-            </Button>
+            <Link href="/admin/reports">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <BarChart3 className="h-5 w-5" /> Laporan Sistem
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

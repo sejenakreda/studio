@@ -53,6 +53,15 @@ export interface Bobot {
   totalHariEfektifGenap?: number;
 }
 
+export interface ActivityLog {
+  id?: string; // Firestore document ID
+  timestamp: Timestamp;
+  action: string; // e.g., "Bobot diperbarui", "Guru ditambahkan"
+  details?: string; // e.g., "Bobot Tugas menjadi 25%" or "Guru: Budi S."
+  userId?: string; // UID of the admin performing the action
+  userName?: string; // Display name of the admin
+}
+
 export type StudentTableEntry = Siswa & {
   [key: string]: any; // For dynamic grade columns if needed
   nilai_akhir_semester_1?: number;

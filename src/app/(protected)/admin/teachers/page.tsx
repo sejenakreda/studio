@@ -9,16 +9,18 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form"; // Renamed FormDescription to avoid conflict
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2 } from "lucide-react";
-import { getAllUsersByRole, createUserProfile } from '@/lib/firestoreService';
+import { getAllUsersByRole, createUserProfile as createUserProfileFirestore, addActivityLog } from '@/lib/firestoreService';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from '@/context/AuthContext';
+
 
 const addTeacherSchema = z.object({
   displayName: z.string().min(3, "Nama tampilan minimal 3 karakter"),
@@ -30,6 +32,7 @@ type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
 export default function ManageTeachersPage() {
   const { toast } = useToast();
+  const { userProfile: adminProfile } = useAuth();
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,16 +52,16 @@ export default function ManageTeachersPage() {
     setFetchError(null);
     try {
       const guruUsers = await getAllUsersByRole('guru');
-      setTeachers(guruUsers || []); // Ensure teachers is always an array
+      setTeachers(guruUsers || []); 
     } catch (error) {
       console.error("Error fetching teachers:", error);
       setFetchError("Gagal memuat daftar guru. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: "Gagal memuat daftar guru." });
-      setTeachers([]); // Ensure teachers is an array even on error
+      setTeachers([]); 
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast]); // toast is stable from useToast
+  }, [toast]); 
 
   useEffect(() => {
     fetchTeachers();
@@ -68,10 +71,20 @@ export default function ManageTeachersPage() {
     setIsSubmitting(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      await createUserProfile(userCredential.user, 'guru', data.displayName);
+      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName);
       toast({ title: "Sukses", description: `Guru ${data.displayName} berhasil ditambahkan.` });
+      
+      if (adminProfile) {
+        await addActivityLog(
+            "Guru Baru Ditambahkan", 
+            `Guru: ${data.displayName} (${data.email})`,
+            adminProfile.uid,
+            adminProfile.displayName || adminProfile.email || "Admin"
+          );
+      }
+
       form.reset();
-      fetchTeachers(); // Refresh the list
+      fetchTeachers(); 
     } catch (error: any) {
       console.error("Error adding teacher:", error);
       let errorMessage = "Gagal menambahkan guru. Silakan coba lagi.";
@@ -241,5 +254,3 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
-
-    

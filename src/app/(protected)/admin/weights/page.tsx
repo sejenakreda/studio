@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { ArrowLeft, Save, Loader2, AlertCircle, CalendarDays } from "lucide-react";
-import { getWeights, updateWeights } from '@/lib/firestoreService';
+import { getWeights, updateWeights, addActivityLog } from '@/lib/firestoreService';
 import type { Bobot } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from '@/context/AuthContext';
 
 const weightsSchema = z.object({
   tugas: z.coerce.number().min(0, "Min 0").max(100, "Maks 100"),
@@ -35,7 +36,7 @@ const weightsSchema = z.object({
   },
   {
     message: "Total bobot dari komponen penilaian (Tugas, Tes, dll.) harus 100%.",
-    path: ["tugas"], // Point to a specific field or leave empty for form-level
+    path: ["tugas"], 
   }
 );
 
@@ -55,6 +56,7 @@ const defaultWeights: WeightsFormData = {
 
 export default function ManageWeightsPage() {
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -78,9 +80,8 @@ export default function ManageWeightsPage() {
       setIsLoadingData(true);
       setFormError(null);
       try {
-        const currentWeights = await getWeights(); // getWeights now returns defaults if null
+        const currentWeights = await getWeights(); 
         if (currentWeights) {
-           // Ensure all fields from WeightsFormData are present
            const formData: WeightsFormData = {
             tugas: currentWeights.tugas || 0,
             tes: currentWeights.tes || 0,
@@ -94,7 +95,6 @@ export default function ManageWeightsPage() {
           };
           form.reset(formData);
         } else {
-           // This case should ideally not be hit if getWeights provides defaults
           form.reset(defaultWeights);
           toast({ title: "Info", description: "Tidak ada bobot tersimpan, menggunakan nilai default." });
         }
@@ -127,9 +127,16 @@ export default function ManageWeightsPage() {
     }
 
     try {
-      // data already matches Bobot structure more closely now
       await updateWeights(data);
       toast({ title: "Sukses", description: "Bobot dan hari efektif berhasil diperbarui." });
+      if (userProfile) {
+        await addActivityLog(
+            "Konfigurasi Bobot Diperbarui", 
+            `Bobot & hari efektif telah diubah.`,
+            userProfile.uid,
+            userProfile.displayName || userProfile.email || "Admin"
+          );
+      }
     } catch (error) {
       console.error("Error updating weights:", error);
       setFormError("Gagal menyimpan perubahan. Silakan coba lagi.");
@@ -165,7 +172,7 @@ export default function ManageWeightsPage() {
             <Skeleton className="h-4 w-72 rounded-md" />
           </CardHeader>
           <CardContent className="space-y-4">
-            {[...Array(9)].map((_, i) => ( // Increased for new fields
+            {[...Array(9)].map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="h-5 w-32 rounded-md" />
                 <Skeleton className="h-10 w-full rounded-md" />

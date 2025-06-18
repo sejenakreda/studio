@@ -4,43 +4,54 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, ShieldAlert, Loader2 } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, ShieldAlert, Loader2, History } from "lucide-react";
 import Link from "next/link";
-import { getAllUsersByRole, getStudents } from '@/lib/firestoreService';
+import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
+import type { ActivityLog } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
+import { id as indonesiaLocale } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
   const [teacherCount, setTeacherCount] = useState<number | null>(null);
   const [studentCount, setStudentCount] = useState<number | null>(null);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
 
-  const fetchDashboardStats = useCallback(async () => {
+  const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
+    setIsLoadingLogs(true);
     try {
-      const [guruUsers, studentList] = await Promise.all([
+      const [guruUsers, studentList, logs] = await Promise.all([
         getAllUsersByRole('guru'),
-        getStudents()
+        getStudents(),
+        getRecentActivityLogs(5) // Fetch 5 most recent logs
       ]);
       setTeacherCount(guruUsers?.length || 0);
       setStudentCount(studentList?.length || 0);
+      setActivityLogs(logs || []);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      console.error("Error fetching dashboard data:", error);
       toast({
         variant: "destructive",
-        title: "Error Memuat Statistik",
-        description: "Gagal mengambil data statistik untuk dasbor.",
+        title: "Error Memuat Data Dasbor",
+        description: "Gagal mengambil data untuk dasbor.",
       });
-      setTeacherCount(0); // Fallback on error
-      setStudentCount(0); // Fallback on error
+      setTeacherCount(0); 
+      setStudentCount(0); 
+      setActivityLogs([]);
     } finally {
       setIsLoadingStats(false);
+      setIsLoadingLogs(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, [fetchDashboardStats]);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const stats = [
     { 
@@ -67,13 +78,13 @@ export default function AdminDashboardPage() {
       bgColor: "bg-purple-100", 
       href: "/admin/grades" 
     },
-    { 
+     { 
       title: "Aktivitas Terbaru", 
-      value: "Update Bobot", // This can be made dynamic later
-      icon: ShieldAlert, 
+      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : `${activityLogs.length} Log`,
+      icon: History, 
       color: "text-yellow-500", 
       bgColor: "bg-yellow-100", 
-      href: "#" 
+      href: "#activity-log" 
     },
   ];
 
@@ -84,6 +95,10 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Admin</h1>
           <p className="text-muted-foreground">Ringkasan dan manajemen sistem SkorZen.</p>
         </div>
+         <Button onClick={fetchDashboardData} variant="outline" disabled={isLoadingStats || isLoadingLogs}>
+          {isLoadingStats || isLoadingLogs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Muat Ulang Data
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -110,27 +125,36 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card id="activity-log">
           <CardHeader>
             <CardTitle>Aktivitas Terkini</CardTitle>
             <CardDescription>Log perubahan penting dalam sistem.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {[
-                { action: "Bobot 'Tugas' diubah menjadi 25%", user: "Admin Test", time: "2 jam lalu" },
-                { action: "Guru 'Budi Sudarsono' ditambahkan", user: "Admin Test", time: "1 hari lalu" },
-                { action: "Sistem backup berhasil", user: "Sistem", time: "3 hari lalu" },
-              ].map((item, idx) => (
-                <li key={idx} className="flex items-start space-x-3">
-                  <BarChart3 className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{item.action}</p>
-                    <p className="text-xs text-muted-foreground">{item.user} - {item.time}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {isLoadingLogs ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : activityLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
+            ) : (
+              <ul className="space-y-3">
+                {activityLogs.map((log) => (
+                  <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
+                    <History className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{log.action}</p>
+                      {log.details && <p className="text-xs text-muted-foreground">{log.details}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        Oleh: {log.userName || "Sistem"} - 
+                        {' '}
+                        {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: indonesiaLocale }) : 'Beberapa saat lalu'}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
         <Card>

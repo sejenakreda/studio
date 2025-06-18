@@ -327,9 +327,11 @@ export default function InputGradesPage() {
                             <Input 
                               type="number" 
                               placeholder={fieldInfo.name === "jumlahHariHadir" ? `0 - ${totalDaysForCurrentSemester || 'N/A'}` : "0-100"}
-                              {...field} 
-                              onChange={e => field.onChange(parseFloat(e.target.value))} // No need for || 0, schema handles default
-                              value={field.value ?? ""} // Handle undefined value from RHF for optional fields
+                              {...field} // Spread field props (ref, name, onBlur)
+                              value={field.value ?? ""} // Override value from field to handle undefined/null/NaN for display
+                              onChange={e => { // Override onChange from field
+                                field.onChange(e.target.value); // Pass raw string value to RHF
+                              }}
                               disabled={!selectedStudentId || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
                             />
                           </FormControl>

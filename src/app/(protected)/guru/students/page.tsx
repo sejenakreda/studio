@@ -26,7 +26,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  // AlertDialogTrigger, // No longer needed here if manually controlling via state
 } from "@/components/ui/alert-dialog";
 
 const studentSchema = z.object({
@@ -80,14 +79,14 @@ export default function ManageStudentsPage() {
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     try {
-      const existingStudentById = students.find(s => s.id_siswa === data.id_siswa);
+      const existingStudentById = students.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "ID Siswa ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
-      const existingStudentByNis = students.find(s => s.nis === data.nis);
+      const existingStudentByNis = students.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
       if (existingStudentByNis) {
         form.setError("nis", { type: "manual", message: "NIS ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "NIS ini sudah digunakan." });
@@ -139,7 +138,7 @@ export default function ManageStudentsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Data Siswa</h1>
           <p className="text-muted-foreground">
-            Tambah, lihat, atau hapus data siswa yang terdaftar.
+            Tambah, lihat, edit atau hapus data siswa yang terdaftar.
           </p>
         </div>
       </div>
@@ -279,11 +278,13 @@ export default function ManageStudentsPage() {
                       <TableCell>{student.nis}</TableCell>
                       <TableCell>{student.kelas}</TableCell>
                       <TableCell>{student.id_siswa}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button variant="ghost" size="icon" className="mr-2" disabled> {/* Edit disabled for now */}
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
+                      <TableCell className="text-right space-x-1">
+                        <Link href={`/guru/students/edit/${student.id}`} passHref>
+                          <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground">
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        </Link>
                         <Button 
                           variant="ghost" 
                           size="icon" 

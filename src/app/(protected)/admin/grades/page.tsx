@@ -3,12 +3,13 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { getAllGrades, getStudents } from '@/lib/firestoreService';
 import { calculateAverage, getAcademicYears, SEMESTERS } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
@@ -220,6 +221,60 @@ export default function ManageAllGradesPage() {
     ));
   }, [paginatedGrades]);
 
+  const handleDownloadExcel = () => {
+    if (filteredAndSortedGrades.length === 0) {
+      toast({
+        variant: "default", // or "destructive" if it's considered an error state
+        title: "Tidak Ada Data",
+        description: "Tidak ada data nilai yang sesuai dengan filter untuk diunduh.",
+      });
+      return;
+    }
+
+    const dataForExcel = filteredAndSortedGrades.map(grade => ({
+      'Nama Siswa': grade.namaSiswa,
+      'NIS': grade.nisSiswa,
+      'Kelas': grade.kelasSiswa,
+      'Tahun Ajaran': grade.tahun_ajaran,
+      'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
+      'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
+      'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
+      'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
+      'PAS': parseFloat(grade.pas?.toFixed(2) || '0.00'),
+      'Kehadiran (%)': parseFloat(grade.kehadiran?.toFixed(2) || '0.00'),
+      'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
+      'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
+      'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Semua Nilai Siswa");
+
+    const wscols = [
+      { wch: 25 }, // Nama Siswa
+      { wch: 15 }, // NIS
+      { wch: 10 }, // Kelas
+      { wch: 15 }, // Tahun Ajaran
+      { wch: 10 }, // Semester
+      { wch: 10 }, // Avg. Tugas
+      { wch: 8 },  // Tes
+      { wch: 8 },  // PTS
+      { wch: 8 },  // PAS
+      { wch: 15 }, // Kehadiran (%)
+      { wch: 8 },  // Eskul
+      { wch: 8 },  // OSIS
+      { wch: 12 }, // Nilai Akhir
+    ];
+    worksheet['!cols'] = wscols;
+
+    XLSX.writeFile(workbook, "semua_nilai_siswa.xlsx");
+    toast({
+      title: "Unduhan Dimulai",
+      description: "File Excel semua nilai siswa sedang disiapkan.",
+    });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -239,11 +294,21 @@ export default function ManageAllGradesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
-          <CardDescription>
-            Menampilkan semua catatan nilai. Gunakan filter atau klik header kolom untuk mengurutkan.
-            Jika data nilai yang baru diinput belum muncul, coba muat ulang halaman.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+              <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
+              <CardDescription>
+                Menampilkan semua catatan nilai. Gunakan filter atau klik header kolom untuk mengurutkan.
+                Jika data nilai yang baru diinput belum muncul, coba muat ulang halaman.
+              </CardDescription>
+            </div>
+            {filteredAndSortedGrades.length > 0 && !isLoading && (
+              <Button onClick={handleDownloadExcel} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Unduh Excel
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {allGradesData.length > 0 && !isLoading && (

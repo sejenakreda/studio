@@ -19,10 +19,11 @@ import {
   createUserProfile as createUserProfileFirestore, 
   addActivityLog,
   deleteUserRecord, 
+  getMataPelajaranMaster,
 } from '@/lib/firestoreService';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import type { UserProfile } from '@/types';
+import type { UserProfile, MataPelajaranMaster } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -49,7 +50,8 @@ type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 interface TeacherImportData {
   displayName: string;
   email: string;
-  password?: string; // Made optional as password is provided in template but not strictly enforced by schema for parsing
+  password?: string;
+  assignedMapel?: string; // Nama mapel dipisahkan koma
 }
 
 
@@ -112,11 +114,11 @@ export default function ManageTeachersPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       
-      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName);
+      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName); // assignedMapel default to []
       
       await addActivityLog(
           "Guru Baru Ditambahkan (Manual)", 
-          `Guru: ${data.displayName} (${data.email}) oleh Admin: ${adminDisplayNameToLog}`,
+          "Guru: " + data.displayName + " (" + data.email + ") oleh Admin: " + adminDisplayNameToLog,
           adminUIDToLog,
           adminDisplayNameToLog
         );
@@ -125,13 +127,10 @@ export default function ManageTeachersPage() {
           await signOut(auth); 
       }
 
-      toast({ title: "Sukses", description: `Guru ${data.displayName} berhasil ditambahkan. Memuat ulang daftar...` });
+      toast({ title: "Sukses", description: "Guru " + data.displayName + " berhasil ditambahkan. Memuat ulang daftar..." });
       form.reset();
       
       setTimeout(() => {
-        // fetchTeachers(); // Re-fetch data
-        // setIsSubmitting(false); // Reset submit state here
-        // It's better to reload to ensure auth state is clean if admin was briefly signed out
          window.location.reload();
       }, 1500); 
 
@@ -164,14 +163,14 @@ export default function ManageTeachersPage() {
       
       await addActivityLog(
         "Profil Guru Dihapus dari Sistem",
-        `Profil Guru: ${teacherToDelete.displayName} (${teacherToDelete.email}) dihapus oleh Admin: ${currentAdminProfile.displayName}`,
+        "Profil Guru: " + teacherToDelete.displayName + " (" + teacherToDelete.email + ") dihapus oleh Admin: " + currentAdminProfile.displayName,
         currentAdminProfile.uid,
         currentAdminProfile.displayName
       );
 
       toast({ 
         title: "Sukses", 
-        description: `Profil guru ${teacherToDelete.displayName} berhasil dihapus dari sistem.` 
+        description: "Profil guru " + teacherToDelete.displayName + " berhasil dihapus dari sistem." 
       });
       setTeacherToDelete(null);
       fetchTeachers(); 
@@ -185,14 +184,18 @@ export default function ManageTeachersPage() {
 
   const handleDownloadTeacherTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ["displayName", "email", "password"],
+      ["displayName", "email", "password", "assignedMapel"],
+      ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia"], // Example row
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 } ]; // Column widths
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 40} ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "template_import_guru.xlsx");
-    toast({ title: "Template Diunduh", description: "Template Excel untuk impor guru telah diunduh." });
+    toast({ 
+        title: "Template Diunduh", 
+        description: "Template Excel untuk impor guru telah diunduh. Isi kolom 'assignedMapel' dengan nama mapel dipisahkan koma (cth: Matematika,IPA)." 
+    });
   };
 
   const handleExportTeachersData = () => {
@@ -203,12 +206,12 @@ export default function ManageTeachersPage() {
     const dataToExport = teachers.map(teacher => ({
       NamaTampilan: teacher.displayName,
       Email: teacher.email,
-      // We don't export passwords or UIDs
+      MapelDitugaskan: teacher.assignedMapel?.join(', ') || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 } ]; // Column widths
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 40 } ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "data_guru_skorzen.xlsx");
     toast({ title: "Data Diekspor", description: "Data guru telah diekspor ke Excel." });
@@ -228,11 +231,21 @@ export default function ManageTeachersPage() {
       return;
     }
     if (!currentAdminProfile?.uid || !currentAdminProfile?.displayName) {
-      toast({ variant: "destructive", title: "Error Sesi Admin", description: "Sesi admin tidak valid untuk mencatat log. Silakan refresh." });
+      toast({ variant: "destructive", title: "Error Sesi Admin", description: "Sesi admin tidak valid. Silakan refresh." });
       return;
     }
 
     setIsImporting(true);
+    let masterMapel: MataPelajaranMaster[] = [];
+    try {
+        masterMapel = await getMataPelajaranMaster();
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error Impor", description: "Gagal memuat daftar master mata pelajaran. Impor dibatalkan." });
+        setIsImporting(false);
+        return;
+    }
+    const masterMapelNames = masterMapel.map(m => m.namaMapel);
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -248,10 +261,9 @@ export default function ManageTeachersPage() {
           return;
         }
 
-        // Validate headers (simple check for expected keys in the first object)
         const firstRow = json[0];
         if (!firstRow || !('displayName' in firstRow) || !('email' in firstRow) || !('password' in firstRow)) {
-          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai. Harap gunakan template yang disediakan (displayName, email, password)." });
+          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai (min: displayName, email, password)." });
           setIsImporting(false);
           return;
         }
@@ -263,26 +275,46 @@ export default function ManageTeachersPage() {
         for (const teacher of json) {
           if (!teacher.displayName || !teacher.email || !teacher.password) {
             failCount++;
-            errorMessages.push(`Baris tidak lengkap untuk: ${teacher.email || 'Email tidak ada'}. Dilewati.`);
+            errorMessages.push("Baris tidak lengkap untuk: " + (teacher.email || 'Email tidak ada') + ". Dilewati.");
             continue;
           }
           if (teacher.password.length < 6) {
             failCount++;
-            errorMessages.push(`Password untuk ${teacher.email} terlalu pendek. Dilewati.`);
+            errorMessages.push("Password untuk " + teacher.email + " terlalu pendek. Dilewati.");
             continue;
           }
 
+          let finalAssignedMapel: string[] = [];
+          if (teacher.assignedMapel && typeof teacher.assignedMapel === 'string') {
+            const importedMapelArray = teacher.assignedMapel.split(',').map(m => m.trim()).filter(m => m);
+            const validMapelForTeacher: string[] = [];
+            const invalidMapelForTeacher: string[] = [];
+
+            for (const impMapel of importedMapelArray) {
+              if (masterMapelNames.includes(impMapel)) {
+                validMapelForTeacher.push(impMapel);
+              } else {
+                invalidMapelForTeacher.push(impMapel);
+              }
+            }
+            finalAssignedMapel = validMapelForTeacher;
+            if (invalidMapelForTeacher.length > 0) {
+              errorMessages.push("Untuk guru " + teacher.email + ": Mapel tidak valid/tidak ditemukan di master: " + invalidMapelForTeacher.join(', ') + ". Mapel ini tidak akan ditugaskan.");
+            }
+          }
+
+
           try {
             const userCredential = await createUserWithEmailAndPassword(auth, teacher.email, teacher.password);
-            await createUserProfileFirestore(userCredential.user, 'guru', teacher.displayName);
+            await createUserProfileFirestore(userCredential.user, 'guru', teacher.displayName, finalAssignedMapel);
+            
             await addActivityLog(
               "Guru Baru Diimpor dari Excel",
-              `Guru: ${teacher.displayName} (${teacher.email}) oleh Admin: ${currentAdminProfile.displayName}`,
+              "Guru: " + teacher.displayName + " (" + teacher.email + ") Mapel: " + (finalAssignedMapel.join(', ') || 'Tidak ada') + " oleh Admin: " + currentAdminProfile.displayName,
               currentAdminProfile.uid,
               currentAdminProfile.displayName
             );
             
-            // Sign out the newly created user to keep admin session
             if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
               await signOut(auth);
             }
@@ -290,28 +322,23 @@ export default function ManageTeachersPage() {
           } catch (error: any) {
             failCount++;
             if (error.code === 'auth/email-already-in-use') {
-              errorMessages.push(`Email ${teacher.email} sudah terdaftar. Dilewati.`);
+              errorMessages.push("Email " + teacher.email + " sudah terdaftar. Dilewati.");
             } else {
-              errorMessages.push(`Gagal impor ${teacher.email}: ${error.message}. Dilewati.`);
+              errorMessages.push("Gagal impor " + teacher.email + ": " + error.message + ". Dilewati.");
             }
-             // If an error occurs with createUserWithEmailAndPassword, the admin might be signed out.
-             // It's complex to re-authenticate admin automatically here.
-             // A full page reload might be the simplest way to recover admin session if this happens mid-import.
           }
         }
 
         toast({
           title: "Proses Impor Selesai",
-          description: `${successCount} guru berhasil diimpor. ${failCount} guru gagal diimpor. ${failCount > 0 ? 'Lihat konsol untuk detail error atau coba lagi.' : ''}`,
+          description: successCount + " guru berhasil diimpor. " + failCount + " guru gagal diimpor. " + (failCount > 0 ? 'Lihat konsol untuk detail error.' : ''),
           duration: failCount > 0 ? 10000 : 5000,
         });
 
         if (errorMessages.length > 0) {
           console.warn("Detail error impor guru:", errorMessages.join("\n"));
-          // Could also show these in a more user-friendly way, e.g., an alert dialog
         }
         
-        // Refresh data and clear file input
         fetchTeachers();
         setSelectedFile(null);
         if (fileInputRef.current) {
@@ -420,7 +447,7 @@ export default function ManageTeachersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Impor Guru dari Excel</CardTitle>
-          <CardDescription>Impor banyak data guru sekaligus menggunakan file Excel. Gunakan template yang disediakan.</CardDescription>
+          <CardDescription>Impor banyak data guru sekaligus menggunakan file Excel. Gunakan template yang disediakan. Mapel harus sudah ada di Kelola Mapel.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -437,7 +464,7 @@ export default function ManageTeachersPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>.
+            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>, dan opsional <code className="bg-muted px-1 py-0.5 rounded text-xs">assignedMapel</code> (dipisahkan koma).
             Data yang sudah ada (berdasarkan email) akan dilewati.
           </p>
         </CardContent>
@@ -497,6 +524,7 @@ export default function ManageTeachersPage() {
                   <TableRow>
                     <TableHead>Nama Tampilan</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Mapel Ditugaskan</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -505,9 +533,15 @@ export default function ManageTeachersPage() {
                     <TableRow key={teacher.uid}>
                       <TableCell className="font-medium">{teacher.displayName || 'N/A'}</TableCell>
                       <TableCell>{teacher.email || 'N/A'}</TableCell>
+                      <TableCell className="text-xs max-w-[200px] truncate" title={teacher.assignedMapel?.join(', ') || 'Belum ada'}>
+                        {teacher.assignedMapel && teacher.assignedMapel.length > 0 
+                          ? teacher.assignedMapel.join(', ') 
+                          : <span className="italic text-muted-foreground">Belum ada</span>
+                        }
+                      </TableCell>
                       <TableCell className="text-right space-x-1">
                         <Link href={`/admin/teachers/edit/${teacher.uid}`} passHref>
-                          <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground">
+                          <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Edit Guru & Mapel">
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Edit</span>
                           </Button>
@@ -518,6 +552,7 @@ export default function ManageTeachersPage() {
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDeleteConfirmation(teacher)}
                           disabled={isDeleting || teacherToDelete?.uid === teacher.uid}
+                          title="Hapus Guru"
                         >
                           {isDeleting && teacherToDelete?.uid === teacher.uid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           <span className="sr-only">Hapus</span>

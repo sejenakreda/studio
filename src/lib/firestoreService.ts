@@ -117,7 +117,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
         email: profile.email,
         displayName: profile.displayName,
         role: profile.role,
-        assignedMapel: profile.assignedMapel || [], // Ensure it's an array
+        assignedMapel: profile.assignedMapel || [], 
         createdAt: profile.createdAt || serverTimestamp(), 
         updatedAt: serverTimestamp(),
     };
@@ -132,7 +132,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       email: data.email,
       displayName: data.displayName,
       role: data.role,
-      assignedMapel: data.assignedMapel || [], // Ensure it's an array on read
+      assignedMapel: data.assignedMapel || [], 
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -364,7 +364,7 @@ export const getAllGrades = async (): Promise<Nilai[]> => {
 };
 
 export const getUniqueMapelNamesFromGrades = async (): Promise<string[]> => {
-  const gradesCollRef = collection(db, 'nilai'); // No converter needed, just reading 'mapel' field
+  const gradesCollRef = collection(db, 'nilai'); 
   const querySnapshot = await getDocs(gradesCollRef);
   const mapelSet = new Set<string>();
   querySnapshot.docs.forEach(doc => {
@@ -386,14 +386,19 @@ export const deleteGradeById = async (gradeId: string): Promise<void> => {
 
 
 // --- User Profile Service ---
-export const createUserProfile = async (firebaseUser: User, role: Role, displayName?: string): Promise<void> => {
+export const createUserProfile = async (
+  firebaseUser: User, 
+  role: Role, 
+  displayName?: string,
+  assignedMapel?: string[] // New parameter
+): Promise<void> => {
   const userDocRef = doc(db, 'users', firebaseUser.uid).withConverter(userProfileConverter);
   const profile: UserProfile = {
     uid: firebaseUser.uid,
     email: firebaseUser.email,
     displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pengguna Baru',
     role: role,
-    assignedMapel: [], // Initialize with empty array
+    assignedMapel: assignedMapel || [], // Use provided or default to empty array
     createdAt: serverTimestamp() as Timestamp,
     updatedAt: serverTimestamp() as Timestamp,
   };
@@ -402,7 +407,7 @@ export const createUserProfile = async (firebaseUser: User, role: Role, displayN
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef); // Corrected typo here
+  const docSnap = await getDoc(userDocRef); 
   return docSnap.exists() ? docSnap.data() : null;
 };
 
@@ -415,10 +420,9 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  // Ensure assignedMapel is always an array, even if data.assignedMapel is undefined
   const updateData = {
     ...data,
-    assignedMapel: data.assignedMapel || [], // Default to empty array if not provided
+    assignedMapel: data.assignedMapel || [], 
     updatedAt: serverTimestamp()
   };
   await updateDoc(userDocRef, updateData);
@@ -486,7 +490,6 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
 // --- KKM Settings Service ---
 const KKM_SETTINGS_COLLECTION = 'kkm_settings';
 
-// Generates a composite ID for KKM settings to ensure uniqueness per mapel per TA
 const generateKkmDocId = (mapel: string, tahun_ajaran: string): string => {
   return "" + mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_') + "_" + tahun_ajaran.replace('/', '-');
 };
@@ -513,7 +516,6 @@ const MATA_PELAJARAN_MASTER_COLLECTION = 'mataPelajaranMaster';
 
 export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPelajaranMaster> => {
   const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
-  // Check if mapel already exists (case-insensitive check could be added if needed)
   const q = query(collRef, where("namaMapel", "==", namaMapel));
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {

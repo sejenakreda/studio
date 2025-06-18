@@ -44,8 +44,11 @@ export default function ManageAllGradesPage() {
         getStudents()
       ]);
 
-      if (!Array.isArray(grades) || !Array.isArray(students)) {
-        throw new Error("Gagal memuat data nilai atau siswa.");
+      if (!Array.isArray(grades)) {
+        throw new Error("Gagal memuat data nilai. Data yang diterima bukan array.");
+      }
+      if (!Array.isArray(students)) {
+        throw new Error("Gagal memuat data siswa. Data yang diterima bukan array.");
       }
 
       const studentMap = new Map(students.map(s => [s.id_siswa, s]));
@@ -95,8 +98,12 @@ export default function ManageAllGradesPage() {
         const aValue = a[sortConfig.key as keyof AdminGradeView];
         const bValue = b[sortConfig.key as keyof AdminGradeView];
 
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
+        const aIsNull = aValue === undefined || aValue === null;
+        const bIsNull = bValue === undefined || bValue === null;
+
+        if (aIsNull && bIsNull) return 0;
+        if (aIsNull) return 1; // a is null/undefined, b is not; a comes after b
+        if (bIsNull) return -1; // b is null/undefined, a is not; b comes after a
         
         let comparison = 0;
         // Handle sorting for nilai_akhir which can be 0
@@ -194,7 +201,7 @@ export default function ManageAllGradesPage() {
           <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
           <CardDescription>
             Menampilkan semua catatan nilai yang tersimpan dalam sistem. Klik header kolom untuk mengurutkan.
-            Jika data baru belum muncul, coba muat ulang halaman.
+            Jika data nilai yang baru diinput belum muncul, coba muat ulang halaman.
           </CardDescription>
         </CardHeader>
         <CardContent>

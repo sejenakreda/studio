@@ -41,11 +41,11 @@ type GradeFormData = z.infer<typeof gradeSchema>;
 
 interface GradeImportDataRow {
   id_siswa: string;
-  nama_siswa?: string; // For reference from template
-  nis?: string; // For reference from template
-  kelas?: string; // For reference from template
+  nama_siswa?: string; 
+  nis?: string; 
+  kelas?: string; 
   tahun_ajaran: string;
-  semester: number | string; // Can be number or "Ganjil"/"Genap" text from Excel
+  semester: number | string; 
   // Tugas columns will be accessed dynamically, e.g., row[`tugas${i}`]
   tes?: number;
   pts?: number;
@@ -53,7 +53,7 @@ interface GradeImportDataRow {
   jumlah_hari_hadir?: number;
   eskul?: number;
   osis?: number;
-  [key: string]: any; // To capture dynamic tugasN columns and others
+  [key: string]: any; 
 }
 
 
@@ -290,7 +290,17 @@ export default function InputGradesPage() {
   ];
 
   const handleDownloadGradeTemplate = async () => {
-    setIsImportingFile(true); // Use same loading state for simplicity
+    const { selectedAcademicYear: currentYear, selectedSemester: currentSemester } = form.getValues();
+
+    if (!currentYear || !currentSemester) {
+        toast({
+            title: "Filter Belum Dipilih",
+            description: "Silakan pilih Tahun Ajaran dan Semester terlebih dahulu untuk membuat template yang sesuai.",
+            variant: "default"
+        });
+        return;
+    }
+    setIsImportingFile(true); 
     try {
         const allStudentsList = await getStudents();
         if (!allStudentsList || allStudentsList.length === 0) {
@@ -303,14 +313,13 @@ export default function InputGradesPage() {
             nama_siswa: student.nama,
             nis: student.nis,
             kelas: student.kelas,
-            tahun_ajaran: '', // Placeholder for guru to fill
-            semester: '',       // Placeholder for guru to fill (1 or 2, or Ganjil/Genap)
-            tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', // Placeholders
-            tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: '' // Placeholders
+            tahun_ajaran: currentYear, 
+            semester: currentSemester, 
+            tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', 
+            tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: '' 
         }));
         
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
-        // Define explicit headers to ensure order and include all, even if some students don't have values for all 'tugas'
         const headers = [
             "id_siswa", "nama_siswa", "nis", "kelas", 
             "tahun_ajaran", "semester", 
@@ -319,21 +328,22 @@ export default function InputGradesPage() {
         ];
         XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
 
-
-        // Set column widths
         const wscols = [
-            { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, // id_siswa, nama, nis, kelas
-            { wch: 15 }, { wch: 10 }, // tahun_ajaran, semester
-            { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, // tugas1-5
-            { wch: 8 }, { wch: 8 }, { wch: 8 }, // tes, pts, pas
-            { wch: 18 }, { wch: 8 }, { wch: 8 } // jumlah_hari_hadir, eskul, osis
+            { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, 
+            { wch: 15 }, { wch: 10 }, 
+            { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, 
+            { wch: 8 }, { wch: 8 }, { wch: 8 }, 
+            { wch: 18 }, { wch: 8 }, { wch: 8 } 
         ];
         worksheet['!cols'] = wscols;
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Template Nilai");
-        XLSX.writeFile(workbook, "template_import_nilai_siswa.xlsx");
-        toast({ title: "Template Diunduh", description: "Template Excel untuk impor nilai telah diunduh dengan daftar siswa." });
+        
+        const safeYear = currentYear.replace('/', '-');
+        const filename = `template_nilai_${safeYear}_smt${currentSemester}.xlsx`;
+        XLSX.writeFile(workbook, filename);
+        toast({ title: "Template Diunduh", description: `Template untuk ${currentYear} Semester ${currentSemester} telah diunduh.` });
 
     } catch (error) {
         console.error("Error downloading grade template:", error);
@@ -472,15 +482,15 @@ export default function InputGradesPage() {
           }
 
           const tugasScores: number[] = [];
-          for (let i = 1; i <= 20; i++) { // Check for tugas1 up to tugas20
+          for (let i = 1; i <= 20; i++) { 
             const tugasValue = row[`tugas${i}`];
             if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
                  const numValue = Number(tugasValue);
                  if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
                     tugasScores.push(numValue);
                 } else {
-                    // If value exists but is invalid, you might want to log or default
-                    tugasScores.push(0); // Defaulting invalid to 0 for now
+                    
+                    tugasScores.push(0); 
                     errorDetails.push(`Nilai tugas${i} (${tugasValue}) tidak valid untuk ${row.id_siswa}. Dianggap 0.`);
                 }
             }
@@ -518,17 +528,25 @@ export default function InputGradesPage() {
         });
         if (errorDetails.length > 0) console.warn("Detail Error Impor Nilai:", errorDetails.join("\n"));
 
-        if (selectedStudentId && selectedAcademicYear && selectedSemester) {
-          const importedForCurrent = jsonData.find(row =>
-            row.id_siswa === selectedStudentId &&
-            row.tahun_ajaran === selectedAcademicYear &&
-            (typeof row.semester === 'string' ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(String(row.semester))) : Number(row.semester)) === selectedSemester
-          );
-          if (importedForCurrent) {
-            const currentFormValues = form.getValues();
-            form.setValue("selectedStudentId", "", { shouldDirty: true }); 
-            form.reset(currentFormValues); 
-          }
+        
+        if (watchedFormValues.selectedStudentId && watchedFormValues.selectedAcademicYear && watchedFormValues.selectedSemester) {
+           const currentFormValues = form.getValues();
+           const reselectStudentId = currentFormValues.selectedStudentId;
+           const reselectAcademicYear = currentFormValues.selectedAcademicYear;
+           const reselectSemester = currentFormValues.selectedSemester;
+
+            form.reset({
+                ...currentFormValues,
+                selectedStudentId: '', 
+            });
+            setTimeout(() => {
+                form.reset({
+                    ...currentFormValues, 
+                    selectedStudentId: reselectStudentId,
+                    selectedAcademicYear: reselectAcademicYear,
+                    selectedSemester: reselectSemester,
+                });
+            }, 0);
         }
         
       } catch (err) {
@@ -645,7 +663,7 @@ export default function InputGradesPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Impor & Ekspor Nilai Massal</CardTitle>
-          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal. Template akan menyertakan daftar siswa.</CardDescription>
+          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal. Template akan menyertakan daftar siswa, tahun ajaran, dan semester yang terpilih di filter atas.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -662,13 +680,18 @@ export default function InputGradesPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Unduh template di bawah ini. Template akan berisi `id_siswa`, `nama_siswa`, `nis`, `kelas`. 
-            Isi kolom `tahun_ajaran`, `semester` (1 atau 2), dan nilai-nilai lainnya.
+            Unduh template di bawah ini. Template akan berisi `id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, dan `semester` yang sudah terisi sesuai filter.
+            Guru tinggal mengisi komponen nilai.
             Sistem akan membaca kolom `tugas1`, `tugas2`, ..., `tugasN` secara dinamis.
           </p>
         </CardContent>
         <CardFooter>
-          <Button type="button" variant="outline" onClick={handleDownloadGradeTemplate} disabled={isImportingFile}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleDownloadGradeTemplate} 
+            disabled={isImportingFile || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester}
+          >
             <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
           </Button>
         </CardFooter>
@@ -676,4 +699,3 @@ export default function InputGradesPage() {
     </div>
   );
 }
-

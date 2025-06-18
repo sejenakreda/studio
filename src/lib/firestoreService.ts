@@ -92,7 +92,7 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
     return {
       id: snapshot.id,
       id_siswa: data.id_siswa,
-      mapel: data.mapel, // mapel is now mandatory
+      mapel: data.mapel, 
       semester: data.semester,
       tahun_ajaran: data.tahun_ajaran,
       tugas: data.tugas || [],
@@ -354,6 +354,14 @@ export const getUniqueMapelNamesFromGrades = async (): Promise<string[]> => {
   return Array.from(mapelSet).sort();
 };
 
+export const deleteGradeById = async (gradeId: string): Promise<void> => {
+  if (!gradeId) {
+    throw new Error("Grade ID is required for deletion.");
+  }
+  const gradeDocRef = doc(db, 'nilai', gradeId);
+  await deleteDoc(gradeDocRef);
+};
+
 
 // --- User Profile Service ---
 export const createUserProfile = async (firebaseUser: User, role: Role, displayName?: string): Promise<void> => {
@@ -468,5 +476,5 @@ export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'
   }
   const docId = generateKkmDocId(kkmData.mapel, kkmData.tahun_ajaran);
   const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
-  await setDoc(docRef, kkmData, { merge: true }); // merge: true will update if exists, create if not
+  await setDoc(docRef, kkmData, { merge: true }); 
 };

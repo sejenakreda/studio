@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as XLSX from 'xlsx';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,9 @@ const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 export default function InputGradesPage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [students, setStudents] = useState<Siswa[]>([]);
   const [studentMap, setStudentMap] = useState<Map<string, Siswa>>(new Map());
   const [weights, setWeights] = useState<Bobot | null>(null);
@@ -85,7 +89,7 @@ export default function InputGradesPage() {
   const form = useForm<GradeFormData>({
     resolver: zodResolver(gradeSchema),
     defaultValues: {
-        kkmValue: 70, // Default KKM
+        kkmValue: 70, 
     }
   });
 
@@ -115,18 +119,36 @@ export default function InputGradesPage() {
         setWeights(weightData);
         setSelectableYears(activeYears);
 
+        // Check for query parameters for editing
+        const studentIdParam = searchParams.get('studentId');
+        const academicYearParam = searchParams.get('academicYear');
+        const semesterParam = searchParams.get('semester');
+        const mapelParam = searchParams.get('mapel');
+        
+        let defaultStudentId = studentList && studentList.length > 0 ? studentList[0].id_siswa : "";
         let defaultYear = "";
         if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
           defaultYear = CURRENT_ACADEMIC_YEAR;
         } else if (activeYears.length > 0) {
           defaultYear = activeYears[0];
         }
+        let defaultSemester = SEMESTERS[0]?.value || 1;
+        let defaultMapel = "";
+
+        if (studentIdParam && academicYearParam && semesterParam && mapelParam) {
+          defaultStudentId = studentIdParam;
+          defaultYear = academicYearParam;
+          defaultSemester = parseInt(semesterParam, 10);
+          defaultMapel = mapelParam;
+           // Clean up URL by removing query params after use if desired
+           // router.replace('/guru/grades', { scroll: false });
+        }
         
         form.reset({
-          selectedStudentId: studentList && studentList.length > 0 ? studentList[0].id_siswa : "",
+          selectedStudentId: defaultStudentId,
           selectedAcademicYear: defaultYear,
-          selectedSemester: SEMESTERS[0]?.value || 1,
-          selectedMapel: "", // Mapel will be input by user
+          selectedSemester: defaultSemester,
+          selectedMapel: defaultMapel, 
           kkmValue: 70,
           tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
           tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
@@ -141,13 +163,14 @@ export default function InputGradesPage() {
       }
     }
     fetchInitialData();
-  }, [form, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, toast, searchParams, router]); // Added searchParams and router to dependency array
 
   // Fetch KKM when mapel or academic year changes
   useEffect(() => {
     async function fetchKkm() {
       if (selectedMapel && selectedAcademicYear) {
-        setIsLoadingGradeData(true); // Can reuse this loading state or create a specific one for KKM
+        setIsLoadingGradeData(true); 
         try {
           const kkmData = await getKkmSetting(selectedMapel, selectedAcademicYear);
           if (kkmData) {
@@ -196,7 +219,7 @@ export default function InputGradesPage() {
           }
           form.reset({
             ...form.getValues(), 
-            selectedMapel: gradeData.mapel, // Ensure mapel from fetched grade is set
+            selectedMapel: gradeData.mapel, 
             tugas1: gradeData.tugas?.[0] || 0,
             tugas2: gradeData.tugas?.[1] || 0,
             tugas3: gradeData.tugas?.[2] || 0,
@@ -716,7 +739,7 @@ export default function InputGradesPage() {
             </CardContent>
           </Card>
 
-          {isLoadingGradeData && !selectedMapel ? ( // Show loading only if mapel is not yet entered for KKM fetch
+          {isLoadingGradeData && !selectedMapel ? ( 
              <Card className="mt-6"><CardHeader><CardTitle>Masukkan Mata Pelajaran</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[100px]"><p className="text-muted-foreground">Silakan isi mata pelajaran untuk melanjutkan.</p></CardContent></Card>
           ) : isLoadingGradeData && selectedMapel ? (
              <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai &amp; KKM...</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent></Card>

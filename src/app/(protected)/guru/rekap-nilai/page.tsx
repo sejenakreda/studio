@@ -3,19 +3,30 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, Edit, Trash2 } from "lucide-react";
+import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById } from '@/lib/firestoreService';
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface GuruGradeSummaryView extends Nilai {
   namaSiswa?: string;
@@ -36,9 +47,12 @@ const ITEMS_PER_PAGE = 15;
 
 export default function RekapNilaiPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [allGradesData, setAllGradesData] = useState<GuruGradeSummaryView[]>([]);
   const [studentsMap, setStudentsMap] = useState<Map<string, Siswa>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [gradeToDelete, setGradeToDelete] = useState<GuruGradeSummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
 
@@ -172,13 +186,14 @@ export default function RekapNilaiPage() {
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-3 w-3 text-primary" /> : <ArrowDown className="ml-2 h-3 w-3 text-primary" />;
   };
 
-  const tableHeaders: { key: SortConfig['key'], label: string, className?: string }[] = [
+  const tableHeaders: { key?: SortConfig['key'], label: string, className?: string }[] = [
     { key: 'namaSiswa', label: 'Nama Siswa' }, { key: 'nisSiswa', label: 'NIS' },
     { key: 'kelasSiswa', label: 'Kelas' }, { key: 'mapel', label: 'Mapel'},
     { key: 'rataRataTugas', label: 'Avg. Tugas' },
     { key: 'tes', label: 'Tes' }, { key: 'pts', label: 'PTS' }, { key: 'pas', label: 'PAS' },
     { key: 'kehadiran', label: 'Kehadiran (%)' }, { key: 'eskul', label: 'Eskul' },
     { key: 'osis', label: 'OSIS' }, { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
+    { label: 'Aksi', className: 'text-right' },
   ];
 
   const handleDownloadExcel = () => {
@@ -213,6 +228,41 @@ export default function RekapNilaiPage() {
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap nilai sedang disiapkan." });
   };
 
+  const handleEditGrade = (grade: GuruGradeSummaryView) => {
+    const queryParams = new URLSearchParams({
+      studentId: grade.id_siswa,
+      academicYear: grade.tahun_ajaran,
+      semester: String(grade.semester),
+      mapel: grade.mapel,
+    });
+    router.push(`/guru/grades?${queryParams.toString()}`);
+  };
+
+  const handleDeleteConfirmation = (grade: GuruGradeSummaryView) => {
+    setGradeToDelete(grade);
+  };
+
+  const handleActualDelete = async () => {
+    if (!gradeToDelete || !gradeToDelete.id) {
+      toast({ variant: "destructive", title: "Error", description: "Data nilai tidak lengkap untuk penghapusan." });
+      setGradeToDelete(null);
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteGradeById(gradeToDelete.id);
+      toast({ title: "Sukses", description: `Nilai untuk ${gradeToDelete.namaSiswa} (${gradeToDelete.mapel}) berhasil dihapus.` });
+      setGradeToDelete(null);
+      fetchData(); // Refresh data
+    } catch (error: any) {
+      console.error("Error deleting grade:", error);
+      toast({ variant: "destructive", title: "Error Hapus Nilai", description: "Gagal menghapus data nilai." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -224,7 +274,7 @@ export default function RekapNilaiPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Rekap Nilai Semester</h1>
           <p className="text-muted-foreground">
-            Lihat rekapitulasi nilai siswa per tahun ajaran, semester, dan mata pelajaran.
+            Lihat, edit, atau hapus rekapitulasi nilai siswa per tahun ajaran, semester, dan mata pelajaran.
           </p>
         </div>
       </div>
@@ -312,7 +362,7 @@ export default function RekapNilaiPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>{tableHeaders.map(header => (<TableHead key={header.key as string} onClick={() => header.key && requestSort(header.key)} className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`} title={`Urutkan berdasarkan ${header.label}`}><div className="flex items-center">{header.label}{header.key ? getSortIcon(header.key) : null}</div></TableHead>))}</TableRow>
+                    <TableRow>{tableHeaders.map(header => (<TableHead key={header.label} onClick={() => header.key && requestSort(header.key)} className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`} title={`Urutkan berdasarkan ${header.label}`}><div className="flex items-center">{header.label}{header.key ? getSortIcon(header.key) : null}</div></TableHead>))}</TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedGrades.map((grade) => (
@@ -324,6 +374,14 @@ export default function RekapNilaiPage() {
                         <TableCell>{grade.pas?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}%</TableCell>
                         <TableCell>{grade.eskul?.toFixed(2) || '0.00'}</TableCell><TableCell>{grade.osis?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditGrade(grade)} title="Edit Nilai">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirmation(grade)} className="text-destructive hover:text-destructive" title="Hapus Nilai" disabled={isDeleting && gradeToDelete?.id === grade.id}>
+                            {isDeleting && gradeToDelete?.id === grade.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -342,6 +400,32 @@ export default function RekapNilaiPage() {
           )}
         </CardContent>
       </Card>
+
+      {gradeToDelete && (
+        <AlertDialog open={!!gradeToDelete} onOpenChange={(isOpen) => !isOpen && setGradeToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Anda Yakin Ingin Menghapus Data Nilai Ini?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini akan menghapus data nilai mata pelajaran <span className="font-semibold">{gradeToDelete.mapel}</span> untuk siswa <span className="font-semibold">{gradeToDelete.namaSiswa}</span> 
+                pada tahun ajaran {gradeToDelete.tahun_ajaran} semester {gradeToDelete.semester === 1 ? "Ganjil" : "Genap"}. 
+                Tindakan ini tidak dapat diurungkan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setGradeToDelete(null)} disabled={isDeleting}>Batal</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleActualDelete} 
+                disabled={isDeleting}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Ya, Hapus Nilai
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

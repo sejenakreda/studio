@@ -5,12 +5,12 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // TEMPORARY HARDCODED CONFIG FOR TESTING - REMOVE AND USE .env.local FOR PRODUCTION/SECURITY
 const firebaseConfig = {
-  apiKey: "AIzaSyAAuN0z5IUP7m7AZ2UkEmqJ8LoJHjcMT48",
-  authDomain: "device-streaming-923d7bd9.firebaseapp.com",
-  projectId: "device-streaming-923d7bd9",
-  storageBucket: "device-streaming-923d7bd9.firebasestorage.app",
-  messagingSenderId: "96364387257",
-  appId: "1:96364387257:web:3c07beab20637de09d3468",
+  apiKey: "AIzaSyAAuN0z5IUP7m7AZ2UkEmqJ8LoJHjcMT48", // process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: "device-streaming-923d7bd9.firebaseapp.com", // process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: "device-streaming-923d7bd9", // process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: "device-streaming-923d7bd9.firebasestorage.app", // process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: "96364387257", // process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: "1:96364387257:web:3c07beab20637de09d3468", // process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 // Enhanced logging and error handling

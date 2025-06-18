@@ -1,20 +1,55 @@
 
 "use client";
 
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, BarChart2, Users } from "lucide-react";
+import { BookUser, Edit3, BarChart2, Users, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
+import { getStudents } from '@/lib/firestoreService';
+import { useToast } from '@/hooks/use-toast';
 
 export default function GuruDashboardPage() {
   const { userProfile } = useAuth();
+  const { toast } = useToast();
+  const [studentCount, setStudentCount] = useState<number | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  const fetchDashboardStats = useCallback(async () => {
+    setIsLoadingStats(true);
+    try {
+      const studentList = await getStudents();
+      setStudentCount(studentList?.length || 0);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      toast({
+        variant: "destructive",
+        title: "Error Memuat Statistik Siswa",
+        description: "Gagal mengambil data siswa untuk dasbor.",
+      });
+      setStudentCount(0); // Fallback on error
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [fetchDashboardStats]);
 
   const quickStats = [
-    { title: "Total Siswa Anda", value: "32", icon: Users, color: "text-blue-500", bgColor: "bg-blue-100", href: "/guru/students" },
-    { title: "Kelas Diajar", value: "X IPA 1, XI IPS 2", icon: BookUser, color: "text-green-500", bgColor: "bg-green-100", href: "/guru/students?filter=kelas" },
-    { title: "Nilai Perlu Diinput", value: "5 Siswa", icon: Edit3, color: "text-red-500", bgColor: "bg-red-100", href: "/guru/grades" },
-    { title: "Rata-rata Kelas", value: "82.5", icon: BarChart2, color: "text-purple-500", bgColor: "bg-purple-100", href: "#" },
+    { 
+      title: "Total Siswa Anda", 
+      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
+      icon: Users, 
+      color: "text-blue-500", 
+      bgColor: "bg-blue-100", 
+      href: "/guru/students" 
+    },
+    { title: "Kelas Diajar", value: "X IPA 1, XI IPS 2", icon: BookUser, color: "text-green-500", bgColor: "bg-green-100", href: "/guru/students?filter=kelas" }, // Placeholder
+    { title: "Nilai Perlu Diinput", value: "5 Siswa", icon: Edit3, color: "text-red-500", bgColor: "bg-red-100", href: "/guru/grades" }, // Placeholder
+    { title: "Rata-rata Kelas", value: "82.5", icon: BarChart2, color: "text-purple-500", bgColor: "bg-purple-100", href: "#" }, // Placeholder
   ];
 
   return (

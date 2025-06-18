@@ -1,71 +1,81 @@
 
 "use client";
 
-import { useState } from 'react';
-import LoginForm from '@/components/auth/LoginForm';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { createUserProfile } from '@/lib/firestoreService';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle, LogIn, Loader2, UserPlus, KeyRound } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const { toast } = useToast();
 
-  const handleSeedUsers = async () => {
-    setIsSeeding(true);
-    const adminEmail = 'admin@example.com';
-    const adminPass = 'admin123456';
-    const guruEmail = 'guru123@example.com';
-    const guruPass = 'guru123456';
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
 
-    let adminCreated = false;
-    let guruCreated = false;
-
-    // Create Admin
     try {
-      const adminCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPass);
-      await createUserProfile(adminCredential.user, 'admin', 'Default Admin');
-      toast({ title: "Admin User Created", description: `${adminEmail} registered successfully.` });
-      adminCreated = true;
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        toast({ title: "Admin User Seed Info", description: `${adminEmail} already exists. Login may be possible.`, variant: 'default' });
-      } else {
-        console.error("Error creating admin user:", error);
-        toast({ title: "Admin User Creation Failed", description: error.message, variant: "destructive" });
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: "Login Berhasil",
+        description: "Anda akan diarahkan ke dasbor.",
+      });
+      router.push('/'); 
+    } catch (e: any) {
+      let friendlyMessage = 'Gagal melakukan login. Periksa kembali email dan password Anda.';
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan coba lagi.';
+      } else if (e.code === 'auth/too-many-requests') {
+        friendlyMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti.';
+      }
+      setError(friendlyMessage);
+      toast({
+        variant: "destructive",
+        title: "Login Gagal",
+        description: friendlyMessage,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const emailForReset = prompt("Masukkan alamat email Anda untuk reset password:");
+    if (emailForReset) {
+      setLoading(true);
+      try {
+        await sendPasswordResetEmail(auth, emailForReset);
+        toast({
+          title: "Email Reset Password Terkirim",
+          description: "Silakan periksa inbox email Anda untuk instruksi reset password.",
+        });
+      } catch (error: any) {
+        let friendlyMessage = "Gagal mengirim email reset password.";
+        if (error.code === 'auth/user-not-found') {
+          friendlyMessage = "Email tidak terdaftar. Pastikan email yang Anda masukkan benar.";
+        }
+        toast({
+          variant: "destructive",
+          title: "Gagal Reset Password",
+          description: friendlyMessage,
+        });
+        console.error("Error sending password reset email:", error);
+      } finally {
+        setLoading(false);
       }
     }
-
-    // Create Guru
-    try {
-      const guruCredential = await createUserWithEmailAndPassword(auth, guruEmail, guruPass);
-      await createUserProfile(guruCredential.user, 'guru', 'Default Guru');
-      toast({ title: "Guru User Created", description: `${guruEmail} registered successfully.` });
-      guruCreated = true;
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        toast({ title: "Guru User Seed Info", description: `${guruEmail} already exists. Login may be possible.`, variant: 'default' });
-      } else {
-        console.error("Error creating guru user:", error);
-        toast({ title: "Guru User Creation Failed", description: error.message, variant: "destructive" });
-      }
-    }
-
-    if (adminCreated || guruCreated) {
-        toast({ title: "Seeding Complete", description: "Attempted to create default users. You can now try logging in." });
-    } else if (!adminCreated && !guruCreated) {
-      // This case handles if both creations failed for reasons other than 'email-already-in-use'
-      // or if they already existed and thus weren't "created" in this run.
-      // The individual error toasts would have already appeared.
-      // We can add a general message if needed, or rely on the specific failure toasts.
-    }
-
-
-    setIsSeeding(false);
   };
 
   return (
@@ -84,46 +94,153 @@ export default function LoginPage() {
             aria-label="SiAP Smapna Logo"
             role="img"
           >
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
-            <path d="m14 12.5 2 2 4-4"/>
+            <path d="M9 4h10c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h4" />
+            <polyline points="16 12 12 12 12 16" />
+            <path d="m10 14 2-2 2 2" />
+            <path d="M12 3v2" />
+            <path d="M5 2v2" />
+            <path d="M19 2v2" />
+            <circle cx="12" cy="14" r="4" />
           </svg>
           <h1 className="text-4xl font-bold text-primary font-headline tracking-tight">
             SiAP Smapna
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Sistem Informasi Akademik & Penilaian SMAS PGRI Naringgul.
+            Sistem Informasi Akademik & Penilaian Smapna.
           </p>
         </div>
         <LoginForm />
-        <div className="mt-6 border-t border-border pt-6">
-          <p className="mb-3 text-xs text-center text-muted-foreground">
-            Untuk keperluan pengembangan, Anda bisa membuat pengguna default:
-          </p>
+        <div className="mt-6 text-center text-sm">
           <Button
-            type="button"
-            variant="outline"
-            className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground"
-            onClick={handleSeedUsers}
-            disabled={isSeeding}
+            variant="link"
+            onClick={handleForgotPassword}
+            className="text-primary hover:text-primary/80 p-0"
+            disabled={loading}
           >
-            {isSeeding ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Membuat Pengguna...
-              </>
-            ) : (
-              'Buat Pengguna Default (Admin & Guru)'
-            )}
+            <KeyRound className="mr-1.5 h-4 w-4" />
+            Lupa Password?
           </Button>
-          <p className="mt-2 text-xs text-center text-muted-foreground">
-            Admin: admin@example.com / admin123456<br />
-            Guru: guru123@example.com / guru123456
-          </p>
+          <span className="mx-2 text-muted-foreground">|</span>
+          <Link href="/register" passHref legacyBehavior>
+            <Button
+              variant="link"
+              className="text-primary hover:text-primary/80 p-0"
+              disabled={loading}
+            >
+              <UserPlus className="mr-1.5 h-4 w-4" />
+              Buat Akun Baru
+            </Button>
+          </Link>
+          {/* 
+            TODO: Halaman /register perlu dibuat.
+            Fungsionalitasnya akan melibatkan form input (nama, email, password, konfirmasi password, mungkin peran jika user bisa memilih),
+            validasi, pemanggilan createUserWithEmailAndPassword, dan createUserProfile.
+          */}
         </div>
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
         © {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.
       </footer>
     </div>
+  );
+}
+
+// LoginForm component remains the same as provided in context
+function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null); // Error state for login form specifically
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: "Login Berhasil",
+        description: "Anda akan diarahkan ke dasbor.",
+      });
+      router.push('/'); 
+    } catch (e: any) {
+      let friendlyMessage = 'Gagal melakukan login. Periksa kembali email dan password Anda.';
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan coba lagi.';
+      } else if (e.code === 'auth/too-many-requests') {
+        friendlyMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti.';
+      }
+      setError(friendlyMessage);
+      toast({
+        variant: "destructive",
+        title: "Login Gagal",
+        description: friendlyMessage,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <Alert variant="destructive" role="alert">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Kesalahan Login</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-sm font-medium text-foreground/80">
+          Alamat Email
+        </Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="contoh@email.com"
+          className="bg-background/50 border-border focus:border-primary focus:ring-primary"
+          aria-label="Alamat Email"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-sm font-medium text-foreground/80">
+          Password
+        </Label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          placeholder="••••••••"
+          className="bg-background/50 border-border focus:border-primary focus:ring-primary"
+          aria-label="Password"
+        />
+      </div>
+      <Button 
+        type="submit" 
+        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        disabled={loading}
+        aria-live="polite"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Memproses...
+          </>
+        ) : (
+          <>
+            <LogIn className="mr-2 h-4 w-4" />
+            Masuk
+          </>
+        )}
+      </Button>
+    </form>
   );
 }

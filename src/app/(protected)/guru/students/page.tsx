@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -345,8 +345,14 @@ export default function ManageStudentsPage() {
                         <TableCell>{student.kelas}</TableCell>
                         <TableCell>{student.id_siswa}</TableCell>
                         <TableCell className="text-right space-x-1">
+                          <Link href={`/guru/students/report/${student.id}`} passHref>
+                            <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Lihat Rapor">
+                              <FileText className="h-4 w-4" />
+                              <span className="sr-only">Lihat Rapor</span>
+                            </Button>
+                          </Link>
                           <Link href={`/guru/students/edit/${student.id}`} passHref>
-                            <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground">
+                            <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Edit Siswa">
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edit</span>
                             </Button>
@@ -357,6 +363,7 @@ export default function ManageStudentsPage() {
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDeleteConfirmation(student)}
                             disabled={isDeleting}
+                            title="Hapus Siswa"
                           >
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Hapus</span>
@@ -426,4 +433,6 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+    
+
     

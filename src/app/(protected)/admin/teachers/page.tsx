@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Download } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Download, FileUp } from "lucide-react";
 import { 
   getAllUsersByRole, 
   createUserProfile as createUserProfileFirestore, 
@@ -46,6 +46,13 @@ const addTeacherSchema = z.object({
 
 type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
+interface TeacherImportData {
+  displayName: string;
+  email: string;
+  password?: string; // Made optional as password is provided in template but not strictly enforced by schema for parsing
+}
+
+
 export default function ManageTeachersPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -56,6 +63,11 @@ export default function ManageTeachersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [teacherToDelete, setTeacherToDelete] = useState<UserProfile | null>(null);
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const form = useForm<AddTeacherFormData>({
     resolver: zodResolver(addTeacherSchema),
@@ -103,7 +115,7 @@ export default function ManageTeachersPage() {
       await createUserProfileFirestore(userCredential.user, 'guru', data.displayName);
       
       await addActivityLog(
-          "Guru Baru Ditambahkan", 
+          "Guru Baru Ditambahkan (Manual)", 
           `Guru: ${data.displayName} (${data.email}) oleh Admin: ${adminDisplayNameToLog}`,
           adminUIDToLog,
           adminDisplayNameToLog
@@ -117,7 +129,10 @@ export default function ManageTeachersPage() {
       form.reset();
       
       setTimeout(() => {
-        window.location.reload();
+        // fetchTeachers(); // Re-fetch data
+        // setIsSubmitting(false); // Reset submit state here
+        // It's better to reload to ensure auth state is clean if admin was briefly signed out
+         window.location.reload();
       }, 1500); 
 
     } catch (error: any) {
@@ -174,7 +189,7 @@ export default function ManageTeachersPage() {
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 } ];
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 } ]; // Column widths
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "template_import_guru.xlsx");
     toast({ title: "Template Diunduh", description: "Template Excel untuk impor guru telah diunduh." });
@@ -188,15 +203,135 @@ export default function ManageTeachersPage() {
     const dataToExport = teachers.map(teacher => ({
       NamaTampilan: teacher.displayName,
       Email: teacher.email,
+      // We don't export passwords or UIDs
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 } ];
+    const wscols = [ { wch: 25 }, { wch: 30 } ]; // Column widths
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "data_guru_skorzen.xlsx");
     toast({ title: "Data Diekspor", description: "Data guru telah diekspor ke Excel." });
   };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const handleImportTeachers = async () => {
+    if (!selectedFile) {
+      toast({ variant: "destructive", title: "Tidak Ada File", description: "Silakan pilih file Excel terlebih dahulu." });
+      return;
+    }
+    if (!currentAdminProfile?.uid || !currentAdminProfile?.displayName) {
+      toast({ variant: "destructive", title: "Error Sesi Admin", description: "Sesi admin tidak valid untuk mencatat log. Silakan refresh." });
+      return;
+    }
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<TeacherImportData>(worksheet);
+
+        if (json.length === 0) {
+          toast({ variant: "destructive", title: "File Kosong", description: "File Excel tidak mengandung data guru." });
+          setIsImporting(false);
+          return;
+        }
+
+        // Validate headers (simple check for expected keys in the first object)
+        const firstRow = json[0];
+        if (!firstRow || !('displayName' in firstRow) || !('email' in firstRow) || !('password' in firstRow)) {
+          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai. Harap gunakan template yang disediakan (displayName, email, password)." });
+          setIsImporting(false);
+          return;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+        const errorMessages: string[] = [];
+
+        for (const teacher of json) {
+          if (!teacher.displayName || !teacher.email || !teacher.password) {
+            failCount++;
+            errorMessages.push(`Baris tidak lengkap untuk: ${teacher.email || 'Email tidak ada'}. Dilewati.`);
+            continue;
+          }
+          if (teacher.password.length < 6) {
+            failCount++;
+            errorMessages.push(`Password untuk ${teacher.email} terlalu pendek. Dilewati.`);
+            continue;
+          }
+
+          try {
+            const userCredential = await createUserWithEmailAndPassword(auth, teacher.email, teacher.password);
+            await createUserProfileFirestore(userCredential.user, 'guru', teacher.displayName);
+            await addActivityLog(
+              "Guru Baru Diimpor dari Excel",
+              `Guru: ${teacher.displayName} (${teacher.email}) oleh Admin: ${currentAdminProfile.displayName}`,
+              currentAdminProfile.uid,
+              currentAdminProfile.displayName
+            );
+            
+            // Sign out the newly created user to keep admin session
+            if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
+              await signOut(auth);
+            }
+            successCount++;
+          } catch (error: any) {
+            failCount++;
+            if (error.code === 'auth/email-already-in-use') {
+              errorMessages.push(`Email ${teacher.email} sudah terdaftar. Dilewati.`);
+            } else {
+              errorMessages.push(`Gagal impor ${teacher.email}: ${error.message}. Dilewati.`);
+            }
+             // If an error occurs with createUserWithEmailAndPassword, the admin might be signed out.
+             // It's complex to re-authenticate admin automatically here.
+             // A full page reload might be the simplest way to recover admin session if this happens mid-import.
+          }
+        }
+
+        toast({
+          title: "Proses Impor Selesai",
+          description: `${successCount} guru berhasil diimpor. ${failCount} guru gagal diimpor. ${failCount > 0 ? 'Lihat konsol untuk detail error atau coba lagi.' : ''}`,
+          duration: failCount > 0 ? 10000 : 5000,
+        });
+
+        if (errorMessages.length > 0) {
+          console.warn("Detail error impor guru:", errorMessages.join("\n"));
+          // Could also show these in a more user-friendly way, e.g., an alert dialog
+        }
+        
+        // Refresh data and clear file input
+        fetchTeachers();
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+
+      } catch (error) {
+        console.error("Error processing Excel file:", error);
+        toast({ variant: "destructive", title: "Error Baca File", description: "Gagal memproses file Excel." });
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.onerror = () => {
+      toast({ variant: "destructive", title: "Error Baca File", description: "Tidak dapat membaca file yang dipilih." });
+      setIsImporting(false);
+    };
+    reader.readAsBinaryString(selectedFile);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -209,15 +344,15 @@ export default function ManageTeachersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Data Guru</h1>
           <p className="text-muted-foreground">
-            Tambah, lihat, edit atau hapus data profil guru yang terdaftar dalam sistem.
+            Tambah, lihat, edit, hapus, atau impor data profil guru.
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tambah Guru Baru</CardTitle>
-          <CardDescription>Masukkan detail guru untuk mendaftarkannya.</CardDescription>
+          <CardTitle>Tambah Guru Baru (Manual)</CardTitle>
+          <CardDescription>Masukkan detail guru untuk mendaftarkannya satu per satu.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -284,6 +419,32 @@ export default function ManageTeachersPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Impor Guru dari Excel</CardTitle>
+          <CardDescription>Impor banyak data guru sekaligus menggunakan file Excel. Gunakan template yang disediakan.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <Input
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleFileChange}
+              ref={fileInputRef}
+              className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+            <Button onClick={handleImportTeachers} disabled={isImporting || !selectedFile} className="w-full sm:w-auto">
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              {isImporting ? 'Mengimpor...' : 'Impor Guru'}
+            </Button>
+          </div>
+          <FormDesc>
+            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>.
+            Data yang sudah ada (berdasarkan email) akan dilewati.
+          </FormDesc>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle>Daftar Guru Terdaftar</CardTitle>
@@ -326,7 +487,7 @@ export default function ManageTeachersPage() {
                 Belum Ada Guru
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Belum ada guru yang terdaftar. Silakan tambahkan guru baru menggunakan formulir di atas.
+                Belum ada guru yang terdaftar. Silakan tambahkan guru baru menggunakan formulir di atas atau impor dari Excel.
               </p>
             </div>
           ) : (
@@ -399,3 +560,6 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
+
+
+    

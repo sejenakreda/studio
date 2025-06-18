@@ -1,3 +1,4 @@
+
 import {
   doc,
   getDoc,
@@ -15,7 +16,8 @@ import {
   DocumentData,
   QueryDocumentSnapshot,
   SnapshotOptions,
-  FirestoreDataConverter
+  FirestoreDataConverter,
+  orderBy
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Bobot, Siswa, Nilai, UserProfile, Role } from '@/types';
@@ -78,9 +80,11 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Nilai): DocumentData => {
     const data: any = { ...nilai };
-    delete data.id;
-    if(!data.createdAt) data.createdAt = serverTimestamp();
-    data.updatedAt = serverTimestamp();
+    delete data.id; // Do not store the local/snapshot ID in the document data
+    if (!data.createdAt) { // Set createdAt only if it's a new document
+      data.createdAt = serverTimestamp();
+    }
+    data.updatedAt = serverTimestamp(); // Always set/update updatedAt
     return data;
   },
   fromFirestore: (
@@ -101,6 +105,8 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
       eskul: data.eskul,
       osis: data.osis,
       nilai_akhir: data.nilai_akhir,
+      createdAt: data.createdAt, // Will be a Firestore Timestamp or undefined
+      updatedAt: data.updatedAt, // Will be a Firestore Timestamp or undefined
     };
   }
 };
@@ -171,7 +177,7 @@ export const addStudent = async (siswa: Omit<Siswa, 'id'>): Promise<Siswa> => {
 
 export const getStudents = async (): Promise<Siswa[]> => {
   const collRef = collection(db, 'siswa').withConverter(siswaConverter);
-  const q = query(collRef); 
+  const q = query(collRef, orderBy("nama", "asc")); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -189,8 +195,18 @@ export const updateStudent = async (id: string, siswaData: Partial<Siswa>): Prom
 
 export const deleteStudent = async (id: string): Promise<void> => {
   const docRef = doc(db, 'siswa', id);
-  await deleteDoc(docRef);
-  const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', id));
+  const studentSnapshot = await getDoc(doc(db, 'siswa', id).withConverter(siswaConverter)); // Get student data before deleting
+  if (!studentSnapshot.exists()) {
+    console.warn(`Siswa dengan ID ${id} tidak ditemukan untuk dihapus.`);
+    return;
+  }
+  const studentData = studentSnapshot.data();
+  const studentIdSiswa = studentData.id_siswa; // Get the id_siswa field
+
+  await deleteDoc(docRef); // Delete the student document
+
+  // Delete associated grades using id_siswa
+  const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', studentIdSiswa));
   const gradesSnapshot = await getDocs(gradesQuery);
   const batch = writeBatch(db);
   gradesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
@@ -208,22 +224,33 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
   const querySnapshot = await getDocs(q);
 
   let docId: string;
+  let newCreatedAt = nilai.createdAt; // Preserve existing createdAt if updating
+
   if (!querySnapshot.empty) {
     const existingDoc = querySnapshot.docs[0];
     docId = existingDoc.id;
-    await updateDoc(existingDoc.ref, nilai);
+    if (existingDoc.data().createdAt) { // If createdAt exists, keep it
+        newCreatedAt = existingDoc.data().createdAt;
+    }
+    // Ensure nilai object passed to updateDoc includes all necessary fields, including createdAt
+    await updateDoc(existingDoc.ref, { ...nilai, createdAt: newCreatedAt });
   } else {
+    // For new documents, createdAt will be set by toFirestore if not present in 'nilai' object
     const docRef = await addDoc(gradesCollRef, nilai);
     docId = docRef.id;
+    // If nilai didn't have createdAt, it's now a serverTimestamp placeholder.
+    // For immediate client-side use, we might not have the resolved timestamp yet.
+    // Setting it to a local estimate or fetching the doc again are options, but usually not critical for this step.
   }
   // Cast nilai to Nilai because it's an Omit type
-  const savedNilai = { ...nilai, id: docId } as Nilai;
+  // The returned object will have createdAt as potentially a serverTimestamp pending write for new docs
+  const savedNilai = { ...nilai, id: docId, createdAt: newCreatedAt } as Nilai;
   return savedNilai;
 };
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, where('id_siswa', '==', id_siswa));
+  const q = query(collRef, where('id_siswa', '==', id_siswa), orderBy("updatedAt", "desc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -244,7 +271,9 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef); 
+  // Order by updatedAt descending to get most recently updated grades first
+  // This assumes all documents will have updatedAt due to the converter logic
+  const q = query(collRef, orderBy("updatedAt", "desc")); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -269,7 +298,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
   const usersCollRef = collection(db, 'users').withConverter(userProfileConverter);
-  const q = query(usersCollRef, where('role', '==', role));
+  const q = query(usersCollRef, where('role', '==', role), orderBy("displayName", "asc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };

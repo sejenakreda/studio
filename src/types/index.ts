@@ -1,4 +1,6 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { Timestamp } from 'firebase/firestore';
 
 export type Role = 'admin' | 'guru';
 
@@ -34,6 +36,8 @@ export interface Nilai {
   eskul: number; // Extracurricular
   osis: number;
   nilai_akhir?: number; // Calculated final grade
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface Bobot {

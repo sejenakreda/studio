@@ -44,7 +44,7 @@ export default function ManageAllGradesPage() {
         getStudents()
       ]);
 
-      if (!grades || !students) {
+      if (!Array.isArray(grades) || !Array.isArray(students)) {
         throw new Error("Gagal memuat data nilai atau siswa.");
       }
 
@@ -99,7 +99,22 @@ export default function ManageAllGradesPage() {
         if (bValue === undefined || bValue === null) return -1;
         
         let comparison = 0;
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
+        // Handle sorting for nilai_akhir which can be 0
+        if (sortConfig.key === 'nilai_akhir' || sortConfig.key === 'rataRataTugas' || 
+            sortConfig.key === 'tes' || sortConfig.key === 'pts' || sortConfig.key === 'pas' ||
+            sortConfig.key === 'kehadiran' || sortConfig.key === 'eskul' || sortConfig.key === 'osis') {
+            const numA = Number(aValue);
+            const numB = Number(bValue);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                comparison = numA - numB;
+            } else if (!isNaN(numA)) {
+                comparison = -1; // numbers first
+            } else if (!isNaN(numB)) {
+                comparison = 1; // numbers first
+            } else {
+                 comparison = String(aValue).localeCompare(String(bValue));
+            }
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
           comparison = aValue - bValue;
         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
           comparison = aValue.localeCompare(bValue);
@@ -130,7 +145,7 @@ export default function ManageAllGradesPage() {
     { key: 'tes', label: 'Tes' },
     { key: 'pts', label: 'PTS' },
     { key: 'pas', label: 'PAS' },
-    { key: 'kehadiran', label: 'Kehadiran' },
+    { key: 'kehadiran', label: 'Kehadiran (%)' },
     { key: 'eskul', label: 'Eskul' },
     { key: 'osis', label: 'OSIS' },
     { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
@@ -179,6 +194,7 @@ export default function ManageAllGradesPage() {
           <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
           <CardDescription>
             Menampilkan semua catatan nilai yang tersimpan dalam sistem. Klik header kolom untuk mengurutkan.
+            Jika data baru belum muncul, coba muat ulang halaman.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -241,4 +257,3 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
-

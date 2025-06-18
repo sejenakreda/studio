@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2 } from "lucide-react";
 import { getAllUsersByRole, createUserProfile as createUserProfileFirestore, addActivityLog } from '@/lib/firestoreService';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'; // Import signOut
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +32,7 @@ type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
 export default function ManageTeachersPage() {
   const { toast } = useToast();
-  const { userProfile: currentAdminProfileFromAuth } = useAuth(); // Get admin profile from context
+  const { userProfile: currentAdminProfileFromAuth } = useAuth(); 
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,25 +69,16 @@ export default function ManageTeachersPage() {
 
   const onSubmit = async (data: AddTeacherFormData) => {
     setIsSubmitting(true);
-    // Capture admin's details BEFORE creating the new user, as auth state will change
     const adminUIDToLog = currentAdminProfileFromAuth?.uid;
     const adminDisplayNameToLog = currentAdminProfileFromAuth?.displayName || currentAdminProfileFromAuth?.email || "Admin";
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      // NEW USER (TEACHER) IS NOW SIGNED IN
+      // NEW USER (TEACHER) IS NOW SIGNED IN (auth.currentUser is the new teacher)
       
       await createUserProfileFirestore(userCredential.user, 'guru', data.displayName);
       
-      // Sign out the newly created teacher user.
-      // This allows onAuthStateChanged to restore the admin's session.
-      if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
-          await signOut(auth);
-      }
-
-      toast({ title: "Sukses", description: `Guru ${data.displayName} berhasil ditambahkan.` });
-      
-      // Log the activity as the original admin
+      // Log activity using the captured admin's details BEFORE signing out the new teacher
       if (adminUIDToLog) {
         await addActivityLog(
             "Guru Baru Ditambahkan", 
@@ -97,8 +88,24 @@ export default function ManageTeachersPage() {
           );
       }
 
+      // Sign out the newly created teacher user.
+      // This is necessary because createUserWithEmailAndPassword automatically signs in the new user.
+      // After this, auth.currentUser will be null.
+      if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
+          await signOut(auth);
+      }
+
+      toast({ title: "Sukses", description: `Guru ${data.displayName} berhasil ditambahkan. Memuat ulang daftar...` });
       form.reset();
-      fetchTeachers(); 
+      
+      // Force a page reload. This will cause AuthContext to re-initialize,
+      // and onAuthStateChanged should pick up the original admin's persisted session.
+      // The list of teachers will also be re-fetched due to the reload.
+      // A short delay allows the toast to be visible.
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500); // 1.5 second delay
+
     } catch (error: any) {
       console.error("Error adding teacher:", error);
       let errorMessage = "Gagal menambahkan guru. Silakan coba lagi.";
@@ -108,9 +115,9 @@ export default function ManageTeachersPage() {
         errorMessage = "Password terlalu lemah. Gunakan password yang lebih kuat.";
       }
       toast({ variant: "destructive", title: "Error", description: errorMessage });
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Only set submitting to false on error, reload handles success.
     }
+    // No setIsSubmitting(false) in a finally block here, as the reload handles the UI reset on success.
   };
 
   return (

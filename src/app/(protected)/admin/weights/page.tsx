@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { ArrowLeft, Save, Loader2, AlertCircle, CalendarDays } from "lucide-react";
 import { getWeights, updateWeights } from '@/lib/firestoreService';
 import type { Bobot } from '@/types';

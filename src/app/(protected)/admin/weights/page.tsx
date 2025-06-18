@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { ArrowLeft, Save, Loader2, AlertCircle, CalendarDays } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, CalendarDays, Info } from "lucide-react";
 import { getWeights, updateWeights, addActivityLog } from '@/lib/firestoreService';
 import type { Bobot } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -132,7 +132,7 @@ export default function ManageWeightsPage() {
       if (userProfile) {
         await addActivityLog(
             "Konfigurasi Bobot Diperbarui", 
-            `Bobot & hari efektif telah diubah.`,
+            `Bobot & hari efektif telah diubah. Detail: Tgs(${data.tugas}), Tes(${data.tes}), PTS(${data.pts}), PAS(${data.pas}), Keh(${data.kehadiran}), Eskul(${data.eskul}), Osis(${data.osis}), HrGjl(${data.totalHariEfektifGanjil}), HrGnp(${data.totalHariEfektifGenap}).`,
             userProfile.uid,
             userProfile.displayName || userProfile.email || "Admin"
           );
@@ -211,6 +211,7 @@ export default function ManageWeightsPage() {
               <CardTitle>Konfigurasi Global</CardTitle>
               <CardDescription>
                 Masukkan persentase untuk komponen penilaian (total harus 100%) dan jumlah hari efektif.
+                 Pengaturan ini berlaku global untuk semua perhitungan nilai akhir.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -238,6 +239,15 @@ export default function ManageWeightsPage() {
               
               <div>
                 <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Bobot Komponen Penilaian</h3>
+                 <Alert variant="default" className="mb-4">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Informasi Bobot</AlertTitle>
+                  <AlertDescription>
+                    Total bobot dari semua komponen yang tercantum (Tugas, Tes, PTS, PAS, Kehadiran, Eskul, OSIS) harus mencapai 100%. 
+                    Jika Eskul atau OSIS diberi bobot, nilai aktual yang diinput guru untuk komponen tersebut (skala 0-100) akan mempengaruhi nilai akhir siswa. 
+                    Jika komponen seperti Eskul/OSIS hanya bersifat sebagai catatan dan tidak boleh signifikan mempengaruhi nilai akhir (terutama menurunkannya), pertimbangkan untuk memberi bobot 0% pada komponen tersebut.
+                  </AlertDescription>
+                </Alert>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {weightFields.map((fieldInfo) => (
                     <FormField
@@ -324,3 +334,5 @@ export default function ManageWeightsPage() {
     </div>
   );
 }
+
+    

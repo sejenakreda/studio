@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks } from "lucide-react";
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy } from "lucide-react"; // Added BookCopy
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -66,8 +66,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
         <SidebarHeader className="p-4 border-b">
           <Link href={userProfile?.role === 'admin' ? '/admin' : '/guru'} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-            <ShieldCheck className="h-8 w-8 text-primary transition-transform duration-300 group-hover/sidebar:rotate-[360deg]" />
-            <span id="sidebar-mobile-title" className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SkorZen</span>
+            <BookCopy className="h-8 w-8 text-primary transition-transform duration-300 group-hover/sidebar:rotate-[10deg]" />
+            <span id="sidebar-mobile-title" className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SiAP Smapna</span>
           </Link>
         </SidebarHeader>
         <SidebarContent className="flex-1 p-2">

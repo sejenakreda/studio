@@ -5,8 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { SidebarProvider } from '@/components/ui/sidebar'; // Import SidebarProvider
 
 export const metadata: Metadata = {
-  title: 'SkorZen',
-  description: 'Aplikasi Penilaian Siswa Berbasis Web',
+  title: 'SiAP Smapna',
+  description: 'Sistem Informasi Akademik & Penilaian SMAS PGRI Naringgul',
 };
 
 export default function RootLayout({

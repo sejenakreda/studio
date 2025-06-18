@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -45,7 +46,7 @@ export default function HomePage() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             ></path>
           </svg>
-          <h1 className="text-4xl font-bold text-primary font-headline">SkorZen</h1>
+          <h1 className="text-4xl font-bold text-primary font-headline">SiAP Smapna</h1>
           <p className="mt-2 text-lg text-muted-foreground">Mengarahkan ke dasbor Anda...</p>
         </div>
         <div className="space-y-4">

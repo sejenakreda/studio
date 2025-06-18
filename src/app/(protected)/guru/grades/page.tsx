@@ -74,6 +74,12 @@ export default function InputGradesPage() {
   });
 
   const watchedFormValues = form.watch();
+  const { selectedStudentId, selectedAcademicYear, selectedSemester, jumlahHariHadir } = watchedFormValues;
+
+  const totalDaysForCurrentSemester = useMemo(() => {
+    if (!weights || !watchedFormValues.selectedSemester) return undefined;
+    return watchedFormValues.selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
+  }, [weights, watchedFormValues.selectedSemester]);
 
   useEffect(() => {
     async function fetchData() {
@@ -101,8 +107,6 @@ export default function InputGradesPage() {
     }
     fetchData();
   }, [form, toast]);
-
-  const { selectedStudentId, selectedAcademicYear, selectedSemester, jumlahHariHadir } = watchedFormValues;
 
   useEffect(() => {
     async function fetchGrade() {
@@ -282,11 +286,6 @@ export default function InputGradesPage() {
       </div>
     );
   }
-  const totalDaysForCurrentSemester = useMemo(() => {
-    if (!weights || !watchedFormValues.selectedSemester) return undefined;
-    return watchedFormValues.selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
-  }, [weights, watchedFormValues.selectedSemester]);
-
 
   return (
     <div className="space-y-6">
@@ -371,3 +370,4 @@ export default function InputGradesPage() {
     </div>
   );
 }
+

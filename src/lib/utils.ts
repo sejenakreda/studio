@@ -35,12 +35,13 @@ export function calculateFinalGrade(nilai: Nilai, bobot: Bobot): number {
 }
 
 export function getAcademicYears(startYear = 2020) {
-  const currentYear = new Date().getFullYear();
+  const endYear = 2049; // Target end year for the academic period like 2049/2050
   const years = [];
-  for (let year = startYear; year <= currentYear + 1; year++) {
+  // Loop until the start of the last academic year (e.g., 2049 for 2049/2050)
+  for (let year = startYear; year <= endYear; year++) {
     years.push(`${year}/${year + 1}`);
   }
-  return years.reverse(); // Show most recent first
+  return years.reverse(); // Show most recent first, or adjust if another order is preferred
 }
 
 export const SEMESTERS = [

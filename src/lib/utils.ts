@@ -34,14 +34,26 @@ export function calculateFinalGrade(nilai: Nilai, bobot: Bobot): number {
   return Math.round(finalGrade * 100) / 100;
 }
 
-export function getAcademicYears(startYear = 2020) {
+export function getAcademicYears(startYear = 2020): string[] {
   const endYear = 2049; // Target end year for the academic period like 2049/2050
-  const years = [];
-  // Loop until the start of the last academic year (e.g., 2049 for 2049/2050)
+  const years: string[] = [];
   for (let year = startYear; year <= endYear; year++) {
     years.push(`${year}/${year + 1}`);
   }
-  return years.reverse(); // Show most recent first, or adjust if another order is preferred
+  return years.reverse(); // Show most recent first
+}
+
+export function getCurrentAcademicYear(): string {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0 (Jan) - 11 (Dec)
+
+  // Assuming new academic year starts in July (month index 6)
+  if (currentMonth >= 6) { // July to December
+    return `${currentYear}/${currentYear + 1}`;
+  } else { // January to June
+    return `${currentYear - 1}/${currentYear}`;
+  }
 }
 
 export const SEMESTERS = [

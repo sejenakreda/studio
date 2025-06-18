@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { getAllGrades, getStudents } from '@/lib/firestoreService';
-import { calculateAverage, getAcademicYears, SEMESTERS } from '@/lib/utils';
+import { calculateAverage, getAcademicYears, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +31,8 @@ interface SortConfig {
   direction: 'ascending' | 'descending';
 }
 
-const ACADEMIC_YEARS_FILTER = getAcademicYears();
+const ALL_ACADEMIC_YEARS_FILTER = getAcademicYears(); // Full list for dropdown
+const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 const ITEMS_PER_PAGE = 15;
 
 export default function ManageAllGradesPage() {
@@ -43,7 +44,9 @@ export default function ManageAllGradesPage() {
 
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
-  const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
+  const [academicYearFilter, setAcademicYearFilter] = useState<string>(
+    ALL_ACADEMIC_YEARS_FILTER.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : "all"
+  );
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -335,7 +338,7 @@ export default function ManageAllGradesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Tahun</SelectItem>
-                    {ACADEMIC_YEARS_FILTER.map(year => (
+                    {ALL_ACADEMIC_YEARS_FILTER.map(year => (
                       <SelectItem key={year} value={year}>{year}</SelectItem>
                     ))}
                   </SelectContent>

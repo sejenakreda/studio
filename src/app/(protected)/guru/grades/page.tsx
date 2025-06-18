@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Percent } from "lucide-react";
 import { getStudents, getWeights, getGrade, addOrUpdateGrade } from '@/lib/firestoreService';
-import { calculateFinalGrade, getAcademicYears, SEMESTERS } from '@/lib/utils';
+import { calculateFinalGrade, getAcademicYears, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,7 +38,8 @@ const gradeSchema = z.object({
 
 type GradeFormData = z.infer<typeof gradeSchema>;
 
-const ACADEMIC_YEARS = getAcademicYears();
+const ALL_ACADEMIC_YEARS = getAcademicYears(); // Full list for dropdown
+const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 
 export default function InputGradesPage() {
   const { toast } = useToast();
@@ -57,7 +58,7 @@ export default function InputGradesPage() {
     resolver: zodResolver(gradeSchema),
     defaultValues: {
       selectedStudentId: "",
-      selectedAcademicYear: ACADEMIC_YEARS[0] || "",
+      selectedAcademicYear: ALL_ACADEMIC_YEARS.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : (ALL_ACADEMIC_YEARS[0] || ""),
       selectedSemester: SEMESTERS[0]?.value || 1,
       tugas1: 0,
       tugas2: 0,
@@ -302,7 +303,7 @@ export default function InputGradesPage() {
               {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={students.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{students.length === 0 ? (<SelectItem value="-" disabled>Belum ada siswa</SelectItem>) : (students.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{ACADEMIC_YEARS.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{ALL_ACADEMIC_YEARS.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value)}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
               </div>
             </CardContent>

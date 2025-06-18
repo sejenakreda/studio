@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Download, FileUp, FileDown } from "lucide-react";
-import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears, getStudentById } from '@/lib/firestoreService';
-import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears } from '@/lib/firestoreService';
+import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear, calculateAverage } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,21 +39,21 @@ const gradeSchema = z.object({
 
 type GradeFormData = z.infer<typeof gradeSchema>;
 
-interface GradeImportData {
+interface GradeImportDataRow {
   id_siswa: string;
+  nama_siswa?: string; // For reference from template
+  nis?: string; // For reference from template
+  kelas?: string; // For reference from template
   tahun_ajaran: string;
   semester: number | string; // Can be number or "Ganjil"/"Genap" text from Excel
-  tugas1?: number;
-  tugas2?: number;
-  tugas3?: number;
-  tugas4?: number;
-  tugas5?: number;
+  // Tugas columns will be accessed dynamically, e.g., row[`tugas${i}`]
   tes?: number;
   pts?: number;
   pas?: number;
   jumlah_hari_hadir?: number;
   eskul?: number;
   osis?: number;
+  [key: string]: any; // To capture dynamic tugasN columns and others
 }
 
 
@@ -289,19 +289,58 @@ export default function InputGradesPage() {
     { name: "eskul", label: "Nilai Ekstrakurikuler" }, { name: "osis", label: "Nilai OSIS/Kegiatan" },
   ];
 
-  const handleDownloadGradeTemplate = () => {
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      ["id_siswa", "tahun_ajaran", "semester", "tugas1", "tugas2", "tugas3", "tugas4", "tugas5", "tes", "pts", "pas", "jumlah_hari_hadir", "eskul", "osis"],
-    ]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Nilai");
-    const wscols = [
-      { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
-      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 8 }, { wch: 8 }
-    ];
-    worksheet['!cols'] = wscols;
-    XLSX.writeFile(workbook, "template_import_nilai.xlsx");
-    toast({ title: "Template Diunduh", description: "Template Excel untuk impor nilai telah diunduh." });
+  const handleDownloadGradeTemplate = async () => {
+    setIsImportingFile(true); // Use same loading state for simplicity
+    try {
+        const allStudentsList = await getStudents();
+        if (!allStudentsList || allStudentsList.length === 0) {
+            toast({ title: "Tidak Ada Siswa", description: "Tidak ada data siswa untuk membuat template.", variant: "default" });
+            return;
+        }
+
+        const dataForExcel = allStudentsList.map(student => ({
+            id_siswa: student.id_siswa,
+            nama_siswa: student.nama,
+            nis: student.nis,
+            kelas: student.kelas,
+            tahun_ajaran: '', // Placeholder for guru to fill
+            semester: '',       // Placeholder for guru to fill (1 or 2, or Ganjil/Genap)
+            tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', // Placeholders
+            tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: '' // Placeholders
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+        // Define explicit headers to ensure order and include all, even if some students don't have values for all 'tugas'
+        const headers = [
+            "id_siswa", "nama_siswa", "nis", "kelas", 
+            "tahun_ajaran", "semester", 
+            "tugas1", "tugas2", "tugas3", "tugas4", "tugas5",
+            "tes", "pts", "pas", "jumlah_hari_hadir", "eskul", "osis"
+        ];
+        XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+
+
+        // Set column widths
+        const wscols = [
+            { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, // id_siswa, nama, nis, kelas
+            { wch: 15 }, { wch: 10 }, // tahun_ajaran, semester
+            { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, // tugas1-5
+            { wch: 8 }, { wch: 8 }, { wch: 8 }, // tes, pts, pas
+            { wch: 18 }, { wch: 8 }, { wch: 8 } // jumlah_hari_hadir, eskul, osis
+        ];
+        worksheet['!cols'] = wscols;
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template Nilai");
+        XLSX.writeFile(workbook, "template_import_nilai_siswa.xlsx");
+        toast({ title: "Template Diunduh", description: "Template Excel untuk impor nilai telah diunduh dengan daftar siswa." });
+
+    } catch (error) {
+        console.error("Error downloading grade template:", error);
+        toast({ title: "Error Unduh Template", description: "Gagal membuat template nilai.", variant: "destructive"});
+    } finally {
+        setIsImportingFile(false);
+    }
   };
 
   const handleExportCurrentGrade = () => {
@@ -379,7 +418,7 @@ export default function InputGradesPage() {
         const workbook = XLSX.read(fileData, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<GradeImportData>(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json<GradeImportDataRow>(worksheet);
 
         if (jsonData.length === 0) {
           toast({ variant: "destructive", title: "File Kosong", description: "File Excel tidak mengandung data nilai." });
@@ -388,10 +427,10 @@ export default function InputGradesPage() {
         }
 
         const firstRow = jsonData[0];
-        const expectedHeaders = ["id_siswa", "tahun_ajaran", "semester", "jumlah_hari_hadir"]; // Add more if strict check needed
+         const expectedHeadersBase = ["id_siswa", "tahun_ajaran", "semester"];
         const actualHeaders = Object.keys(firstRow);
-        if (!expectedHeaders.every(header => actualHeaders.includes(header))) {
-          toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai. Pastikan ada kolom: ${expectedHeaders.join(', ')}.` });
+        if (!expectedHeadersBase.every(header => actualHeaders.includes(header))) {
+          toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai. Pastikan minimal ada kolom: ${expectedHeadersBase.join(', ')}.` });
           setIsImportingFile(false);
           return;
         }
@@ -409,8 +448,8 @@ export default function InputGradesPage() {
           }
           
           const semesterNum = typeof row.semester === 'string' 
-            ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(row.semester))
-            : row.semester;
+            ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(String(row.semester)))
+            : Number(row.semester);
 
           if (![1, 2].includes(semesterNum)) {
             failCount++;
@@ -432,9 +471,21 @@ export default function InputGradesPage() {
             calculatedKehadiranPercentage = Math.min(Math.max(calculatedKehadiranPercentage, 0), 100);
           }
 
-          const tugasScores = [
-            row.tugas1, row.tugas2, row.tugas3, row.tugas4, row.tugas5
-          ].map(t => typeof t === 'number' && t >=0 && t <= 100 ? t : 0) as number[];
+          const tugasScores: number[] = [];
+          for (let i = 1; i <= 20; i++) { // Check for tugas1 up to tugas20
+            const tugasValue = row[`tugas${i}`];
+            if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
+                 const numValue = Number(tugasValue);
+                 if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                    tugasScores.push(numValue);
+                } else {
+                    // If value exists but is invalid, you might want to log or default
+                    tugasScores.push(0); // Defaulting invalid to 0 for now
+                    errorDetails.push(`Nilai tugas${i} (${tugasValue}) tidak valid untuk ${row.id_siswa}. Dianggap 0.`);
+                }
+            }
+          }
+
 
           const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
             id_siswa: row.id_siswa,
@@ -467,18 +518,16 @@ export default function InputGradesPage() {
         });
         if (errorDetails.length > 0) console.warn("Detail Error Impor Nilai:", errorDetails.join("\n"));
 
-        // Optionally refresh current form if imported data matches current selection
         if (selectedStudentId && selectedAcademicYear && selectedSemester) {
           const importedForCurrent = jsonData.find(row =>
             row.id_siswa === selectedStudentId &&
             row.tahun_ajaran === selectedAcademicYear &&
-            (typeof row.semester === 'string' ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(row.semester)) : row.semester) === selectedSemester
+            (typeof row.semester === 'string' ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(String(row.semester))) : Number(row.semester)) === selectedSemester
           );
           if (importedForCurrent) {
-            // Trigger re-fetch of grade for current form
             const currentFormValues = form.getValues();
-            form.setValue("selectedStudentId", "", { shouldDirty: true }); // Temporarily change to trigger useEffect
-            form.reset(currentFormValues); // Reset to original values to trigger re-fetch
+            form.setValue("selectedStudentId", "", { shouldDirty: true }); 
+            form.reset(currentFormValues); 
           }
         }
         
@@ -596,7 +645,7 @@ export default function InputGradesPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Impor & Ekspor Nilai Massal</CardTitle>
-          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal.</CardDescription>
+          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal. Template akan menyertakan daftar siswa.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -613,12 +662,13 @@ export default function InputGradesPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Unduh template di bawah ini, isi data nilai, lalu unggah file untuk impor massal.
-            Pastikan kolom `id_siswa`, `tahun_ajaran`, dan `semester` (1 atau 2) diisi dengan benar.
+            Unduh template di bawah ini. Template akan berisi `id_siswa`, `nama_siswa`, `nis`, `kelas`. 
+            Isi kolom `tahun_ajaran`, `semester` (1 atau 2), dan nilai-nilai lainnya.
+            Sistem akan membaca kolom `tugas1`, `tugas2`, ..., `tugasN` secara dinamis.
           </p>
         </CardContent>
         <CardFooter>
-          <Button type="button" variant="outline" onClick={handleDownloadGradeTemplate}>
+          <Button type="button" variant="outline" onClick={handleDownloadGradeTemplate} disabled={isImportingFile}>
             <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
           </Button>
         </CardFooter>
@@ -626,3 +676,4 @@ export default function InputGradesPage() {
     </div>
   );
 }
+

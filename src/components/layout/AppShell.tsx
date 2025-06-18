@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog } from "lucide-react";
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'] },
   { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
+  { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -119,3 +120,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+    

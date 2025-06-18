@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, BarChart2, Users, Loader2, FileClock, Presentation } from "lucide-react";
+import { BookUser, Edit3, BarChart2, Users, Loader2, FileClock, Presentation, BarChartHorizontalBig } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents } from '@/lib/firestoreService';
@@ -44,44 +44,44 @@ export default function GuruDashboardPage() {
       value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
       icon: Users, 
       color: "text-blue-500", 
-      bgColor: "bg-blue-100", 
+      bgColor: "bg-blue-100 dark:bg-blue-900/30", 
       href: "/guru/students",
       isExternal: false,
       disabled: false,
       tooltip: "Lihat semua siswa terdaftar"
+    },
+     { 
+      title: "Rekap Nilai Semester", 
+      value: "Lihat & Unduh", 
+      icon: BarChartHorizontalBig, 
+      color: "text-teal-500", 
+      bgColor: "bg-teal-100 dark:bg-teal-900/30", 
+      href: "/guru/rekap-nilai",
+      isExternal: false, 
+      disabled: false,
+      tooltip: "Lihat rekapitulasi nilai per semester"
     },
     { 
       title: "Manajemen Kelas", 
       value: "Segera Hadir", 
       icon: BookUser, 
       color: "text-gray-500", 
-      bgColor: "bg-gray-100", 
+      bgColor: "bg-gray-100 dark:bg-gray-700/30", 
       href: "#", 
       isExternal: false, 
       disabled: true,
       tooltip: "Fitur ini akan tersedia nanti"
     },
     { 
-      title: "Pengingat Nilai", 
+      title: "Pengingat & Analisis", 
       value: "Segera Hadir", 
-      icon: FileClock, 
+      icon: Presentation, // Changed icon for variety
       color: "text-gray-500", 
-      bgColor: "bg-gray-100", 
+      bgColor: "bg-gray-100 dark:bg-gray-700/30", 
       href: "#", 
       isExternal: false, 
       disabled: true,
-      tooltip: "Fitur ini akan tersedia nanti"
-    },
-    { 
-      title: "Analisis Kelas", 
-      value: "Segera Hadir", 
-      icon: Presentation, 
-      color: "text-gray-500", 
-      bgColor: "bg-gray-100", 
-      href: "#", 
-      isExternal: false, 
-      disabled: true,
-      tooltip: "Fitur ini akan tersedia nanti"
+      tooltip: "Fitur pengingat dan analisis akan tersedia nanti"
     },
   ];
 
@@ -173,9 +173,11 @@ export default function GuruDashboardPage() {
                 <Edit3 className="h-6 w-6" /> Input & Lihat Nilai
               </Button>
             </Link>
-            <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary" disabled title="Fitur dalam pengembangan">
-              <BarChart2 className="h-6 w-6" /> Analisis Nilai Kelas
-            </Button>
+            <Link href="/guru/rekap-nilai">
+              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
+                <BarChartHorizontalBig className="h-6 w-6" /> Rekap Nilai Semester
+              </Button>
+            </Link>
              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary" disabled title="Fitur dalam pengembangan">
               <BookUser className="h-6 w-6" /> Daftar Kehadiran
             </Button>
@@ -186,3 +188,5 @@ export default function GuruDashboardPage() {
   );
 }
 
+
+    

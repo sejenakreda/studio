@@ -33,12 +33,12 @@ export default function AdminDashboardPage() {
       setTeacherCount(guruUsers?.length || 0);
       setStudentCount(studentList?.length || 0);
       setActivityLogs(logs || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
       toast({
         variant: "destructive",
         title: "Error Memuat Data Dasbor",
-        description: "Gagal mengambil data untuk dasbor.",
+        description: error.message || "Gagal mengambil data untuk dasbor.",
       });
       setTeacherCount(0); 
       setStudentCount(0); 
@@ -138,15 +138,15 @@ export default function AdminDashboardPage() {
             ) : activityLogs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-3 max-h-96 overflow-y-auto">
                 {activityLogs.map((log) => (
                   <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
-                    <History className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{log.action}</p>
-                      {log.details && <p className="text-xs text-muted-foreground">{log.details}</p>}
+                    <History className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="flex-grow min-w-0"> {/* Ensure text wraps */}
+                      <p className="text-sm font-medium text-foreground truncate" title={log.action}>{log.action}</p>
+                      {log.details && <p className="text-xs text-muted-foreground truncate" title={log.details}>{log.details}</p>}
                       <p className="text-xs text-muted-foreground">
-                        Oleh: {log.userName || "Sistem"} - 
+                        Oleh: <span className="font-medium">{log.userName || "Sistem"}</span> - 
                         {' '}
                         {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: indonesiaLocale }) : 'Beberapa saat lalu'}
                       </p>
@@ -187,3 +187,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

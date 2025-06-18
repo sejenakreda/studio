@@ -75,11 +75,12 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Nilai): DocumentData => {
     const data: any = { ...nilai };
-    delete data.id;
-    if (!data.createdAt) {
-      data.createdAt = serverTimestamp();
+    delete data.id; // Jangan simpan ID dokumen Firestore di dalam dokumen itu sendiri
+    // Set timestamps
+    if (!data.createdAt) { // Hanya set createdAt jika belum ada (untuk pembuatan baru)
+        data.createdAt = serverTimestamp();
     }
-    data.updatedAt = serverTimestamp();
+    data.updatedAt = serverTimestamp(); // Selalu perbarui updatedAt
     return data;
   },
   fromFirestore: (
@@ -100,8 +101,8 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
       eskul: data.eskul,
       osis: data.osis,
       nilai_akhir: data.nilai_akhir,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      createdAt: data.createdAt, // Pastikan ada field ini di Firestore
+      updatedAt: data.updatedAt, // Pastikan ada field ini di Firestore
     };
   }
 };
@@ -113,7 +114,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       email: profile.email,
       displayName: profile.displayName,
       role: profile.role,
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp(), // Tambahkan createdAt untuk profil pengguna jika belum ada
     };
   },
   fromFirestore: (
@@ -122,10 +123,11 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   ): UserProfile => {
     const data = snapshot.data(options)!;
     return {
-      uid: snapshot.id,
+      uid: snapshot.id, // uid adalah ID dokumen
       email: data.email,
       displayName: data.displayName,
       role: data.role,
+      // createdAt: data.createdAt, // Bisa ditambahkan jika diperlukan
     };
   }
 };
@@ -133,7 +135,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
 const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
   toFirestore: (log: Omit<ActivityLog, 'id'>): DocumentData => {
     return {
-      timestamp: log.timestamp, // Should be serverTimestamp() when calling addActivityLog
+      timestamp: log.timestamp, // Ini akan menjadi serverTimestamp() saat dikirim dari addActivityLog
       action: log.action,
       details: log.details,
       userId: log.userId,
@@ -147,7 +149,7 @@ const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
     const data = snapshot.data(options)!;
     return {
       id: snapshot.id,
-      timestamp: data.timestamp,
+      timestamp: data.timestamp, // Ini akan menjadi objek Timestamp dari Firestore
       action: data.action,
       details: data.details,
       userId: data.userId,
@@ -166,15 +168,17 @@ export const getWeights = async (): Promise<Bobot | null> => {
   if (docSnap.exists()) {
     return docSnap.data();
   }
+  // Return default weights if not found, or handle as error / return null
   return { 
     tugas: 20, tes: 20, pts: 20, pas: 25, 
     kehadiran: 5, eskul: 5, osis: 5, 
     totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90 
-  };
+  }; // Default values
 };
 
 export const updateWeights = async (bobotData: Partial<Bobot>): Promise<void> => {
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
+  // Gunakan setDoc dengan merge true untuk membuat dokumen jika belum ada, atau update jika sudah ada
   await setDoc(docRef, bobotData as Bobot, { merge: true }); 
 };
 
@@ -200,27 +204,34 @@ export const getStudentById = async (id: string): Promise<Siswa | null> => {
 };
 
 export const updateStudent = async (id: string, siswaData: Partial<Siswa>): Promise<void> => {
+  // Pastikan id_siswa tidak diupdate jika ada di siswaData
+  const { id_siswa, ...updatableData } = siswaData;
   const docRef = doc(db, 'siswa', id).withConverter(siswaConverter);
-  await updateDoc(docRef, siswaData);
+  await updateDoc(docRef, updatableData);
 };
 
 export const deleteStudent = async (id: string): Promise<void> => {
   const docRef = doc(db, 'siswa', id);
+
+  // Ambil data siswa untuk mendapatkan id_siswa sebelum menghapus
   const studentSnapshot = await getDoc(doc(db, 'siswa', id).withConverter(siswaConverter));
   if (!studentSnapshot.exists()) {
-    console.warn(`Siswa dengan ID ${id} tidak ditemukan untuk dihapus.`);
-    return;
+    console.warn(`Siswa dengan ID (dokumen) ${id} tidak ditemukan untuk dihapus.`);
+    return; // Keluar jika siswa tidak ditemukan
   }
   const studentData = studentSnapshot.data();
-  const studentIdSiswa = studentData.id_siswa;
+  const studentSpecificId = studentData.id_siswa; // Ini adalah 'id_siswa' yang unik
 
+  // Hapus dokumen siswa
   await deleteDoc(docRef); 
 
-  const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', studentIdSiswa));
+  // Hapus semua nilai yang terkait dengan id_siswa tersebut
+  const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', studentSpecificId));
   const gradesSnapshot = await getDocs(gradesQuery);
   const batch = writeBatch(db);
-  gradesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+  gradesSnapshot.docs.forEach(nilaiDoc => batch.delete(nilaiDoc.ref));
   await batch.commit();
+  console.log(`Siswa dengan id_siswa ${studentSpecificId} dan nilai terkait telah dihapus.`);
 };
 
 // --- Nilai (Grade) Service ---
@@ -234,27 +245,30 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
   const querySnapshot = await getDocs(q);
 
   let docId: string;
-  let newCreatedAt = nilai.createdAt; 
+  let newCreatedAt = nilai.createdAt; // Pertahankan createdAt jika sudah ada
 
   if (!querySnapshot.empty) {
+    // Update existing grade
     const existingDoc = querySnapshot.docs[0];
     docId = existingDoc.id;
-    if (existingDoc.data().createdAt) {
+    if (existingDoc.data().createdAt) { // Pertahankan createdAt asli jika sudah ada
         newCreatedAt = existingDoc.data().createdAt;
     }
     await updateDoc(existingDoc.ref, { ...nilai, createdAt: newCreatedAt, updatedAt: serverTimestamp() });
   } else {
+    // Add new grade
     const docRef = await addDoc(gradesCollRef, { ...nilai, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     docId = docRef.id;
-    newCreatedAt = Timestamp.now(); // Approximate for client, actual is serverTimestamp
+    newCreatedAt = Timestamp.now(); // timestamp perkiraan untuk sisi client
   }
-  const savedNilai = { ...nilai, id: docId, createdAt: newCreatedAt } as Nilai;
+  const savedNilai = { ...nilai, id: docId, createdAt: newCreatedAt } as Nilai; // cast karena TS mungkin tidak tahu nilai akhir ada
   return savedNilai;
 };
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, where('id_siswa', '==', id_siswa), orderBy("updatedAt", "desc"));
+  // Urutkan berdasarkan tahun ajaran lalu semester untuk konsistensi
+  const q = query(collRef, where('id_siswa', '==', id_siswa), orderBy("tahun_ajaran", "desc"), orderBy("semester", "asc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -264,7 +278,8 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
   const q = query(gradesCollRef, 
     where('id_siswa', '==', id_siswa),
     where('semester', '==', semester),
-    where('tahun_ajaran', '==', tahun_ajaran)
+    where('tahun_ajaran', '==', tahun_ajaran),
+    limit(1) // Hanya satu nilai yang diharapkan per kombinasi ini
   );
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
@@ -275,6 +290,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
+  // Urutkan berdasarkan kapan terakhir diupdate untuk melihat data terbaru di atas secara default
   const q = query(collRef, orderBy("updatedAt", "desc")); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
@@ -311,6 +327,7 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
 };
 
 export const deleteUserRecord = async (uid: string): Promise<void> => {
+  // Note: This only deletes the Firestore profile. Authentication user must be deleted separately.
   const userDocRef = doc(db, 'users', uid);
   await deleteDoc(userDocRef);
 };
@@ -324,7 +341,7 @@ export const addActivityLog = async (
 ): Promise<void> => {
   const collRef = collection(db, 'activity_logs').withConverter(activityLogConverter);
   const logEntry: Omit<ActivityLog, 'id'> = {
-    timestamp: serverTimestamp() as Timestamp, // Cast serverTimestamp to Timestamp
+    timestamp: serverTimestamp() as Timestamp, // Cast serverTimestamp to Timestamp for the type
     action,
     details,
     userId,
@@ -333,9 +350,11 @@ export const addActivityLog = async (
   await addDoc(collRef, logEntry);
 };
 
-export const getRecentActivityLogs = async (limitCount: number = 5): Promise<ActivityLog[]> => {
+export const getRecentActivityLogs = async (count: number = 5): Promise<ActivityLog[]> => {
   const collRef = collection(db, 'activity_logs').withConverter(activityLogConverter);
-  const q = query(collRef, orderBy('timestamp', 'desc'), limit(limitCount));
+  const q = query(collRef, orderBy('timestamp', 'desc'), limit(count));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
+
+    

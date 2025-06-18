@@ -33,8 +33,8 @@ interface GuruGradeSummaryView extends Nilai {
   nisSiswa?: string;
   kelasSiswa?: string;
   rataRataTugas?: number;
-  kkmValue?: number; // Added for storing KKM
-  isTuntas?: boolean; // Added for tuntas status
+  kkmValue?: number; 
+  isTuntas?: boolean; 
 }
 
 type SortableKeys = keyof Pick<GuruGradeSummaryView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'nilai_akhir' | 'mapel'>;
@@ -95,12 +95,11 @@ export default function RekapNilaiPage() {
       const studentMap = new Map(students.map(s => [s.id_siswa, s]));
       setStudentsMap(studentMap);
 
-      // Fetch KKM settings for unique mapel-TA pairs
       const uniqueMapelTaPairs = [...new Set(grades.map(g => `${g.mapel}__${g.tahun_ajaran}`))];
       const kkmPromises = uniqueMapelTaPairs.map(async pair => {
         const [mapel, ta] = pair.split('__');
         const kkmSetting = await getKkmSetting(mapel, ta);
-        return { key: pair, value: kkmSetting?.kkmValue || 70 }; // Default KKM 70 if not set
+        return { key: pair, value: kkmSetting?.kkmValue || 70 }; 
       });
       const kkmResults = await Promise.all(kkmPromises);
       const newKkmSettingsMap = new Map<string, number>();
@@ -111,7 +110,18 @@ export default function RekapNilaiPage() {
         const student = studentMap.get(grade.id_siswa);
         const kkmKey = `${grade.mapel}__${grade.tahun_ajaran}`;
         const kkm = newKkmSettingsMap.get(kkmKey) || 70;
-        const isTuntas = (grade.nilai_akhir || 0) >= kkm;
+
+        // Stricter 'isTuntas' check
+        const coreAcademicComponents = [
+          ...(grade.tugas || [0,0,0,0,0]).slice(0,5), // Assuming 5 tasks, use 0 if not present
+          grade.tes || 0,
+          grade.pts || 0,
+          grade.pas || 0,
+        ];
+        const allCoreComponentsTuntas = coreAcademicComponents.every(score => score >= kkm);
+        const finalGradeTuntas = (grade.nilai_akhir || 0) >= kkm;
+        const effectiveTuntasStatus = finalGradeTuntas && allCoreComponentsTuntas;
+
         return {
           ...grade,
           namaSiswa: student?.nama || 'N/A',
@@ -119,7 +129,7 @@ export default function RekapNilaiPage() {
           kelasSiswa: student?.kelas || 'N/A',
           rataRataTugas: calculateAverage(grade.tugas || []),
           kkmValue: kkm,
-          isTuntas: isTuntas,
+          isTuntas: effectiveTuntasStatus,
         };
       });
       setAllGradesData(enrichedGrades);
@@ -241,9 +251,9 @@ export default function RekapNilaiPage() {
     const safeMapelFilter = mapelFilter === "all" ? "SemuaMapel" : mapelFilter.replace(/[^a-z0-9]/gi, '_');
     XLSX.utils.book_append_sheet(workbook, worksheet, `Rekap Nilai ${academicYearFilter.replace('/', '-')} Smt ${semesterFilter} ${safeMapelFilter}`);
     const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, // KKM
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, 
       { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
-      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15} // Status
+      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15} 
     ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, `rekap_nilai_${academicYearFilter.replace('/', '-')}_smt${semesterFilter}_${safeMapelFilter}.xlsx`);
@@ -257,7 +267,7 @@ export default function RekapNilaiPage() {
       academicYear: grade.tahun_ajaran,
       semester: String(grade.semester),
       mapel: grade.mapel,
-      class: student?.kelas || '', // Pass class for pre-selection
+      class: student?.kelas || '', 
     });
     router.push(`/guru/grades?${queryParams.toString()}`);
   };

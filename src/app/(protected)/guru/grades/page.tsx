@@ -89,6 +89,8 @@ export default function InputGradesPage() {
   const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
   const [currentKkm, setCurrentKkm] = useState<number>(70);
   const [untuntasComponents, setUntuntasComponents] = useState<UntuntasComponent[]>([]);
+  const [overallAcademicStatus, setOverallAcademicStatus] = useState<'Tuntas' | 'Belum Tuntas' | 'Menghitung...'>('Menghitung...');
+
 
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [isImportingFile, setIsImportingFile] = useState(false);
@@ -115,7 +117,7 @@ export default function InputGradesPage() {
     selectedAcademicYear, 
     selectedSemester, 
     selectedMapel, 
-    // kkmValue, // kkmValue from form.watch()
+    kkmValue,
     tugas1, tugas2, tugas3, tugas4, tugas5,
     tes, pts, pas, jumlahHariHadir, eskul, osis
   } = watchedFormValues;
@@ -149,12 +151,13 @@ export default function InputGradesPage() {
     setCalculatedFinalGrade(null);
     setAttendancePercentage(null);
     setUntuntasComponents([]);
+    setOverallAcademicStatus('Menghitung...');
   }, [form]);
 
   useEffect(() => {
     async function fetchInitialData() {
       if (!userProfile) return;
-      // setIsLoadingInitialData(true); // Already true by default
+      setIsLoadingInitialData(true); 
       setFetchError(null);
       try {
         const [studentList, weightData, activeYears] = await Promise.all([
@@ -182,13 +185,13 @@ export default function InputGradesPage() {
         const mapelParam = searchParams.get('mapel');
         const classParam = searchParams.get('class');
         
-        let defaultClassVal = form.getValues('selectedClass') || "all";
+        let defaultClassVal = "all";
         if (classParam && uniqueStudentClasses.includes(classParam)) {
             defaultClassVal = classParam;
         }
         form.setValue('selectedClass', defaultClassVal);
 
-        let defaultStudentIdVal = form.getValues('selectedStudentId') || "";
+        let defaultStudentIdVal = "";
         if (studentIdParam) {
             defaultStudentIdVal = studentIdParam;
         } else if (defaultClassVal !== "all") {
@@ -199,7 +202,7 @@ export default function InputGradesPage() {
         }
         form.setValue('selectedStudentId', defaultStudentIdVal);
 
-        let defaultYearVal = form.getValues('selectedAcademicYear') || "";
+        let defaultYearVal = "";
         if (academicYearParam && activeYears.includes(academicYearParam)) {
             defaultYearVal = academicYearParam;
         } else if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
@@ -209,13 +212,13 @@ export default function InputGradesPage() {
         }
         form.setValue('selectedAcademicYear', defaultYearVal);
         
-        let defaultSemesterVal = form.getValues('selectedSemester') || (SEMESTERS[0]?.value || 1);
+        let defaultSemesterVal = SEMESTERS[0]?.value || 1;
         if (semesterParam && SEMESTERS.some(s => String(s.value) === semesterParam)) {
             defaultSemesterVal = parseInt(semesterParam, 10);
         }
         form.setValue('selectedSemester', defaultSemesterVal);
 
-        let defaultMapelVal = form.getValues('selectedMapel') || "";
+        let defaultMapelVal = "";
         if (mapelParam && guruAssignedMapel.includes(mapelParam)) {
           defaultMapelVal = mapelParam;
         } else if (guruAssignedMapel.length > 0) {
@@ -234,11 +237,11 @@ export default function InputGradesPage() {
         setIsLoadingInitialData(false);
       }
     }
-    fetchInitialData();
+    if(userProfile){
+      fetchInitialData();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile, searchParams, toast, resetGradeFieldsToZero]); // form.setValue is stable
-
-  // This effect to reset studentId when class changes is removed, handled in onValueChange of Select Class
+  }, [userProfile, searchParams, toast, resetGradeFieldsToZero]); 
 
   useEffect(() => {
     async function fetchKkmData() {
@@ -264,7 +267,9 @@ export default function InputGradesPage() {
         setIsLoadingGradeData(false);
       }
     }
-    fetchKkmData();
+    if(!isLoadingInitialData){
+      fetchKkmData();
+    }
   }, [selectedMapel, selectedAcademicYear, isLoadingInitialData, form, toast]);
 
   useEffect(() => {
@@ -309,60 +314,71 @@ export default function InputGradesPage() {
         setIsLoadingGradeData(false);
       }
     }
-    fetchAndSetGrade();
+    if(!isLoadingInitialData){
+      fetchAndSetGrade();
+    }
   }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, isLoadingInitialData, resetGradeFieldsToZero, form, toast]);
 
-  useEffect(() => {
-    if (weights && !isLoadingInitialData && selectedMapel) { // selectedMapel from form.watch()
-      const totalDaysForSemesterVal = selectedSemester === 1 // selectedSemester from form.watch()
+ useEffect(() => {
+    if (weights && !isLoadingInitialData && selectedMapel) {
+      const totalDaysForSemesterVal = selectedSemester === 1
         ? weights.totalHariEfektifGanjil
         : weights.totalHariEfektifGenap;
       
       let currentAttendancePercentage = 0;
-      if (typeof totalDaysForSemesterVal === 'number' && totalDaysForSemesterVal > 0 && typeof jumlahHariHadir === 'number') { // jumlahHariHadir from form.watch()
+      if (typeof totalDaysForSemesterVal === 'number' && totalDaysForSemesterVal > 0 && typeof jumlahHariHadir === 'number') {
         currentAttendancePercentage = (jumlahHariHadir / totalDaysForSemesterVal) * 100;
         currentAttendancePercentage = Math.min(Math.max(currentAttendancePercentage, 0), 100);
       }
       setAttendancePercentage(currentAttendancePercentage);
 
-      const tugasScoresArr = [ // Use direct destructured values
-        tugas1, tugas2, tugas3, tugas4, tugas5
-      ].filter(score => typeof score === 'number' && !isNaN(score)) as number[];
+      // Use all 5 task scores for average calculation displayed and for final grade
+      const allTugasScores = [
+        tugas1 || 0, tugas2 || 0, tugas3 || 0, tugas4 || 0, tugas5 || 0
+      ];
 
       const currentNilai: Nilai = {
-        id_siswa: selectedStudentId, // from form.watch()
-        mapel: selectedMapel, // from form.watch()
-        semester: selectedSemester, // from form.watch()
-        tahun_ajaran: selectedAcademicYear, // from form.watch()
-        tugas: tugasScoresArr,
-        tes: tes || 0, // from form.watch()
-        pts: pts || 0, // from form.watch()
-        pas: pas || 0, // from form.watch()
+        id_siswa: selectedStudentId, 
+        mapel: selectedMapel, 
+        semester: selectedSemester, 
+        tahun_ajaran: selectedAcademicYear, 
+        tugas: allTugasScores, // Use all 5 task scores
+        tes: tes || 0, 
+        pts: pts || 0, 
+        pas: pas || 0, 
         kehadiran: currentAttendancePercentage,
-        eskul: eskul || 0, // from form.watch()
-        osis: osis || 0, // from form.watch()
+        eskul: eskul || 0, 
+        osis: osis || 0, 
       };
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
 
       const kkmToUse = currentKkm; 
-      const newUntuntasComponents: UntuntasComponent[] = [];
-      if (finalGrade < kkmToUse) {
-        const componentsToCheck = [
-          { name: "Tugas 1", value: tugas1 || 0},
-          { name: "Tugas 2", value: tugas2 || 0},
-          { name: "Tugas 3", value: tugas3 || 0},
-          { name: "Tugas 4", value: tugas4 || 0},
-          { name: "Tugas 5", value: tugas5 || 0},
-          { name: "Tes/Ulangan", value: tes || 0},
-          { name: "PTS", value: pts || 0},
-          { name: "PAS", value: pas || 0},
-        ];
-        componentsToCheck.forEach(comp => {
-          if (comp.value < kkmToUse) newUntuntasComponents.push(comp);
-        });
-      }
-      setUntuntasComponents(newUntuntasComponents);
+      const newUntuntasComponentsList: UntuntasComponent[] = [];
+      let allAcademicComponentsAreTuntas = true;
+
+      const academicComponentsForCheck = [
+        { name: "Tugas 1", value: tugas1 || 0 }, { name: "Tugas 2", value: tugas2 || 0 },
+        { name: "Tugas 3", value: tugas3 || 0 }, { name: "Tugas 4", value: tugas4 || 0 },
+        { name: "Tugas 5", value: tugas5 || 0 }, { name: "Tes/Ulangan", value: tes || 0 },
+        { name: "PTS", value: pts || 0 }, { name: "PAS", value: pas || 0 },
+      ];
+
+      academicComponentsForCheck.forEach(comp => {
+        if (comp.value < kkmToUse) {
+            newUntuntasComponentsList.push({ name: comp.name, value: comp.value });
+            allAcademicComponentsAreTuntas = false;
+        }
+      });
+      setUntuntasComponents(newUntuntasComponentsList);
+
+      const overallTuntas = (finalGrade >= kkmToUse) && allAcademicComponentsAreTuntas;
+      setOverallAcademicStatus(selectedStudentId && selectedMapel ? (overallTuntas ? 'Tuntas' : 'Belum Tuntas') : 'Menghitung...');
+
+    } else if (!selectedStudentId || !selectedMapel) {
+        setOverallAcademicStatus('Menghitung...');
+        setUntuntasComponents([]);
+        setCalculatedFinalGrade(null);
     }
   }, [
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel,
@@ -435,16 +451,16 @@ export default function InputGradesPage() {
         toast({ variant: "destructive", title: "Peringatan", description: "Total hari efektif belum diatur oleh Admin untuk semester ini. Kehadiran tidak dapat dihitung." });
     }
 
-    const tugasScores = [
-      data.tugas1, data.tugas2, data.tugas3, data.tugas4, data.tugas5
-    ].filter(score => typeof score === 'number' && !isNaN(score)) as number[];
+    const tugasScoresToSave = [
+      data.tugas1 || 0, data.tugas2 || 0, data.tugas3 || 0, data.tugas4 || 0, data.tugas5 || 0
+    ];
 
     const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
       id_siswa: data.selectedStudentId,
       mapel: data.selectedMapel,
       semester: data.selectedSemester,
       tahun_ajaran: data.selectedAcademicYear,
-      tugas: tugasScores,
+      tugas: tugasScoresToSave,
       tes: data.tes || 0,
       pts: data.pts || 0,
       pas: data.pas || 0,
@@ -582,7 +598,7 @@ export default function InputGradesPage() {
       'Eskul': values.eskul || 0,
       'OSIS': values.osis || 0,
       'Nilai Akhir': calculatedFinalGrade?.toFixed(2) || '0.00',
-      'Status Tuntas': (calculatedFinalGrade !== null && calculatedFinalGrade >= (values.kkmValue || 0)) ? 'Tuntas' : 'Belum Tuntas',
+      'Status Tuntas': overallAcademicStatus,
     }];
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -705,26 +721,29 @@ export default function InputGradesPage() {
             calculatedKehadiranPercentage = Math.min(Math.max(calculatedKehadiranPercentage, 0), 100);
           }
 
-          const tugasScores: number[] = [];
-          for (let i = 1; i <= 20; i++) { 
+          const importedTugasScores = [];
+          for (let i = 1; i <= 5; i++) { // Assume max 5 tugas, matching the form
             const tugasValue = row["tugas" + i];
             if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
-                 const numValue = Number(tugasValue);
-                 if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
-                    tugasScores.push(numValue);
-                } else {
-                    tugasScores.push(0); 
-                    errorDetails.push("Nilai tugas" + i + " (" + tugasValue + ") tidak valid untuk " + row.id_siswa + " mapel " + row.mapel + ". Dianggap 0.");
-                }
+              const numValue = Number(tugasValue);
+              if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                importedTugasScores.push(numValue);
+              } else {
+                importedTugasScores.push(0);
+                errorDetails.push("Nilai tugas" + i + " (" + tugasValue + ") tidak valid untuk " + row.id_siswa + ", mapel " + row.mapel + ". Dianggap 0.");
+              }
+            } else {
+              importedTugasScores.push(0); // Default to 0 if task is not in Excel or empty
             }
           }
+
 
           const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
             id_siswa: row.id_siswa,
             mapel: row.mapel.trim(),
             semester: semesterNum,
             tahun_ajaran: row.tahun_ajaran,
-            tugas: tugasScores,
+            tugas: importedTugasScores,
             tes: (typeof row.tes === 'number' && row.tes >=0 && row.tes <=100) ? row.tes : 0,
             pts: (typeof row.pts === 'number' && row.pts >=0 && row.pts <=100) ? row.pts : 0,
             pas: (typeof row.pas === 'number' && row.pas >=0 && row.pas <=100) ? row.pas : 0,
@@ -753,8 +772,6 @@ export default function InputGradesPage() {
         
         const currentFormStudentId = form.getValues('selectedStudentId');
         if (currentFormStudentId && jsonData.some(row => row.id_siswa === currentFormStudentId)) {
-           // Trigger a re-fetch of the current student's grade if they were part of the import
-           // by briefly changing a key dependency of fetchAndSetGrade effect
             const tempMapel = form.getValues('selectedMapel');
             form.setValue('selectedMapel', '', {shouldDirty: false}); 
             setTimeout(() => { 
@@ -823,8 +840,9 @@ export default function InputGradesPage() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          if (!isLoadingInitialData) {
+                          if (!isLoadingInitialData) { // Only reset student if not initial load
                             form.setValue('selectedStudentId', '', { shouldDirty: true });
+                            resetGradeFieldsToZero();
                           }
                         }} 
                         value={field.value || "all"} 
@@ -939,21 +957,27 @@ export default function InputGradesPage() {
                   ))}
                 </div>
                 {calculatedFinalGrade !== null && selectedStudentId && selectedMapel && (
-                  <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + (calculatedFinalGrade < currentKkm ? 'border-destructive' : 'border-green-600/50')}>
+                  <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + 
+                                  (overallAcademicStatus === 'Tuntas' ? 'border-green-600/50' : overallAcademicStatus === 'Belum Tuntas' ? 'border-destructive' : 'border-border')}
+                  >
                     <BarChartHorizontalBig className="mx-auto h-10 w-10 text-primary mb-2" />
                     <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor) untuk {selectedMapel}</p>
-                    <p className={"text-4xl font-bold " + (calculatedFinalGrade < currentKkm ? 'text-destructive' : 'text-green-600')}>{calculatedFinalGrade.toFixed(2)}</p>
+                    <p className={"text-4xl font-bold " + (overallAcademicStatus === 'Tuntas' ? 'text-green-600' : overallAcademicStatus === 'Belum Tuntas' ? 'text-destructive' : 'text-foreground')}>
+                      {calculatedFinalGrade.toFixed(2)}
+                    </p>
                     <p className="text-base text-muted-foreground mt-1">
                       KKM: {currentKkm} - 
-                      Status: {calculatedFinalGrade < currentKkm ? (
-                        <span className="font-semibold text-destructive inline-flex items-center"><XCircle className="mr-1 h-4 w-4"/>Belum Tuntas</span>
-                      ) : (
+                      Status: {overallAcademicStatus === 'Menghitung...' ? (
+                        <span className="italic">Menghitung...</span>
+                      ) : overallAcademicStatus === 'Tuntas' ? (
                         <span className="font-semibold text-green-600 inline-flex items-center"><CheckCircle2 className="mr-1 h-4 w-4"/>Tuntas</span>
+                      ) : (
+                        <span className="font-semibold text-destructive inline-flex items-center"><XCircle className="mr-1 h-4 w-4"/>Belum Tuntas</span>
                       )}
                     </p>
-                    {untuntasComponents.length > 0 && calculatedFinalGrade < currentKkm && (
+                    {untuntasComponents.length > 0 && overallAcademicStatus === 'Belum Tuntas' && (
                       <div className="mt-2 text-sm text-destructive">
-                        <p className="font-medium">Komponen belum tuntas (di bawah KKM {currentKkm}):</p>
+                        <p className="font-medium">Komponen akademik inti yang belum tuntas (di bawah KKM {currentKkm}):</p>
                         <ul className="list-disc list-inside text-left max-w-md mx-auto">
                           {untuntasComponents.map(comp => (
                             <li key={comp.name}>{comp.name}: {comp.value}</li>
@@ -1000,7 +1024,7 @@ export default function InputGradesPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             Unduh template di bawah ini. Template akan berisi ` + "`id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, `semester`, dan `mapel`" + ` yang sudah terisi sesuai filter.
-            Guru tinggal mengisi komponen nilai. Sistem akan membaca kolom ` + "`tugas1`, `tugas2`, ..., `tugasN`" + ` secara dinamis. File impor harus berisi mapel yang telah ditugaskan kepada Anda dan cocok dengan filter mapel yang aktif.
+            Guru tinggal mengisi komponen nilai. Sistem akan membaca kolom ` + "`tugas1`, `tugas2`, ..., `tugas5` (sesuai form)" + ` dan komponen lain. File impor harus berisi mapel yang telah ditugaskan kepada Anda dan cocok dengan filter mapel yang aktif.
           </p>
         </CardContent>
         <CardFooter>

@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -11,9 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Percent } from "lucide-react";
-import { getStudents, getWeights, getGrade, addOrUpdateGrade } from '@/lib/firestoreService';
-import { calculateFinalGrade, getAcademicYears, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig } from "lucide-react";
+import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears } from '@/lib/firestoreService';
+import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,105 +31,101 @@ const gradeSchema = z.object({
   tes: z.coerce.number().min(0).max(100).optional().default(0),
   pts: z.coerce.number().min(0).max(100).optional().default(0),
   pas: z.coerce.number().min(0).max(100).optional().default(0),
-  jumlahHariHadir: z.coerce.number().min(0, "Min 0 hari").max(200, "Maks 200 hari").optional().default(0), // Max can be refined by total days
+  jumlahHariHadir: z.coerce.number().min(0, "Min 0 hari").max(200, "Maks 200 hari").optional().default(0),
   eskul: z.coerce.number().min(0).max(100).optional().default(0),
   osis: z.coerce.number().min(0).max(100).optional().default(0),
 });
 
 type GradeFormData = z.infer<typeof gradeSchema>;
 
-const ALL_ACADEMIC_YEARS = getAcademicYears(); // Full list for dropdown
 const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 
 export default function InputGradesPage() {
   const { toast } = useToast();
   const [students, setStudents] = useState<Siswa[]>([]);
   const [weights, setWeights] = useState<Bobot | null>(null);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
-  const [isLoadingWeights, setIsLoadingWeights] = useState(true);
+  const [selectableYears, setSelectableYears] = useState<string[]>([]);
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
   const [isLoadingGradeData, setIsLoadingGradeData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [calculatedFinalGrade, setCalculatedFinalGrade] = useState<number | null>(null);
   const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
 
-
   const form = useForm<GradeFormData>({
     resolver: zodResolver(gradeSchema),
-    defaultValues: {
-      selectedStudentId: "",
-      selectedAcademicYear: ALL_ACADEMIC_YEARS.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : (ALL_ACADEMIC_YEARS[0] || ""),
-      selectedSemester: SEMESTERS[0]?.value || 1,
-      tugas1: 0,
-      tugas2: 0,
-      tugas3: 0,
-      tugas4: 0,
-      tugas5: 0,
-      tes: 0,
-      pts: 0,
-      pas: 0,
-      jumlahHariHadir: 0,
-      eskul: 0,
-      osis: 0,
-    },
+    // Default values will be set after fetching active academic years
   });
 
   const watchedFormValues = form.watch();
-  const { selectedStudentId, selectedAcademicYear, selectedSemester, jumlahHariHadir } = watchedFormValues;
+  const { selectedStudentId, selectedAcademicYear, selectedSemester } = watchedFormValues;
 
   const totalDaysForCurrentSemester = useMemo(() => {
-    if (!weights || !watchedFormValues.selectedSemester) return undefined;
-    return watchedFormValues.selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
-  }, [weights, watchedFormValues.selectedSemester]);
+    if (!weights || !selectedSemester) return undefined;
+    return selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
+  }, [weights, selectedSemester]);
 
   useEffect(() => {
-    async function fetchData() {
-      setIsLoadingStudents(true);
-      setIsLoadingWeights(true);
+    async function fetchInitialData() {
+      setIsLoadingInitialData(true);
       setFetchError(null);
       try {
-        const [studentList, weightData] = await Promise.all([
+        const [studentList, weightData, activeYears] = await Promise.all([
           getStudents(),
-          getWeights() // getWeights now includes totalHariEfektif
+          getWeights(),
+          getActiveAcademicYears()
         ]);
+        
         setStudents(studentList || []);
-        if (studentList && studentList.length > 0 && !form.getValues("selectedStudentId")) {
-          form.setValue("selectedStudentId", studentList[0].id_siswa);
-        }
         setWeights(weightData);
+        setSelectableYears(activeYears);
+
+        let defaultYear = "";
+        if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
+          defaultYear = CURRENT_ACADEMIC_YEAR;
+        } else if (activeYears.length > 0) {
+          defaultYear = activeYears[0]; // Default to the first active year if current is not active
+        }
+        
+        form.reset({
+          selectedStudentId: studentList && studentList.length > 0 ? studentList[0].id_siswa : "",
+          selectedAcademicYear: defaultYear,
+          selectedSemester: SEMESTERS[0]?.value || 1,
+          tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
+          tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
+        });
+
       } catch (error) {
         console.error("Error fetching initial data:", error);
-        setFetchError("Gagal memuat data siswa atau konfigurasi bobot/hari efektif. Silakan coba lagi.");
+        setFetchError("Gagal memuat data siswa, bobot, atau tahun ajaran. Silakan coba lagi.");
         toast({ variant: "destructive", title: "Error", description: "Gagal memuat data awal." });
       } finally {
-        setIsLoadingStudents(false);
-        setIsLoadingWeights(false);
+        setIsLoadingInitialData(false);
       }
     }
-    fetchData();
+    fetchInitialData();
   }, [form, toast]);
 
   useEffect(() => {
     async function fetchGrade() {
-      const currentStudentId = form.getValues("selectedStudentId");
-      const currentAcademicYear = form.getValues("selectedAcademicYear");
-      const currentSemester = form.getValues("selectedSemester");
-
-      if (!currentStudentId || !currentAcademicYear || !currentSemester || !weights) {
-        form.reset({
-          ...form.getValues(), 
-          tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
-          tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
-        });
-        setCalculatedFinalGrade(null);
-        setAttendancePercentage(null);
+      if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !weights || isLoadingInitialData) {
+        // Reset fields if dependent selections are missing or initial data still loading
+        if (!isLoadingInitialData) { // only reset if initial load is done
+            form.reset({
+                ...form.getValues(), 
+                tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
+                tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
+            });
+            setCalculatedFinalGrade(null);
+            setAttendancePercentage(null);
+        }
         return;
       }
       setIsLoadingGradeData(true);
       setFetchError(null);
       try {
-        const gradeData = await getGrade(currentStudentId, currentSemester, currentAcademicYear);
-        const totalDaysForSemester = currentSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
+        const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear);
+        const totalDaysForSemester = selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
         let calculatedJumlahHariHadir = 0;
 
         if (gradeData) {
@@ -137,9 +133,7 @@ export default function InputGradesPage() {
             calculatedJumlahHariHadir = Math.round((gradeData.kehadiran / 100) * totalDaysForSemester);
           }
           form.reset({
-            selectedStudentId: currentStudentId,
-            selectedAcademicYear: currentAcademicYear,
-            selectedSemester: currentSemester,
+            ...form.getValues(), // Keep selected student, year, semester
             tugas1: gradeData.tugas?.[0] || 0,
             tugas2: gradeData.tugas?.[1] || 0,
             tugas3: gradeData.tugas?.[2] || 0,
@@ -154,9 +148,7 @@ export default function InputGradesPage() {
           });
         } else {
            form.reset({
-            selectedStudentId: currentStudentId,
-            selectedAcademicYear: currentAcademicYear,
-            selectedSemester: currentSemester,
+            ...form.getValues(),
             tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
             tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
           });
@@ -169,15 +161,15 @@ export default function InputGradesPage() {
         setIsLoadingGradeData(false);
       }
     }
-    // Ensure selectedStudentId, selectedAcademicYear, selectedSemester, and weights are defined
-    if (selectedStudentId && selectedAcademicYear && selectedSemester && weights) {
+    
+    if (selectedStudentId && selectedAcademicYear && selectedSemester && weights && !isLoadingInitialData) {
        fetchGrade();
     }
-  }, [selectedStudentId, selectedAcademicYear, selectedSemester, form, weights, toast]);
+  }, [selectedStudentId, selectedAcademicYear, selectedSemester, form, weights, toast, isLoadingInitialData]);
 
 
   useEffect(() => {
-    if (weights) {
+    if (weights && !isLoadingInitialData) { // ensure weights are loaded and form values are stable
       const totalDaysForSemester = watchedFormValues.selectedSemester === 1 
         ? weights.totalHariEfektifGanjil 
         : weights.totalHariEfektifGenap;
@@ -185,7 +177,7 @@ export default function InputGradesPage() {
       let currentAttendancePercentage = 0;
       if (typeof totalDaysForSemester === 'number' && totalDaysForSemester > 0 && typeof watchedFormValues.jumlahHariHadir === 'number') {
         currentAttendancePercentage = (watchedFormValues.jumlahHariHadir / totalDaysForSemester) * 100;
-        currentAttendancePercentage = Math.min(Math.max(currentAttendancePercentage, 0), 100); // Clamp
+        currentAttendancePercentage = Math.min(Math.max(currentAttendancePercentage, 0), 100);
       }
       setAttendancePercentage(currentAttendancePercentage);
 
@@ -201,14 +193,14 @@ export default function InputGradesPage() {
         tes: watchedFormValues.tes || 0,
         pts: watchedFormValues.pts || 0,
         pas: watchedFormValues.pas || 0,
-        kehadiran: currentAttendancePercentage, // Use calculated percentage
+        kehadiran: currentAttendancePercentage,
         eskul: watchedFormValues.eskul || 0,
         osis: watchedFormValues.osis || 0,
       };
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
     }
-  }, [watchedFormValues, weights]);
+  }, [watchedFormValues, weights, isLoadingInitialData]);
 
 
   const onSubmit = async (data: GradeFormData) => {
@@ -225,13 +217,10 @@ export default function InputGradesPage() {
 
     if (typeof totalDaysForSemester === 'number' && totalDaysForSemester > 0 && typeof data.jumlahHariHadir === 'number') {
       calculatedKehadiranPercentage = (data.jumlahHariHadir / totalDaysForSemester) * 100;
-      calculatedKehadiranPercentage = Math.min(Math.max(calculatedKehadiranPercentage, 0), 100); // Clamp 0-100
+      calculatedKehadiranPercentage = Math.min(Math.max(calculatedKehadiranPercentage, 0), 100);
     } else if (typeof totalDaysForSemester !== 'number' || totalDaysForSemester <= 0) {
         toast({ variant: "destructive", title: "Peringatan", description: "Total hari efektif belum diatur oleh Admin untuk semester ini. Kehadiran tidak dapat dihitung." });
-        // Optionally prevent saving or save attendance as 0
-        // For now, we save 0 if total days is not properly set.
     }
-
 
     const tugasScores = [
       data.tugas1, data.tugas2, data.tugas3, data.tugas4, data.tugas5
@@ -245,12 +234,12 @@ export default function InputGradesPage() {
       tes: data.tes || 0,
       pts: data.pts || 0,
       pas: data.pas || 0,
-      kehadiran: calculatedKehadiranPercentage, // Save calculated percentage
+      kehadiran: calculatedKehadiranPercentage, 
       eskul: data.eskul || 0,
       osis: data.osis || 0,
     };
     
-    const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights); // Cast as Nilai expects kehadiran
+    const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights); 
     const nilaiWithFinal: Omit<Nilai, 'id'> = {...nilaiToSave, nilai_akhir: finalGradeValue};
 
     try {
@@ -266,20 +255,15 @@ export default function InputGradesPage() {
   };
   
   const gradeInputFields: { name: keyof Omit<GradeFormData, 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'kehadiran'>; label: string, type?: string, desc?: string }[] = [
-    { name: "tugas1", label: "Nilai Tugas 1" },
-    { name: "tugas2", label: "Nilai Tugas 2" },
-    { name: "tugas3", label: "Nilai Tugas 3" },
-    { name: "tugas4", label: "Nilai Tugas 4" },
-    { name: "tugas5", label: "Nilai Tugas 5" },
-    { name: "tes", label: "Nilai Tes / Ulangan" },
-    { name: "pts", label: "Nilai PTS" },
-    { name: "pas", label: "Nilai PAS" },
+    { name: "tugas1", label: "Nilai Tugas 1" }, { name: "tugas2", label: "Nilai Tugas 2" },
+    { name: "tugas3", label: "Nilai Tugas 3" }, { name: "tugas4", label: "Nilai Tugas 4" },
+    { name: "tugas5", label: "Nilai Tugas 5" }, { name: "tes", label: "Nilai Tes / Ulangan" },
+    { name: "pts", label: "Nilai PTS" }, { name: "pas", label: "Nilai PAS" },
     { name: "jumlahHariHadir", label: "Jumlah Hari Hadir", desc: "Akan dikonversi ke persentase otomatis."},
-    { name: "eskul", label: "Nilai Ekstrakurikuler" },
-    { name: "osis", label: "Nilai OSIS/Kegiatan" },
+    { name: "eskul", label: "Nilai Ekstrakurikuler" }, { name: "osis", label: "Nilai OSIS/Kegiatan" },
   ];
 
-  if (isLoadingStudents || isLoadingWeights) {
+  if (isLoadingInitialData) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
@@ -302,15 +286,15 @@ export default function InputGradesPage() {
             <CardContent className="space-y-4">
               {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={students.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{students.length === 0 ? (<SelectItem value="-" disabled>Belum ada siswa</SelectItem>) : (students.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{ALL_ACADEMIC_YEARS.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value)}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={students.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{students.length === 0 ? (<SelectItem value="-" disabled>Belum ada siswa</SelectItem>) : (students.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="-" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
               </div>
             </CardContent>
           </Card>
 
           {isLoadingGradeData ? (
-             <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai...</CardTitle></CardHeader><CardContent className="space-y-4"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /></CardContent></Card>
+             <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai...</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent></Card>
           ) : (
             <Card className="mt-6">
               <CardHeader><CardTitle>Form Input Nilai</CardTitle><CardDescription>Masukkan nilai (0-100) atau jumlah hari hadir.</CardDescription></CardHeader>
@@ -320,7 +304,7 @@ export default function InputGradesPage() {
                     <FormField
                       key={fieldInfo.name}
                       control={form.control}
-                      name={fieldInfo.name as keyof GradeFormData}
+                      name={fieldInfo.name as keyof GradeFormData} // Explicit cast
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>{fieldInfo.label}</FormLabel>
@@ -330,16 +314,14 @@ export default function InputGradesPage() {
                               placeholder={fieldInfo.name === "jumlahHariHadir" ? `0 - ${totalDaysForCurrentSemester || 'N/A'}` : "0-100"}
                               {...field} 
                               value={field.value ?? ""} 
-                              onChange={e => { 
-                                field.onChange(e.target.value); 
-                              }}
+                              onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
                               disabled={!selectedStudentId || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
                             />
                           </FormControl>
                           {fieldInfo.name === "jumlahHariHadir" && (
                              <FormDescription className="text-xs">
                                 {typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0 
-                                  ? `Total hari efektif semester ini: ${totalDaysForCurrentSemester} hari. Persentase: `
+                                  ? `Total hari efektif: ${totalDaysForCurrentSemester} hari. Persentase: `
                                   : "Total hari efektif belum diatur Admin. "}
                                 {attendancePercentage !== null && typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0 && (
                                   <span className="font-semibold text-primary">{attendancePercentage.toFixed(1)}%</span>
@@ -363,7 +345,7 @@ export default function InputGradesPage() {
                 )}
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights}>
+                <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear}>
                   {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
                 </Button>
               </CardFooter>
@@ -374,4 +356,3 @@ export default function InputGradesPage() {
     </div>
   );
 }
-

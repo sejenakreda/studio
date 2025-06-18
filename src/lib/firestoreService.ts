@@ -21,8 +21,10 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog } from '@/types';
-import { User, UserCredential } from 'firebase/auth';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting } from '@/types';
+import { User } from 'firebase/auth'; // UserCredential removed as it's not directly used here
+import { getCurrentAcademicYear } from './utils';
+
 
 // Converters
 const bobotConverter: FirestoreDataConverter<Bobot> = {
@@ -75,12 +77,11 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Nilai): DocumentData => {
     const data: any = { ...nilai };
-    delete data.id; // Jangan simpan ID dokumen Firestore di dalam dokumen itu sendiri
-    // Set timestamps
-    if (!data.createdAt) { // Hanya set createdAt jika belum ada (untuk pembuatan baru)
+    delete data.id; 
+    if (!data.createdAt) { 
         data.createdAt = serverTimestamp();
     }
-    data.updatedAt = serverTimestamp(); // Selalu perbarui updatedAt
+    data.updatedAt = serverTimestamp(); 
     return data;
   },
   fromFirestore: (
@@ -109,10 +110,9 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
 
 const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   toFirestore: (profile: UserProfile): DocumentData => {
-    const { uid, ...dataToStore } = profile; // Exclude uid from being stored inside the document if id is uid
+    const { uid, ...dataToStore } = profile; 
     return {
         ...dataToStore,
-        // uid: profile.uid, // Redundant if document ID is the UID
         email: profile.email,
         displayName: profile.displayName,
         role: profile.role,
@@ -162,6 +162,26 @@ const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
   }
 };
 
+const academicYearSettingConverter: FirestoreDataConverter<AcademicYearSetting> = {
+  toFirestore: (setting: AcademicYearSetting): DocumentData => {
+    // id is the document ID, year is the display string, isActive is the status
+    return {
+      year: setting.year,
+      isActive: setting.isActive,
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): AcademicYearSetting => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id, // e.g., "2023_2024"
+      year: data.year, // e.g., "2023/2024"
+      isActive: data.isActive,
+    };
+  }
+};
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -262,10 +282,7 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  // Firestore query: filter by id_siswa, order by tahun_ajaran (desc), then semester (asc)
-  // IMPORTANT: This query requires a composite index in Firestore.
-  // The Firestore console will usually provide a link to create it if it's missing.
-  // Index fields: id_siswa (asc), tahun_ajaran (desc), semester (asc)
+  // Index required: id_siswa (asc), tahun_ajaran (desc), semester (asc)
   const q = query(collRef, 
                   where('id_siswa', '==', id_siswa), 
                   orderBy("tahun_ajaran", "desc"), 
@@ -358,4 +375,32 @@ export const getRecentActivityLogs = async (count: number = 5): Promise<Activity
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
-    
+
+// --- Academic Year Settings Service ---
+const ACADEMIC_YEAR_CONFIGS_COLLECTION = 'academicYearConfigs';
+
+export const getAcademicYearSettings = async (): Promise<AcademicYearSetting[]> => {
+  const collRef = collection(db, ACADEMIC_YEAR_CONFIGS_COLLECTION).withConverter(academicYearSettingConverter);
+  const q = query(collRef, orderBy("year", "desc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const setAcademicYearActiveStatus = async (year: string, isActive: boolean): Promise<void> => {
+  const docId = year.replace(/\//g, '_'); // e.g., "2023/2024" -> "2023_2024"
+  const docRef = doc(db, ACADEMIC_YEAR_CONFIGS_COLLECTION, docId).withConverter(academicYearSettingConverter);
+  await setDoc(docRef, { year, isActive }, { merge: true });
+};
+
+export const getActiveAcademicYears = async (): Promise<string[]> => {
+  const settings = await getAcademicYearSettings();
+  const activeYears = settings
+    .filter(setting => setting.isActive)
+    .map(setting => setting.year)
+    .sort((a, b) => b.localeCompare(a)); // Sort descending, e.g., "2024/2025" before "2023/2024"
+
+  if (activeYears.length === 0) {
+    return [getCurrentAcademicYear()]; // Fallback to current academic year if none are active
+  }
+  return activeYears;
+};

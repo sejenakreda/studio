@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, ShieldAlert, Loader2, History } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +28,7 @@ export default function AdminDashboardPage() {
       const [guruUsers, studentList, logs] = await Promise.all([
         getAllUsersByRole('guru'),
         getStudents(),
-        getRecentActivityLogs(5) // Fetch 5 most recent logs
+        getRecentActivityLogs(5) 
       ]);
       setTeacherCount(guruUsers?.length || 0);
       setStudentCount(studentList?.length || 0);
@@ -59,7 +59,7 @@ export default function AdminDashboardPage() {
       value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (teacherCount !== null ? teacherCount.toString() : "N/A"), 
       icon: Users, 
       color: "text-blue-500", 
-      bgColor: "bg-blue-100", 
+      bgColor: "bg-blue-100 dark:bg-blue-900/30", 
       href: "/admin/teachers" 
     },
     { 
@@ -67,7 +67,7 @@ export default function AdminDashboardPage() {
       value: "Dikonfigurasi", 
       icon: Settings, 
       color: "text-green-500", 
-      bgColor: "bg-green-100", 
+      bgColor: "bg-green-100 dark:bg-green-900/30", 
       href: "/admin/weights" 
     },
     { 
@@ -75,7 +75,7 @@ export default function AdminDashboardPage() {
       value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
       icon: FileText, 
       color: "text-purple-500", 
-      bgColor: "bg-purple-100", 
+      bgColor: "bg-purple-100 dark:bg-purple-900/30", 
       href: "/admin/grades" 
     },
      { 
@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
       value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : `${activityLogs.length} Log`,
       icon: History, 
       color: "text-yellow-500", 
-      bgColor: "bg-yellow-100", 
+      bgColor: "bg-yellow-100 dark:bg-yellow-900/30", 
       href: "#activity-log" 
     },
   ];
@@ -128,7 +128,7 @@ export default function AdminDashboardPage() {
         <Card id="activity-log">
           <CardHeader>
             <CardTitle>Aktivitas Terkini</CardTitle>
-            <CardDescription>Log perubahan penting dalam sistem.</CardDescription>
+            <CardDescription>Log perubahan penting dalam sistem (5 terbaru).</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingLogs ? (
@@ -142,7 +142,7 @@ export default function AdminDashboardPage() {
                 {activityLogs.map((log) => (
                   <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
                     <History className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex-grow min-w-0"> {/* Ensure text wraps */}
+                    <div className="flex-grow min-w-0"> 
                       <p className="text-sm font-medium text-foreground truncate" title={log.action}>{log.action}</p>
                       {log.details && <p className="text-xs text-muted-foreground truncate" title={log.details}>{log.details}</p>}
                       <p className="text-xs text-muted-foreground">
@@ -183,11 +183,14 @@ export default function AdminDashboardPage() {
                 <BarChart3 className="h-5 w-5" /> Laporan Sistem
               </Button>
             </Link>
+            <Link href="/admin/academic-years">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <CalendarCog className="h-5 w-5" /> Tahun Ajaran
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-    

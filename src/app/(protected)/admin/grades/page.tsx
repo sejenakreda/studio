@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { getAllGrades, getStudents } from '@/lib/firestoreService';
-import { calculateAverage, getAcademicYears, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { getAllGrades, getStudents, getActiveAcademicYears } from '@/lib/firestoreService';
+import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +31,6 @@ interface SortConfig {
   direction: 'ascending' | 'descending';
 }
 
-const ALL_ACADEMIC_YEARS_FILTER = getAcademicYears(); // Full list for dropdown
 const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 const ITEMS_PER_PAGE = 15;
 
@@ -43,10 +42,9 @@ export default function ManageAllGradesPage() {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
 
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
+  const [selectableYears, setSelectableYears] = useState<string[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
-  const [academicYearFilter, setAcademicYearFilter] = useState<string>(
-    ALL_ACADEMIC_YEARS_FILTER.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : "all"
-  );
+  const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -54,10 +52,21 @@ export default function ManageAllGradesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [grades, students] = await Promise.all([
+      const [grades, students, activeYears] = await Promise.all([
         getAllGrades(),
-        getStudents()
+        getStudents(),
+        getActiveAcademicYears()
       ]);
+
+      setSelectableYears(activeYears);
+      if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
+        setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
+      } else if (activeYears.length > 0) {
+        setAcademicYearFilter(activeYears[0]); // Default to the first active year if current is not active
+      } else {
+        setAcademicYearFilter("all"); // Or "all" if no active years and fallback from getActiveAcademicYears is just one.
+      }
+
 
       if (!Array.isArray(grades)) {
         throw new Error("Gagal memuat data nilai. Data yang diterima bukan array.");
@@ -106,7 +115,7 @@ export default function ManageAllGradesPage() {
   }, [fetchData]);
   
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1); 
   }, [classFilter, academicYearFilter, semesterFilter, sortConfig]);
 
 
@@ -227,7 +236,7 @@ export default function ManageAllGradesPage() {
   const handleDownloadExcel = () => {
     if (filteredAndSortedGrades.length === 0) {
       toast({
-        variant: "default", // or "destructive" if it's considered an error state
+        variant: "default",
         title: "Tidak Ada Data",
         description: "Tidak ada data nilai yang sesuai dengan filter untuk diunduh.",
       });
@@ -255,19 +264,9 @@ export default function ManageAllGradesPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Semua Nilai Siswa");
 
     const wscols = [
-      { wch: 25 }, // Nama Siswa
-      { wch: 15 }, // NIS
-      { wch: 10 }, // Kelas
-      { wch: 15 }, // Tahun Ajaran
-      { wch: 10 }, // Semester
-      { wch: 10 }, // Avg. Tugas
-      { wch: 8 },  // Tes
-      { wch: 8 },  // PTS
-      { wch: 8 },  // PAS
-      { wch: 15 }, // Kehadiran (%)
-      { wch: 8 },  // Eskul
-      { wch: 8 },  // OSIS
-      { wch: 12 }, // Nilai Akhir
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, 
+      { wch: 10 }, { wch: 8 },  { wch: 8 },  { wch: 8 }, { wch: 15 }, 
+      { wch: 8 },  { wch: 8 },  { wch: 12 }, 
     ];
     worksheet['!cols'] = wscols;
 
@@ -302,7 +301,6 @@ export default function ManageAllGradesPage() {
               <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
               <CardDescription>
                 Menampilkan semua catatan nilai. Gunakan filter atau klik header kolom untuk mengurutkan.
-                Jika data nilai yang baru diinput belum muncul, coba muat ulang halaman.
               </CardDescription>
             </div>
             {filteredAndSortedGrades.length > 0 && !isLoading && (
@@ -338,9 +336,10 @@ export default function ManageAllGradesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Tahun</SelectItem>
-                    {ALL_ACADEMIC_YEARS_FILTER.map(year => (
+                    {selectableYears.map(year => (
                       <SelectItem key={year} value={year}>{year}</SelectItem>
                     ))}
+                    {selectableYears.length === 0 && <SelectItem value="all" disabled>Tidak ada tahun aktif</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -462,4 +461,3 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
-

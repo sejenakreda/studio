@@ -9,6 +9,8 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   role: Role;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface AppUser extends FirebaseUser {
@@ -67,3 +69,9 @@ export type StudentTableEntry = Siswa & {
   nilai_akhir_semester_1?: number;
   nilai_akhir_semester_2?: number;
 };
+
+export interface AcademicYearSetting {
+  id?: string; // Firestore document ID (e.g., "2023_2024")
+  year: string; // Display string (e.g., "2023/2024")
+  isActive: boolean;
+}

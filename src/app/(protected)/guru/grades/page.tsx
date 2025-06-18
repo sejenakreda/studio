@@ -119,7 +119,7 @@ export default function InputGradesPage() {
     selectedAcademicYear, 
     selectedSemester, 
     selectedMapel, 
-    kkmValue,
+    kkmValue, // This is directly from form.watch()
     tugas, 
     tes, pts, pas, jumlahHariHadir, eskul, osis
   } = watchedFormValues;
@@ -342,7 +342,7 @@ export default function InputGradesPage() {
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
 
-      const kkmToUse = kkmValue;
+      const kkmToUse = kkmValue; 
       const newUntuntasComponentsList: UntuntasComponent[] = [];
       let allAcademicComponentsAreTuntas = true;
 
@@ -375,10 +375,10 @@ export default function InputGradesPage() {
         setUntuntasComponents([]);
         setCalculatedFinalGrade(null);
     }
-  }, [
+  }, [ // Dependencies
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue,
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis,
-    weights, isLoadingInitialData // removed calculatedFinalGrade from deps
+    weights, isLoadingInitialData 
   ]);
 
   const handleSaveKkm = async () => {
@@ -589,7 +589,9 @@ export default function InputGradesPage() {
         excelRow[`Tugas ${index + 1}`] = tugasNilai ?? 0;
     });
     
-    for (let i = (values.tugas || []).length; i < 5; i++) {
+    // Ensure at least 5 task columns for consistency, pad with empty if fewer.
+    const maxTugasCols = Math.max(5, (values.tugas || []).length);
+    for (let i = (values.tugas || []).length; i < maxTugasCols; i++) {
         if (!excelRow.hasOwnProperty(`Tugas ${i + 1}`)) { 
              excelRow[`Tugas ${i + 1}`] = '';
         }
@@ -614,10 +616,8 @@ export default function InputGradesPage() {
     const baseWscols = [
       { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 8 }
     ];
-    const tugasWscols = (values.tugas || []).map(() => ({ wch: 8 }));
-     for (let i = (values.tugas || []).length; i < 5; i++) { 
-        tugasWscols.push({ wch: 8 });
-    }
+    const tugasWscols = Array(maxTugasCols).fill({ wch: 8 });
+
     const remainingWscols = [
       { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 15 } 
     ];
@@ -735,21 +735,23 @@ export default function InputGradesPage() {
           }
 
           const importedTugasScores = [];
-          for (let i = 1; i <= 5; i++) { 
-            const tugasValue = row["tugas" + i];
-            if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
-              const numValue = Number(tugasValue);
-              if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
-                importedTugasScores.push(numValue);
-              } else {
-                importedTugasScores.push(0);
-                errorDetails.push("Nilai tugas" + i + " (" + tugasValue + ") tidak valid untuk " + row.id_siswa + ", mapel " + row.mapel + ". Dianggap 0.");
-              }
-            } else {
-              if (row.hasOwnProperty("tugas" + i)) { 
-                   importedTugasScores.push(0);
-              }
+          // Iterate through tugas1, tugas2, ..., tugasN columns found in the Excel row
+          for (const key in row) {
+            if (key.startsWith("tugas") && row[key] !== undefined && String(row[key]).trim() !== '') {
+                const numValue = Number(row[key]);
+                if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                    importedTugasScores.push(numValue);
+                } else {
+                    importedTugasScores.push(0); // Default to 0 if invalid
+                    errorDetails.push(`Nilai ${key} (${row[key]}) tidak valid untuk ${row.id_siswa}, mapel ${row.mapel}. Dianggap 0.`);
+                }
+            } else if (key.startsWith("tugas") && row.hasOwnProperty(key) && (row[key] === undefined || String(row[key]).trim() === '')) {
+                importedTugasScores.push(0); // If column exists but is empty, count as 0
             }
+          }
+          // If no tugas columns were found at all (e.g., tugas1, tugas2...), default to a single 0
+          if (importedTugasScores.length === 0) {
+            importedTugasScores.push(0);
           }
 
 
@@ -758,7 +760,7 @@ export default function InputGradesPage() {
             mapel: row.mapel.trim(),
             semester: semesterNum,
             tahun_ajaran: row.tahun_ajaran,
-            tugas: importedTugasScores.length > 0 ? importedTugasScores : [0], 
+            tugas: importedTugasScores, 
             tes: (typeof row.tes === 'number' && row.tes >=0 && row.tes <=100) ? row.tes : 0,
             pts: (typeof row.pts === 'number' && row.pts >=0 && row.pts <=100) ? row.pts : 0,
             pas: (typeof row.pas === 'number' && row.pas >=0 && row.pas <=100) ? row.pas : 0,
@@ -855,7 +857,7 @@ export default function InputGradesPage() {
                       <Select 
                          onValueChange={(value) => {
                             field.onChange(value);
-                            if (!isLoadingInitialData) {
+                            if (!isLoadingInitialData) { // Only reset if not during initial load
                               form.setValue('selectedStudentId', '', { shouldDirty: true }); 
                             }
                           }}
@@ -1114,6 +1116,8 @@ export default function InputGradesPage() {
     </div>
   );
 }
+    
+
     
 
     

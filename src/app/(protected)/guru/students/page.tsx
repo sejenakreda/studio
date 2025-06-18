@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,8 @@ const studentSchema = z.object({
 
 type StudentFormData = z.infer<typeof studentSchema>;
 
+const ITEMS_PER_PAGE = 15;
+
 export default function ManageStudentsPage() {
   const { toast } = useToast();
   const [allStudents, setAllStudents] = useState<Siswa[]>([]);
@@ -48,6 +50,7 @@ export default function ManageStudentsPage() {
   const [studentToDelete, setStudentToDelete] = useState<Siswa | null>(null);
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -86,6 +89,10 @@ export default function ManageStudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filter changes
+  }, [selectedClass]);
+
   const filteredStudents = useMemo(() => {
     if (selectedClass === "all") {
       return allStudents;
@@ -93,17 +100,25 @@ export default function ManageStudentsPage() {
     return allStudents.filter(student => student.kelas === selectedClass);
   }, [allStudents, selectedClass]);
 
+  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredStudents.slice(startIndex, endIndex);
+  }, [filteredStudents, currentPage]);
+
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     try {
-      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
+      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa && s.id !== (form.getValues() as any).editingId); 
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "ID Siswa ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
-      const existingStudentByNis = allStudents.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); // Exclude self if editing
+      const existingStudentByNis = allStudents.find(s => s.nis === data.nis && s.id !== (form.getValues() as any).editingId); 
       if (existingStudentByNis) {
         form.setError("nis", { type: "manual", message: "NIS ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error", description: "NIS ini sudah digunakan." });
@@ -310,47 +325,76 @@ export default function ManageStudentsPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nama Siswa</TableHead>
-                    <TableHead>NIS</TableHead>
-                    <TableHead>Kelas</TableHead>
-                    <TableHead>ID Siswa</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.map((student) => (
-                    <TableRow key={student.id_siswa}>
-                      <TableCell className="font-medium">{student.nama}</TableCell>
-                      <TableCell>{student.nis}</TableCell>
-                      <TableCell>{student.kelas}</TableCell>
-                      <TableCell>{student.id_siswa}</TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Link href={`/guru/students/edit/${student.id}`} passHref>
-                          <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground">
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteConfirmation(student)}
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Hapus</span>
-                        </Button>
-                      </TableCell> 
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama Siswa</TableHead>
+                      <TableHead>NIS</TableHead>
+                      <TableHead>Kelas</TableHead>
+                      <TableHead>ID Siswa</TableHead>
+                      <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedStudents.map((student) => (
+                      <TableRow key={student.id_siswa}>
+                        <TableCell className="font-medium">{student.nama}</TableCell>
+                        <TableCell>{student.nis}</TableCell>
+                        <TableCell>{student.kelas}</TableCell>
+                        <TableCell>{student.id_siswa}</TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Link href={`/guru/students/edit/${student.id}`} passHref>
+                            <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground">
+                              <Edit className="h-4 w-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                          </Link>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteConfirmation(student)}
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Hapus</span>
+                          </Button>
+                        </TableCell> 
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {totalPages > 1 && (
+                <CardFooter className="flex items-center justify-between border-t pt-4 mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Halaman {currentPage} dari {totalPages}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Sebelumnya
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Berikutnya
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

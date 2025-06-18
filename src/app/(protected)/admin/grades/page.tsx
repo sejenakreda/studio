@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Loader2, AlertCircle, Users, ClipboardList, Info } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, ClipboardList, Info, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { getAllGrades, getStudents } from '@/lib/firestoreService';
 import { calculateAverage } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
@@ -21,11 +21,19 @@ interface AdminGradeView extends Nilai {
   rataRataTugas?: number;
 }
 
+type SortableKeys = keyof Pick<AdminGradeView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'tahun_ajaran' | 'semester' | 'nilai_akhir'>;
+
+interface SortConfig {
+  key: SortableKeys | 'rataRataTugas' | 'tes' | 'pts' | 'pas' | 'kehadiran' | 'eskul' | 'osis' | null;
+  direction: 'ascending' | 'descending';
+}
+
 export default function ManageAllGradesPage() {
   const { toast } = useToast();
   const [allGradesData, setAllGradesData] = useState<AdminGradeView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -72,8 +80,65 @@ export default function ManageAllGradesPage() {
     fetchData();
   }, [fetchData]);
 
+  const requestSort = (key: SortConfig['key']) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedGradesData = useMemo(() => {
+    let sortableItems = [...allGradesData];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const aValue = a[sortConfig.key as keyof AdminGradeView];
+        const bValue = b[sortConfig.key as keyof AdminGradeView];
+
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+        
+        let comparison = 0;
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue;
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+           // Fallback for mixed types or other types
+           comparison = String(aValue).localeCompare(String(bValue));
+        }
+        return sortConfig.direction === 'ascending' ? comparison : comparison * -1;
+      });
+    }
+    return sortableItems;
+  }, [allGradesData, sortConfig]);
+
+  const getSortIcon = (key: SortConfig['key']) => {
+    if (sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-3 w-3 text-primary" /> : <ArrowDown className="ml-2 h-3 w-3 text-primary" />;
+  };
+
+  const tableHeaders: { key: SortConfig['key'], label: string, className?: string }[] = [
+    { key: 'namaSiswa', label: 'Nama Siswa' },
+    { key: 'nisSiswa', label: 'NIS' },
+    { key: 'kelasSiswa', label: 'Kelas' },
+    { key: 'tahun_ajaran', label: 'Tahun Ajaran' },
+    { key: 'semester', label: 'Semester' },
+    { key: 'rataRataTugas', label: 'Avg. Tugas' },
+    { key: 'tes', label: 'Tes' },
+    { key: 'pts', label: 'PTS' },
+    { key: 'pas', label: 'PAS' },
+    { key: 'kehadiran', label: 'Kehadiran' },
+    { key: 'eskul', label: 'Eskul' },
+    { key: 'osis', label: 'OSIS' },
+    { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
+  ];
+
+
   const memoizedTableRows = useMemo(() => {
-    return allGradesData.map((grade) => (
+    return sortedGradesData.map((grade) => (
       <TableRow key={grade.id || `${grade.id_siswa}-${grade.tahun_ajaran}-${grade.semester}`}>
         <TableCell className="font-medium">{grade.namaSiswa}</TableCell>
         <TableCell>{grade.nisSiswa}</TableCell>
@@ -84,13 +149,13 @@ export default function ManageAllGradesPage() {
         <TableCell>{grade.tes?.toFixed(2) || '0.00'}</TableCell>
         <TableCell>{grade.pts?.toFixed(2) || '0.00'}</TableCell>
         <TableCell>{grade.pas?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}</TableCell>
+        <TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}%</TableCell>
         <TableCell>{grade.eskul?.toFixed(2) || '0.00'}</TableCell>
         <TableCell>{grade.osis?.toFixed(2) || '0.00'}</TableCell>
         <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
       </TableRow>
     ));
-  }, [allGradesData]);
+  }, [sortedGradesData]);
 
 
   return (
@@ -104,7 +169,7 @@ export default function ManageAllGradesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Manajemen Nilai Global</h1>
           <p className="text-muted-foreground">
-            Lihat dan kelola semua data nilai siswa secara keseluruhan.
+            Lihat dan kelola semua data nilai siswa secara keseluruhan. Urutkan berdasarkan kolom.
           </p>
         </div>
       </div>
@@ -113,7 +178,7 @@ export default function ManageAllGradesPage() {
         <CardHeader>
           <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
           <CardDescription>
-            Menampilkan semua catatan nilai yang tersimpan dalam sistem.
+            Menampilkan semua catatan nilai yang tersimpan dalam sistem. Klik header kolom untuk mengurutkan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -150,19 +215,19 @@ export default function ManageAllGradesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nama Siswa</TableHead>
-                    <TableHead>NIS</TableHead>
-                    <TableHead>Kelas</TableHead>
-                    <TableHead>Tahun Ajaran</TableHead>
-                    <TableHead>Semester</TableHead>
-                    <TableHead>Avg. Tugas</TableHead>
-                    <TableHead>Tes</TableHead>
-                    <TableHead>PTS</TableHead>
-                    <TableHead>PAS</TableHead>
-                    <TableHead>Kehadiran</TableHead>
-                    <TableHead>Eskul</TableHead>
-                    <TableHead>OSIS</TableHead>
-                    <TableHead className="text-primary">Nilai Akhir</TableHead>
+                    {tableHeaders.map(header => (
+                      <TableHead 
+                        key={header.key} 
+                        onClick={() => header.key && requestSort(header.key)}
+                        className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`}
+                        title={`Urutkan berdasarkan ${header.label}`}
+                      >
+                        <div className="flex items-center">
+                          {header.label}
+                          {header.key ? getSortIcon(header.key) : null}
+                        </div>
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -102,7 +102,7 @@ export default function ManageStudentsPage() {
   }, [fetchStudents]);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1); 
   }, [selectedClass]);
 
   const filteredStudents = useMemo(() => {
@@ -198,7 +198,7 @@ export default function ManageStudentsPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Siswa");
     const wscols = [ { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 } ];
     worksheet['!cols'] = wscols;
-    XLSX.writeFile(workbook, "data_siswa_skorzen.xlsx");
+    XLSX.writeFile(workbook, "data_siswa_siap_smapna.xlsx");
     toast({ title: "Data Diekspor", description: "Data siswa telah diekspor ke Excel." });
   };
 
@@ -243,8 +243,6 @@ export default function ManageStudentsPage() {
         let failCount = 0;
         const errorMessages: string[] = [];
         
-        // Fetch current students again to ensure `allStudents` is up-to-date for duplicate checks
-        // This could be optimized if we are sure allStudents is always fresh.
         const currentStudentList = await getStudents(); 
 
         for (const student of json) {
@@ -305,7 +303,7 @@ export default function ManageStudentsPage() {
           console.warn("Detail error impor siswa:", errorMessages.join("\n"));
         }
         
-        fetchStudents(); // Refresh student list in table
+        fetchStudents(); 
         setSelectedFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
@@ -636,6 +634,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-    
-
     

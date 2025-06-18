@@ -129,7 +129,7 @@ export default function ManageTeachersPage() {
       
       toast({ title: "Sukses", description: "Guru " + data.displayName + " berhasil ditambahkan." });
       form.reset();
-      fetchTeachers(); // Re-fetch data instead of reloading
+      fetchTeachers(); 
 
     } catch (error: any) {
       console.error("Error adding teacher:", error);
@@ -183,7 +183,7 @@ export default function ManageTeachersPage() {
   const handleDownloadTeacherTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
       ["displayName", "email", "password", "assignedMapel"],
-      ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia"], // Example row
+      ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia"], 
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
@@ -211,7 +211,7 @@ export default function ManageTeachersPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Guru");
     const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 40 } ];
     worksheet['!cols'] = wscols;
-    XLSX.writeFile(workbook, "data_guru_skorzen.xlsx");
+    XLSX.writeFile(workbook, "data_guru_siap_smapna.xlsx");
     toast({ title: "Data Diekspor", description: "Data guru telah diekspor ke Excel." });
   };
 
@@ -271,8 +271,7 @@ export default function ManageTeachersPage() {
         const errorMessages: string[] = [];
         let anyInvalidMapelDetected = false;
 
-        // Fetch current students list once before the loop for duplicate checking
-        const currentStudentList = await getAllUsersByRole('guru'); // or relevant function to get existing teachers
+        const currentTeacherList = await getAllUsersByRole('guru'); 
 
         for (const teacher of json) {
           if (!teacher.displayName || !teacher.email || !teacher.password) {
@@ -286,8 +285,7 @@ export default function ManageTeachersPage() {
             continue;
           }
 
-          // Check for existing teacher by email before proceeding
-          const existingTeacherByEmail = currentStudentList.find(t => t.email === teacher.email);
+          const existingTeacherByEmail = currentTeacherList.find(t => t.email === teacher.email);
           if (existingTeacherByEmail) {
             failCount++;
             errorMessages.push("Email " + teacher.email + " sudah terdaftar. Dilewati.");
@@ -333,7 +331,6 @@ export default function ManageTeachersPage() {
             successCount++;
           } catch (error: any) {
             failCount++;
-            // Email already in use might be caught by pre-check, but keep for safety
             if (error.code === 'auth/email-already-in-use') {
               errorMessages.push("Email " + teacher.email + " sudah terdaftar (gagal saat pembuatan). Dilewati.");
             } else {
@@ -594,7 +591,7 @@ export default function ManageTeachersPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Anda Yakin Ingin Menghapus Profil Guru Ini?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tindakan ini akan menghapus profil guru <span className="font-semibold">{teacherToDelete.displayName}</span> ({teacherToDelete.email}) dari sistem SkorZen. 
+                Tindakan ini akan menghapus profil guru <span className="font-semibold">{teacherToDelete.displayName}</span> ({teacherToDelete.email}) dari sistem SiAP Smapna. 
                 Akun login Firebase pengguna ini tidak akan dihapus.
                 Tindakan ini tidak dapat diurungkan.
               </AlertDialogDescription>

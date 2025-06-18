@@ -15,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarTrigger,
   SidebarFooter,
-  SidebarMenuBadge, // Import SidebarMenuBadge
+  SidebarMenuBadge,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
@@ -25,7 +25,9 @@ import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { getPengumumanUntukGuru } from "@/lib/firestoreService"; // Import service to fetch announcements
+import { getAllPengumuman } from "@/lib/firestoreService"; 
+import type { Pengumuman } from "@/types";
+import { Timestamp } from "firebase/firestore";
 
 interface NavItem {
   href: string;
@@ -44,7 +46,7 @@ const navItems: NavItem[] = [
   { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'] },
-  { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] }, // New menu for guru
+  { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
   { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
   { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
@@ -54,34 +56,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { userProfile, loading } = useAuth();
   const router = useRouter();
-  const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number | null>(null);
+  const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number>(0);
   const [isLoadingBadge, setIsLoadingBadge] = React.useState(false);
 
   React.useEffect(() => {
-    // Fetch announcement count for guru badge
-    if (userProfile?.role === 'guru' && announcementBadgeCount === null && !isLoadingBadge) {
+    if (userProfile?.role === 'guru' && userProfile.uid) {
       setIsLoadingBadge(true);
-      const fetchBadgeCount = async () => {
+      const lastSeenKey = `lastSeenAnnouncementTimestamp_${userProfile.uid}`;
+
+      const updateBadgeLogic = async () => {
         try {
-          const announcements = await getPengumumanUntukGuru(5); // Get latest 5 for badge count
-          setAnnouncementBadgeCount(announcements.length);
+          const allFetchedAnnouncements = await getAllPengumuman(); 
+
+          if (pathname === '/guru/announcements') {
+            if (allFetchedAnnouncements.length > 0 && allFetchedAnnouncements[0].createdAt) {
+              const newestTimestamp = allFetchedAnnouncements[0].createdAt.toMillis();
+              localStorage.setItem(lastSeenKey, newestTimestamp.toString());
+            } else {
+              localStorage.setItem(lastSeenKey, Timestamp.now().toMillis().toString());
+            }
+            setAnnouncementBadgeCount(0); 
+          } else {
+            const storedLastSeen = localStorage.getItem(lastSeenKey);
+            const lastSeenTimestamp = storedLastSeen ? parseInt(storedLastSeen, 10) : 0;
+
+            if (allFetchedAnnouncements.length > 0) {
+              const unreadAnnouncements = allFetchedAnnouncements.filter(
+                (ann) => ann.createdAt && ann.createdAt.toMillis() > lastSeenTimestamp
+              );
+              setAnnouncementBadgeCount(unreadAnnouncements.length);
+            } else {
+              setAnnouncementBadgeCount(0);
+            }
+          }
         } catch (error) {
-          console.error("Error fetching announcement count for badge:", error);
+          console.error("Error updating announcement badge:", error);
           setAnnouncementBadgeCount(0); 
         } finally {
           setIsLoadingBadge(false);
         }
       };
-      fetchBadgeCount();
-    } else if (userProfile?.role !== 'guru') {
-      setAnnouncementBadgeCount(null); // Reset if not guru or profile changes
+
+      updateBadgeLogic();
+    } else {
+      setAnnouncementBadgeCount(0);
+      if(userProfile?.uid) { 
+        localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
+      }
+      setIsLoadingBadge(false);
     }
-  // Add announcementBadgeCount to dependency array if you want it to reset and refetch if it becomes null again for some reason
-  // For now, it fetches once when role is guru and count is null.
-  }, [userProfile, isLoadingBadge, announcementBadgeCount]);
+  }, [userProfile, pathname]);
 
 
   const handleLogout = async () => {
+    if (userProfile?.uid) {
+       // Optional: Clear lastSeen timestamp on logout if desired, though not strictly necessary
+       // localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
+    }
     await signOut(auth);
     router.push("/login");
   };
@@ -90,6 +121,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (loading || !userProfile) return [];
     return navItems.filter(item => item.roles.includes(userProfile.role));
   }, [userProfile, loading]);
+
+  // Determine the correct current page label for the header
+  const currentPageLabel = React.useMemo(() => {
+    const currentTopLevelPath = `/${pathname.split('/')[1]}`; // e.g., /admin or /guru
+    const defaultDashboardLabel = userProfile?.role === 'admin' ? 'Dasbor Admin' : (userProfile?.role === 'guru' ? 'Dasbor Guru' : 'Dasbor');
+    
+    // Find a direct match or a prefix match for nested routes
+    let foundLabel = defaultDashboardLabel;
+    let longestMatchLength = currentTopLevelPath.length;
+
+    for (const item of filteredNavItems) {
+      if (item.href === pathname) { // Exact match
+        foundLabel = item.label;
+        break; 
+      }
+      // Check for prefix match for nested routes, but ensure it's more specific than just /admin or /guru
+      if (pathname.startsWith(item.href) && item.href.length > longestMatchLength) {
+        if (item.href === currentTopLevelPath && pathname !== currentTopLevelPath) {
+          // If item.href is /admin and pathname is /admin/something, we need a more specific label if available
+          // This case is tricky. We look for a more specific match first.
+          // Example: if on /admin/teachers/edit/xyz, we want "Kelola Guru" not "Dasbor Admin"
+        } else {
+            // A more specific path like /admin/teachers matched /admin/teachers/edit/xyz
+            foundLabel = item.label;
+            longestMatchLength = item.href.length;
+        }
+      }
+    }
+    // Special handling for root dashboard if no more specific label found from nested paths
+    if (pathname === "/admin" && userProfile?.role === 'admin') foundLabel = "Dasbor Admin";
+    if (pathname === "/guru" && userProfile?.role === 'guru') foundLabel = "Dasbor Guru";
+    
+    return foundLabel;
+  }, [pathname, filteredNavItems, userProfile]);
+
 
   return (
     <div className="flex min-h-screen w-full">
@@ -107,13 +173,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href || (item.href !== (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname.startsWith(item.href))}
+                    isActive={pathname === item.href || (item.href !== (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname.startsWith(item.href) && item.href.length > (userProfile?.role === 'admin' ? '/admin'.length : '/guru'.length) )}
                     tooltip={{ children: item.label, side: "right", align: "center" }}
                   >
-                    <Link href={item.href} className="relative"> {/* Added relative for badge positioning */}
+                    <Link href={item.href} className="relative">
                       <item.icon className="h-5 w-5" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                      {item.href === "/guru/announcements" && announcementBadgeCount !== null && announcementBadgeCount > 0 && (
+                      {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
                         <SidebarMenuBadge 
                            className="absolute top-1 right-1 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-[16px] group-data-[collapsible=icon]:px-1 bg-destructive text-destructive-foreground"
                         >
@@ -144,8 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
              <SidebarTrigger className="md:hidden" />
              <h1 className="text-lg font-semibold text-foreground font-headline">
-              {filteredNavItems.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/')) || (item.href === (userProfile?.role === 'admin' ? '/admin' : '/guru') && pathname === item.href))?.label || 
-               (userProfile?.role === 'admin' ? 'Dasbor Admin' : userProfile?.role === 'guru' ? 'Dasbor Guru' : 'Dasbor')}
+              {currentPageLabel}
             </h1>
           </div>
           <UserNav />
@@ -159,3 +224,4 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+    

@@ -39,7 +39,7 @@ export function getAcademicYears(startYear = 2020): string[] {
   const endYear = 2049; // Target end year for the academic period like 2049/2050
   const years: string[] = [];
   for (let year = startYear; year <= endYear; year++) {
-    years.push(\`\${year}/\${year + 1}\`);
+    years.push(`${year}/${year + 1}`); // Re-typed this line carefully
   }
   return years.reverse(); // Show most recent first
 }
@@ -51,9 +51,9 @@ export function getCurrentAcademicYear(): string {
 
   // Assuming new academic year starts in July (month index 6)
   if (currentMonth >= 6) { // July to December
-    return \`\${currentYear}/\${currentYear + 1}\`;
+    return `${currentYear}/${currentYear + 1}`;
   } else { // January to June
-    return \`\${currentYear - 1}/\${currentYear}\`;
+    return `${currentYear - 1}/${currentYear}`;
   }
 }
 
@@ -61,7 +61,3 @@ export const SEMESTERS = [
   { value: 1, label: 'Ganjil' },
   { value: 2, label: 'Genap' },
 ];
-
-// AVAILABLE_MAPEL_FOR_ASSIGNMENT is removed as mapel will be managed from Firestore.
-// If you need a default list for initial seeding or fallback, it could be defined elsewhere
-// or handled during initial app setup.

@@ -88,7 +88,7 @@ export default function AdminDashboardPage() {
     },
      { 
       title: "Aktivitas Terbaru", 
-      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : \`\${activityLogs.length} Log\`,
+      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : `${activityLogs.length} Log`,
       icon: History, 
       color: "text-yellow-500", 
       bgColor: "bg-yellow-100 dark:bg-yellow-900/30", 
@@ -117,12 +117,12 @@ export default function AdminDashboardPage() {
             className="block hover:shadow-lg transition-shadow duration-300 rounded-lg"
           >
             <Card className="overflow-hidden h-full flex flex-col">
-              <CardHeader className={\`flex flex-row items-center justify-between space-y-0 pb-2 \${stat.bgColor}\`}>
-                <CardTitle className={\`text-sm font-medium \${stat.color}\`}>{stat.title}</CardTitle>
-                <stat.icon className={\`h-6 w-6 \${stat.color}\`} />
+              <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
+                <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
+                <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </CardHeader>
               <CardContent className="flex-grow flex flex-col justify-center">
-                <div className={\`text-2xl font-bold \${stat.color}\`}>{stat.value}</div>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
                 <p className="text-xs text-muted-foreground pt-1">
                   Lihat Detail
                 </p>
@@ -207,3 +207,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

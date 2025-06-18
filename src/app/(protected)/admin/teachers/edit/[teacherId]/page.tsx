@@ -19,7 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
-// AVAILABLE_MAPEL_FOR_ASSIGNMENT is removed
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const editTeacherSchema = z.object({
@@ -112,12 +111,12 @@ export default function EditTeacherPage() {
       const newMapel = data.assignedMapel?.join(', ') || 'Tidak ada';
       await addActivityLog(
         "Profil & Mapel Guru Diperbarui",
-        \`Profil Guru \${teacherData.email}: Nama -> \${data.displayName}. Mapel: \${oldMapel} -> \${newMapel}. Oleh Admin: \${currentAdminProfile.displayName}\`,
+        "Profil Guru " + teacherData.email + ": Nama -> " + data.displayName + ". Mapel: " + oldMapel + " -> " + newMapel + ". Oleh Admin: " + currentAdminProfile.displayName,
         currentAdminProfile.uid,
         currentAdminProfile.displayName
       );
 
-      toast({ title: "Sukses", description: \`Data guru \${data.displayName} berhasil diperbarui.\` });
+      toast({ title: "Sukses", description: "Data guru " + data.displayName + " berhasil diperbarui." });
       router.push('/admin/teachers');
     } catch (error: any) {
       console.error("Error updating teacher:", error);

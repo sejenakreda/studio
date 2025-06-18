@@ -1,18 +1,19 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig } from "lucide-react";
-import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears } from '@/lib/firestoreService';
+import { ArrowLeft, Save, Loader2, AlertCircle, BookOpenCheck, BarChartHorizontalBig, Download, FileUp, FileDown } from "lucide-react";
+import { getStudents, getWeights, getGrade, addOrUpdateGrade, getActiveAcademicYears, getStudentById } from '@/lib/firestoreService';
 import { calculateFinalGrade, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Siswa, Bobot, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -38,11 +39,30 @@ const gradeSchema = z.object({
 
 type GradeFormData = z.infer<typeof gradeSchema>;
 
+interface GradeImportData {
+  id_siswa: string;
+  tahun_ajaran: string;
+  semester: number | string; // Can be number or "Ganjil"/"Genap" text from Excel
+  tugas1?: number;
+  tugas2?: number;
+  tugas3?: number;
+  tugas4?: number;
+  tugas5?: number;
+  tes?: number;
+  pts?: number;
+  pas?: number;
+  jumlah_hari_hadir?: number;
+  eskul?: number;
+  osis?: number;
+}
+
+
 const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 
 export default function InputGradesPage() {
   const { toast } = useToast();
   const [students, setStudents] = useState<Siswa[]>([]);
+  const [studentMap, setStudentMap] = useState<Map<string, Siswa>>(new Map());
   const [weights, setWeights] = useState<Bobot | null>(null);
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
@@ -52,9 +72,13 @@ export default function InputGradesPage() {
   const [calculatedFinalGrade, setCalculatedFinalGrade] = useState<number | null>(null);
   const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
 
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [isImportingFile, setIsImportingFile] = useState(false);
+  const fileImportInputRef = useRef<HTMLInputElement>(null);
+
+
   const form = useForm<GradeFormData>({
     resolver: zodResolver(gradeSchema),
-    // Default values will be set after fetching active academic years
   });
 
   const watchedFormValues = form.watch();
@@ -77,6 +101,9 @@ export default function InputGradesPage() {
         ]);
         
         setStudents(studentList || []);
+        const newStudentMap = new Map(studentList.map(s => [s.id_siswa, s]));
+        setStudentMap(newStudentMap);
+
         setWeights(weightData);
         setSelectableYears(activeYears);
 
@@ -84,7 +111,7 @@ export default function InputGradesPage() {
         if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
           defaultYear = CURRENT_ACADEMIC_YEAR;
         } else if (activeYears.length > 0) {
-          defaultYear = activeYears[0]; // Default to the first active year if current is not active
+          defaultYear = activeYears[0];
         }
         
         form.reset({
@@ -109,8 +136,7 @@ export default function InputGradesPage() {
   useEffect(() => {
     async function fetchGrade() {
       if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !weights || isLoadingInitialData) {
-        // Reset fields if dependent selections are missing or initial data still loading
-        if (!isLoadingInitialData) { // only reset if initial load is done
+        if (!isLoadingInitialData) {
             form.reset({
                 ...form.getValues(), 
                 tugas1: 0, tugas2: 0, tugas3: 0, tugas4: 0, tugas5: 0,
@@ -133,7 +159,7 @@ export default function InputGradesPage() {
             calculatedJumlahHariHadir = Math.round((gradeData.kehadiran / 100) * totalDaysForSemester);
           }
           form.reset({
-            ...form.getValues(), // Keep selected student, year, semester
+            ...form.getValues(),
             tugas1: gradeData.tugas?.[0] || 0,
             tugas2: gradeData.tugas?.[1] || 0,
             tugas3: gradeData.tugas?.[2] || 0,
@@ -169,7 +195,7 @@ export default function InputGradesPage() {
 
 
   useEffect(() => {
-    if (weights && !isLoadingInitialData) { // ensure weights are loaded and form values are stable
+    if (weights && !isLoadingInitialData) { 
       const totalDaysForSemester = watchedFormValues.selectedSemester === 1 
         ? weights.totalHariEfektifGanjil 
         : weights.totalHariEfektifGenap;
@@ -263,6 +289,216 @@ export default function InputGradesPage() {
     { name: "eskul", label: "Nilai Ekstrakurikuler" }, { name: "osis", label: "Nilai OSIS/Kegiatan" },
   ];
 
+  const handleDownloadGradeTemplate = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["id_siswa", "tahun_ajaran", "semester", "tugas1", "tugas2", "tugas3", "tugas4", "tugas5", "tes", "pts", "pas", "jumlah_hari_hadir", "eskul", "osis"],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Nilai");
+    const wscols = [
+      { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
+      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 8 }, { wch: 8 }
+    ];
+    worksheet['!cols'] = wscols;
+    XLSX.writeFile(workbook, "template_import_nilai.xlsx");
+    toast({ title: "Template Diunduh", description: "Template Excel untuk impor nilai telah diunduh." });
+  };
+
+  const handleExportCurrentGrade = () => {
+    if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !weights) {
+      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Pilih siswa, tahun ajaran, dan semester terlebih dahulu." });
+      return;
+    }
+    const currentStudent = studentMap.get(selectedStudentId);
+    if (!currentStudent) {
+       toast({ variant: "destructive", title: "Siswa Tidak Ditemukan", description: "Data siswa terpilih tidak ditemukan." });
+       return;
+    }
+
+    const values = form.getValues();
+    const dataForExcel = [{
+      'ID Siswa': selectedStudentId,
+      'Nama Siswa': currentStudent.nama,
+      'NIS': currentStudent.nis,
+      'Kelas': currentStudent.kelas,
+      'Tahun Ajaran': selectedAcademicYear,
+      'Semester': selectedSemester === 1 ? 'Ganjil' : 'Genap',
+      'Tugas 1': values.tugas1 || 0,
+      'Tugas 2': values.tugas2 || 0,
+      'Tugas 3': values.tugas3 || 0,
+      'Tugas 4': values.tugas4 || 0,
+      'Tugas 5': values.tugas5 || 0,
+      'Tes': values.tes || 0,
+      'PTS': values.pts || 0,
+      'PAS': values.pas || 0,
+      'Jumlah Hari Hadir': values.jumlahHariHadir || 0,
+      'Kehadiran (%)': attendancePercentage?.toFixed(2) || '0.00',
+      'Eskul': values.eskul || 0,
+      'OSIS': values.osis || 0,
+      'Nilai Akhir': calculatedFinalGrade?.toFixed(2) || '0.00',
+    }];
+
+    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Nilai Siswa");
+    const wscols = [
+      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 },
+      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
+      { wch: 18 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 12 }
+    ];
+    worksheet['!cols'] = wscols;
+    const safeStudentName = currentStudent.nama.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const safeYear = selectedAcademicYear.replace('/', '-');
+    XLSX.writeFile(workbook, `nilai_${safeStudentName}_${safeYear}_smt${selectedSemester}.xlsx`);
+    toast({ title: "Nilai Diekspor", description: `Nilai untuk ${currentStudent.nama} semester ${selectedSemester} TA ${selectedAcademicYear} telah diekspor.` });
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedImportFile(event.target.files[0]);
+    } else {
+      setSelectedImportFile(null);
+    }
+  };
+
+  const handleImportGradesFromFile = async () => {
+    if (!selectedImportFile) {
+      toast({ variant: "destructive", title: "Tidak Ada File", description: "Silakan pilih file Excel terlebih dahulu." });
+      return;
+    }
+    if (!weights) {
+      toast({ variant: "destructive", title: "Error", description: "Konfigurasi bobot belum dimuat. Impor dibatalkan." });
+      return;
+    }
+    setIsImportingFile(true);
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        const fileData = e.target?.result;
+        const workbook = XLSX.read(fileData, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json<GradeImportData>(worksheet);
+
+        if (jsonData.length === 0) {
+          toast({ variant: "destructive", title: "File Kosong", description: "File Excel tidak mengandung data nilai." });
+          setIsImportingFile(false);
+          return;
+        }
+
+        const firstRow = jsonData[0];
+        const expectedHeaders = ["id_siswa", "tahun_ajaran", "semester", "jumlah_hari_hadir"]; // Add more if strict check needed
+        const actualHeaders = Object.keys(firstRow);
+        if (!expectedHeaders.every(header => actualHeaders.includes(header))) {
+          toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai. Pastikan ada kolom: ${expectedHeaders.join(', ')}.` });
+          setIsImportingFile(false);
+          return;
+        }
+        
+        let successCount = 0;
+        let failCount = 0;
+        const errorDetails: string[] = [];
+
+        for (const row of jsonData) {
+          const studentExists = studentMap.get(row.id_siswa);
+          if (!studentExists) {
+            failCount++;
+            errorDetails.push(`ID Siswa ${row.id_siswa} tidak ditemukan. Baris dilewati.`);
+            continue;
+          }
+          
+          const semesterNum = typeof row.semester === 'string' 
+            ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(row.semester))
+            : row.semester;
+
+          if (![1, 2].includes(semesterNum)) {
+            failCount++;
+            errorDetails.push(`Semester tidak valid (${row.semester}) untuk siswa ${row.id_siswa}. Baris dilewati.`);
+            continue;
+          }
+          if (!selectableYears.includes(row.tahun_ajaran)) {
+             failCount++;
+             errorDetails.push(`Tahun ajaran ${row.tahun_ajaran} tidak aktif/valid untuk siswa ${row.id_siswa}. Baris dilewati.`);
+             continue;
+          }
+
+          const totalDaysForSemester = semesterNum === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
+          let calculatedKehadiranPercentage = 0;
+          const jumlahHadir = typeof row.jumlah_hari_hadir === 'number' ? row.jumlah_hari_hadir : 0;
+
+          if (typeof totalDaysForSemester === 'number' && totalDaysForSemester > 0) {
+            calculatedKehadiranPercentage = (jumlahHadir / totalDaysForSemester) * 100;
+            calculatedKehadiranPercentage = Math.min(Math.max(calculatedKehadiranPercentage, 0), 100);
+          }
+
+          const tugasScores = [
+            row.tugas1, row.tugas2, row.tugas3, row.tugas4, row.tugas5
+          ].map(t => typeof t === 'number' && t >=0 && t <= 100 ? t : 0) as number[];
+
+          const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
+            id_siswa: row.id_siswa,
+            semester: semesterNum,
+            tahun_ajaran: row.tahun_ajaran,
+            tugas: tugasScores,
+            tes: (typeof row.tes === 'number' && row.tes >=0 && row.tes <=100) ? row.tes : 0,
+            pts: (typeof row.pts === 'number' && row.pts >=0 && row.pts <=100) ? row.pts : 0,
+            pas: (typeof row.pas === 'number' && row.pas >=0 && row.pas <=100) ? row.pas : 0,
+            kehadiran: calculatedKehadiranPercentage,
+            eskul: (typeof row.eskul === 'number' && row.eskul >=0 && row.eskul <=100) ? row.eskul : 0,
+            osis: (typeof row.osis === 'number' && row.osis >=0 && row.osis <=100) ? row.osis : 0,
+          };
+          const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights);
+          const nilaiWithFinal: Omit<Nilai, 'id'> = { ...nilaiToSave, nilai_akhir: finalGradeValue };
+
+          try {
+            await addOrUpdateGrade(nilaiWithFinal);
+            successCount++;
+          } catch (err: any) {
+            failCount++;
+            errorDetails.push(`Gagal simpan nilai ${row.id_siswa} TA ${row.tahun_ajaran} Smt ${semesterNum}: ${err.message}.`);
+          }
+        }
+
+        toast({
+          title: "Impor Nilai Selesai",
+          description: `${successCount} data nilai berhasil diimpor. ${failCount} data gagal. ${failCount > 0 ? 'Lihat konsol untuk detail.' : ''}`,
+          duration: failCount > 0 ? 10000 : 5000,
+        });
+        if (errorDetails.length > 0) console.warn("Detail Error Impor Nilai:", errorDetails.join("\n"));
+
+        // Optionally refresh current form if imported data matches current selection
+        if (selectedStudentId && selectedAcademicYear && selectedSemester) {
+          const importedForCurrent = jsonData.find(row =>
+            row.id_siswa === selectedStudentId &&
+            row.tahun_ajaran === selectedAcademicYear &&
+            (typeof row.semester === 'string' ? (SEMESTERS.find(s => s.label.toLowerCase() === row.semester.toLowerCase())?.value || parseInt(row.semester)) : row.semester) === selectedSemester
+          );
+          if (importedForCurrent) {
+            // Trigger re-fetch of grade for current form
+            const currentFormValues = form.getValues();
+            form.setValue("selectedStudentId", "", { shouldDirty: true }); // Temporarily change to trigger useEffect
+            form.reset(currentFormValues); // Reset to original values to trigger re-fetch
+          }
+        }
+        
+      } catch (err) {
+        console.error("Error processing Excel file for grades:", err);
+        toast({ variant: "destructive", title: "Error Baca File", description: "Gagal memproses file Excel nilai." });
+      } finally {
+        setIsImportingFile(false);
+        setSelectedImportFile(null);
+        if (fileImportInputRef.current) fileImportInputRef.current.value = "";
+      }
+    };
+    reader.onerror = () => {
+      toast({ variant: "destructive", title: "Error Baca File", description: "Tidak dapat membaca file yang dipilih." });
+      setIsImportingFile(false);
+    };
+    reader.readAsBinaryString(selectedImportFile);
+  };
+
+
   if (isLoadingInitialData) {
     return (
       <div className="space-y-6">
@@ -304,7 +540,7 @@ export default function InputGradesPage() {
                     <FormField
                       key={fieldInfo.name}
                       control={form.control}
-                      name={fieldInfo.name as keyof GradeFormData} // Explicit cast
+                      name={fieldInfo.name as keyof GradeFormData}
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>{fieldInfo.label}</FormLabel>
@@ -344,15 +580,49 @@ export default function InputGradesPage() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear}>
                   {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
+                </Button>
+                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={!selectedStudentId || !selectedAcademicYear || !selectedSemester}>
+                  <FileDown className="mr-2 h-4 w-4" /> Ekspor Nilai Ini
                 </Button>
               </CardFooter>
             </Card>
           )}
         </form>
       </Form>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Impor & Ekspor Nilai Massal</CardTitle>
+          <CardDescription>Gunakan template Excel untuk impor atau ekspor nilai secara massal.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <Input
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleFileChange}
+              ref={fileImportInputRef}
+              className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+            <Button onClick={handleImportGradesFromFile} disabled={isImportingFile || !selectedImportFile} className="w-full sm:w-auto">
+              {isImportingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+              {isImportingFile ? 'Mengimpor...' : 'Impor File Nilai'}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Unduh template di bawah ini, isi data nilai, lalu unggah file untuk impor massal.
+            Pastikan kolom `id_siswa`, `tahun_ajaran`, dan `semester` (1 atau 2) diisi dengan benar.
+          </p>
+        </CardContent>
+        <CardFooter>
+          <Button type="button" variant="outline" onClick={handleDownloadGradeTemplate}>
+            <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

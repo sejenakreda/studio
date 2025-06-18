@@ -94,7 +94,7 @@ export default function EditTeacherPage() {
 
       await addActivityLog(
         "Profil Guru Diperbarui",
-        `Nama tampilan guru ${teacherData.email} diubah menjadi ${data.displayName} oleh Admin: ${currentAdminProfile.displayName}`,
+        `Nama tampilan guru ${teacherData.email} (sebelumnya: ${teacherData.displayName}) diubah menjadi ${data.displayName} oleh Admin: ${currentAdminProfile.displayName}`,
         currentAdminProfile.uid,
         currentAdminProfile.displayName
       );

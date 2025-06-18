@@ -18,7 +18,6 @@ import {
   createUserProfile as createUserProfileFirestore, 
   addActivityLog,
   deleteUserRecord, 
-  updateUserProfile 
 } from '@/lib/firestoreService';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -156,7 +155,7 @@ export default function ManageTeachersPage() {
 
       toast({ 
         title: "Sukses", 
-        description: `Profil guru ${teacherToDelete.displayName} berhasil dihapus dari sistem. Akun login Firebase mungkin masih ada.` 
+        description: `Profil guru ${teacherToDelete.displayName} berhasil dihapus dari sistem.` 
       });
       setTeacherToDelete(null);
       fetchTeachers(); 

@@ -11,12 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser } from "lucide-react";
-import { addStudent, getStudents } from '@/lib/firestoreService';
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, BookUser, Edit, Trash2 } from "lucide-react";
+import { addStudent, getStudents, deleteStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const studentSchema = z.object({
   nama: z.string().min(3, "Nama minimal 3 karakter"),
@@ -32,7 +43,9 @@ export default function ManageStudentsPage() {
   const [students, setStudents] = useState<Siswa[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Siswa | null>(null);
 
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -67,7 +80,6 @@ export default function ManageStudentsPage() {
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     try {
-      // Check if student with the same id_siswa or nis already exists
       const existingStudentById = students.find(s => s.id_siswa === data.id_siswa);
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
@@ -86,7 +98,7 @@ export default function ManageStudentsPage() {
       await addStudent(data);
       toast({ title: "Sukses", description: `Siswa ${data.nama} berhasil ditambahkan.` });
       form.reset();
-      fetchStudents(); // Refresh the list
+      fetchStudents(); 
     } catch (error: any) {
       console.error("Error adding student:", error);
       toast({ variant: "destructive", title: "Error", description: "Gagal menambahkan siswa. Silakan coba lagi." });
@@ -94,6 +106,27 @@ export default function ManageStudentsPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleDeleteConfirmation = (student: Siswa) => {
+    setStudentToDelete(student);
+  };
+
+  const handleActualDelete = async () => {
+    if (!studentToDelete || !studentToDelete.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteStudent(studentToDelete.id);
+      toast({ title: "Sukses", description: `Siswa ${studentToDelete.nama} dan semua nilainya berhasil dihapus.` });
+      setStudentToDelete(null);
+      fetchStudents();
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      toast({ variant: "destructive", title: "Error Hapus", description: "Gagal menghapus siswa." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -106,7 +139,7 @@ export default function ManageStudentsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Data Siswa</h1>
           <p className="text-muted-foreground">
-            Tambah atau lihat data siswa yang terdaftar.
+            Tambah, lihat, atau hapus data siswa yang terdaftar.
           </p>
         </div>
       </div>
@@ -236,7 +269,7 @@ export default function ManageStudentsPage() {
                     <TableHead>NIS</TableHead>
                     <TableHead>Kelas</TableHead>
                     <TableHead>ID Siswa</TableHead>
-                    {/* <TableHead className="text-right">Aksi</TableHead> */}
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -246,18 +279,24 @@ export default function ManageStudentsPage() {
                       <TableCell>{student.nis}</TableCell>
                       <TableCell>{student.kelas}</TableCell>
                       <TableCell>{student.id_siswa}</TableCell>
-                      {/* 
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="mr-2" disabled>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" size="icon" className="mr-2" disabled> {/* Edit disabled for now */}
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Edit</span>
                         </Button>
-                        <Button variant="ghost" size="icon" disabled className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Hapus</span>
-                        </Button>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteConfirmation(student)}
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Hapus</span>
+                          </Button>
+                        </AlertDialogTrigger>
                       </TableCell> 
-                      */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -266,8 +305,32 @@ export default function ManageStudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {studentToDelete && (
+        <AlertDialog open={!!studentToDelete} onOpenChange={(isOpen) => !isOpen && setStudentToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Anda Yakin Ingin Menghapus Siswa Ini?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini akan menghapus data siswa <span className="font-semibold">{studentToDelete.nama}</span> ({studentToDelete.nis}) beserta semua data nilai yang terkait. 
+                Tindakan ini tidak dapat diurungkan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setStudentToDelete(null)} disabled={isDeleting}>Batal</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleActualDelete} 
+                disabled={isDeleting}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Ya, Hapus Siswa
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-
     

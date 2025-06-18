@@ -63,8 +63,6 @@ export default function RekapNilaiPage() {
       } else if (activeYears.length > 0) {
         setAcademicYearFilter(activeYears[0]);
       } else {
-        // If no active years, this case should ideally not happen if there's a fallback in getActiveAcademicYears
-        // but as a safeguard, we can set it to empty and let the UI show a message
         setAcademicYearFilter(""); 
         toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Silakan hubungi Admin."});
       }
@@ -122,7 +120,7 @@ export default function RekapNilaiPage() {
     if (academicYearFilter) {
       items = items.filter(grade => grade.tahun_ajaran === academicYearFilter);
     } else {
-       return []; // If no academic year is selected (e.g. no active years), show no data
+       return []; 
     }
     if (semesterFilter) {
       items = items.filter(grade => String(grade.semester) === semesterFilter);
@@ -251,7 +249,7 @@ export default function RekapNilaiPage() {
                       <SelectItem key={year} value={year}>{year}</SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="" disabled>Tidak ada tahun aktif</SelectItem>
+                    <SelectItem value="no_active_years_placeholder" disabled>Tidak ada tahun aktif</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -320,5 +318,7 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
+
+    
 
     

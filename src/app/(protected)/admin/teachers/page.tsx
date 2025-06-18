@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,9 +9,9 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form"; // Renamed FormDescription to avoid conflict
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2 } from "lucide-react";
 import { getAllUsersByRole, createUserProfile } from '@/lib/firestoreService';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -44,24 +44,25 @@ export default function ManageTeachersPage() {
     },
   });
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     setIsLoadingData(true);
     setFetchError(null);
     try {
       const guruUsers = await getAllUsersByRole('guru');
-      setTeachers(guruUsers);
+      setTeachers(guruUsers || []); // Ensure teachers is always an array
     } catch (error) {
       console.error("Error fetching teachers:", error);
       setFetchError("Gagal memuat daftar guru. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: "Gagal memuat daftar guru." });
+      setTeachers([]); // Ensure teachers is an array even on error
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [toast]); // toast is stable from useToast
 
   useEffect(() => {
     fetchTeachers();
-  }, []);
+  }, [fetchTeachers]);
 
   const onSubmit = async (data: AddTeacherFormData) => {
     setIsSubmitting(true);
@@ -144,7 +145,7 @@ export default function ManageTeachersPage() {
                     <FormControl>
                       <Input type="password" placeholder="Minimal 6 karakter" {...field} />
                     </FormControl>
-                    <FormDescription>Guru dapat mengubah password ini nanti.</FormDescription>
+                    <FormDesc>Guru dapat mengubah password ini nanti.</FormDesc> 
                     <FormMessage />
                   </FormItem>
                 )}
@@ -216,8 +217,8 @@ export default function ManageTeachersPage() {
               <TableBody>
                 {teachers.map((teacher) => (
                   <TableRow key={teacher.uid}>
-                    <TableCell className="font-medium">{teacher.displayName}</TableCell>
-                    <TableCell>{teacher.email}</TableCell>
+                    <TableCell className="font-medium">{teacher.displayName || 'N/A'}</TableCell>
+                    <TableCell>{teacher.email || 'N/A'}</TableCell>
                     {/* 
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" className="mr-2" disabled>
@@ -240,3 +241,5 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
+
+    

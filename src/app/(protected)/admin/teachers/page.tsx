@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2 } from "lucide-react";
 import { getAllUsersByRole, createUserProfile as createUserProfileFirestore, addActivityLog } from '@/lib/firestoreService';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'; // Import signOut
 import { auth } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +32,7 @@ type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
 export default function ManageTeachersPage() {
   const { toast } = useToast();
-  const { userProfile: adminProfile } = useAuth();
+  const { userProfile: currentAdminProfileFromAuth } = useAuth(); // Get admin profile from context
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,17 +69,31 @@ export default function ManageTeachersPage() {
 
   const onSubmit = async (data: AddTeacherFormData) => {
     setIsSubmitting(true);
+    // Capture admin's details BEFORE creating the new user, as auth state will change
+    const adminUIDToLog = currentAdminProfileFromAuth?.uid;
+    const adminDisplayNameToLog = currentAdminProfileFromAuth?.displayName || currentAdminProfileFromAuth?.email || "Admin";
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // NEW USER (TEACHER) IS NOW SIGNED IN
+      
       await createUserProfileFirestore(userCredential.user, 'guru', data.displayName);
+      
+      // Sign out the newly created teacher user.
+      // This allows onAuthStateChanged to restore the admin's session.
+      if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
+          await signOut(auth);
+      }
+
       toast({ title: "Sukses", description: `Guru ${data.displayName} berhasil ditambahkan.` });
       
-      if (adminProfile) {
+      // Log the activity as the original admin
+      if (adminUIDToLog) {
         await addActivityLog(
             "Guru Baru Ditambahkan", 
             `Guru: ${data.displayName} (${data.email})`,
-            adminProfile.uid,
-            adminProfile.displayName || adminProfile.email || "Admin"
+            adminUIDToLog,
+            adminDisplayNameToLog
           );
       }
 

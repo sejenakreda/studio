@@ -102,7 +102,7 @@ export default function InputGradesPage() {
         selectedSemester: SEMESTERS[0]?.value || 1,
         selectedMapel: "",
         kkmValue: 70,
-        tugas: [0], // Start with one assignment field
+        tugas: [0], 
         tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
     }
   });
@@ -120,7 +120,7 @@ export default function InputGradesPage() {
     selectedSemester, 
     selectedMapel, 
     kkmValue,
-    tugas, // This is now an array
+    tugas, 
     tes, pts, pas, jumlahHariHadir, eskul, osis
   } = watchedFormValues;
 
@@ -139,7 +139,7 @@ export default function InputGradesPage() {
   }, [weights, selectedSemester]);
 
   const resetGradeFieldsToZero = useCallback(() => {
-    form.setValue('tugas', [0]); // Reset to one task with value 0
+    form.setValue('tugas', [0]); 
     form.setValue('tes', 0);
     form.setValue('pts', 0);
     form.setValue('pas', 0);
@@ -190,7 +190,7 @@ export default function InputGradesPage() {
         form.setValue('selectedClass', defaultClassVal);
 
         let defaultStudentIdVal = "";
-        if (studentIdParam) {
+        if (studentIdParam && newStudentMap.has(studentIdParam)) {
             defaultStudentIdVal = studentIdParam;
         } else if (defaultClassVal !== "all") {
             const studentsInClass = (studentList || []).filter(s => s.kelas === defaultClassVal);
@@ -378,7 +378,7 @@ export default function InputGradesPage() {
   }, [
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue,
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis,
-    weights, isLoadingInitialData
+    weights, isLoadingInitialData // removed calculatedFinalGrade from deps
   ]);
 
   const handleSaveKkm = async () => {
@@ -476,13 +476,19 @@ export default function InputGradesPage() {
     }
   };
   
-  const otherGradeInputFields: { name: keyof Omit<GradeFormData, 'selectedClass' | 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'selectedMapel' | 'kkmValue' | 'kehadiran' | 'tugas'>; label: string, type?: string, desc?: string }[] = [
+  const otherGradeInputFields: { 
+    name: keyof Omit<GradeFormData, 'selectedClass' | 'selectedStudentId' | 'selectedAcademicYear' | 'selectedSemester' | 'selectedMapel' | 'kkmValue' | 'kehadiran' | 'tugas'>; 
+    label: string; 
+    type?: string; 
+    desc?: string;
+    bonusKey?: 'eskul' | 'osis';
+  }[] = [
     { name: "tes", label: "Nilai Tes / Ulangan" },
     { name: "pts", label: "Nilai PTS" },
     { name: "pas", label: "Nilai PAS" },
     { name: "jumlahHariHadir", label: "Jumlah Hari Hadir", desc: "Akan dikonversi ke persentase otomatis."},
-    { name: "eskul", label: "Nilai Ekstrakurikuler" },
-    { name: "osis", label: "Nilai OSIS/Kegiatan" },
+    { name: "eskul", label: "Nilai Ekstrakurikuler", bonusKey: "eskul"},
+    { name: "osis", label: "Nilai OSIS/Kegiatan", bonusKey: "osis"},
   ];
 
   const handleDownloadGradeTemplate = async () => {
@@ -516,7 +522,7 @@ export default function InputGradesPage() {
             tahun_ajaran: currentYear,
             semester: currentSemester, 
             mapel: currentMapel, 
-            tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', // Keep 5 for template simplicity
+            tugas1: '', tugas2: '', tugas3: '', tugas4: '', tugas5: '', 
             tes: '', pts: '', pas: '', jumlah_hari_hadir: '', eskul: '', osis: ''
         }));
         
@@ -582,9 +588,11 @@ export default function InputGradesPage() {
     (values.tugas || []).forEach((tugasNilai, index) => {
         excelRow[`Tugas ${index + 1}`] = tugasNilai ?? 0;
     });
-    // Pad with empty if less than 5, or handle more if necessary. For simplicity, fixed to 5 max for export.
+    
     for (let i = (values.tugas || []).length; i < 5; i++) {
-        excelRow[`Tugas ${i + 1}`] = '';
+        if (!excelRow.hasOwnProperty(`Tugas ${i + 1}`)) { 
+             excelRow[`Tugas ${i + 1}`] = '';
+        }
     }
 
     excelRow['Tes'] = values.tes ?? 0;
@@ -603,12 +611,11 @@ export default function InputGradesPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Nilai Siswa");
     
-    // Adjust column widths dynamically based on number of tasks
     const baseWscols = [
       { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 8 }
     ];
     const tugasWscols = (values.tugas || []).map(() => ({ wch: 8 }));
-     for (let i = (values.tugas || []).length; i < 5; i++) { // Pad for up to 5 tugas columns
+     for (let i = (values.tugas || []).length; i < 5; i++) { 
         tugasWscols.push({ wch: 8 });
     }
     const remainingWscols = [
@@ -728,7 +735,7 @@ export default function InputGradesPage() {
           }
 
           const importedTugasScores = [];
-          for (let i = 1; i <= 5; i++) { // Assume max 5 tugas columns in Excel for now
+          for (let i = 1; i <= 5; i++) { 
             const tugasValue = row["tugas" + i];
             if (tugasValue !== undefined && tugasValue !== null && String(tugasValue).trim() !== '') {
               const numValue = Number(tugasValue);
@@ -739,11 +746,7 @@ export default function InputGradesPage() {
                 errorDetails.push("Nilai tugas" + i + " (" + tugasValue + ") tidak valid untuk " + row.id_siswa + ", mapel " + row.mapel + ". Dianggap 0.");
               }
             } else {
-              // Only add if there's a header for it, or just push 0 if we always expect 5 from excel
-              // For now, if column `tugasX` is missing or empty, don't add to array unless we enforce specific number.
-              // Let's keep it simple: if tugasX exists, process it. If not, it's not part of this student's tasks from Excel.
-              // However, for current logic, if a column exists and is empty, it becomes 0.
-              if (row.hasOwnProperty("tugas" + i)) { // only push 0 if the column was present but empty/invalid
+              if (row.hasOwnProperty("tugas" + i)) { 
                    importedTugasScores.push(0);
               }
             }
@@ -755,7 +758,7 @@ export default function InputGradesPage() {
             mapel: row.mapel.trim(),
             semester: semesterNum,
             tahun_ajaran: row.tahun_ajaran,
-            tugas: importedTugasScores.length > 0 ? importedTugasScores : [0], // Ensure at least one task if none from Excel
+            tugas: importedTugasScores.length > 0 ? importedTugasScores : [0], 
             tes: (typeof row.tes === 'number' && row.tes >=0 && row.tes <=100) ? row.tes : 0,
             pts: (typeof row.pts === 'number' && row.pts >=0 && row.pts <=100) ? row.pts : 0,
             pas: (typeof row.pas === 'number' && row.pas >=0 && row.pas <=100) ? row.pas : 0,
@@ -850,12 +853,12 @@ export default function InputGradesPage() {
                     <FormItem>
                       <FormLabel>Filter Kelas</FormLabel>
                       <Select 
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          if (!isLoadingInitialData) { // Only reset if not initial loading
-                            form.setValue('selectedStudentId', '', { shouldDirty: true }); // Reset student when class changes
-                          }
-                        }} 
+                         onValueChange={(value) => {
+                            field.onChange(value);
+                            if (!isLoadingInitialData) {
+                              form.setValue('selectedStudentId', '', { shouldDirty: true }); 
+                            }
+                          }}
                         value={field.value || "all"} 
                         disabled={availableClasses.length === 0 || noMapelAssigned}
                       >
@@ -1011,6 +1014,14 @@ export default function InputGradesPage() {
                                   <span className="font-semibold text-primary">{attendancePercentage.toFixed(1)}%</span>
                                 )}
                              </FormDescription>
+                          )}
+                           {fieldInfo.bonusKey && weights && (
+                            <FormDescription className="text-xs">
+                              Maks. bonus tambahan: +{weights[fieldInfo.bonusKey] ?? 0} poin. Input nilai 0-100.
+                            </FormDescription>
+                          )}
+                          {fieldInfo.desc && !fieldInfo.bonusKey && (
+                              <FormDescription className="text-xs">{fieldInfo.desc}</FormDescription>
                           )}
                           <FormMessage />
                         </FormItem>

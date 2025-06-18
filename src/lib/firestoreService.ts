@@ -117,6 +117,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
         email: profile.email,
         displayName: profile.displayName,
         role: profile.role,
+        assignedMapel: profile.assignedMapel || [], // Ensure it's an array
         createdAt: profile.createdAt || serverTimestamp(), 
         updatedAt: serverTimestamp(),
     };
@@ -131,6 +132,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       email: data.email,
       displayName: data.displayName,
       role: data.role,
+      assignedMapel: data.assignedMapel || [], // Ensure it's an array on read
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -371,6 +373,7 @@ export const createUserProfile = async (firebaseUser: User, role: Role, displayN
     email: firebaseUser.email,
     displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pengguna Baru',
     role: role,
+    assignedMapel: [], // Initialize with empty array
     createdAt: serverTimestamp() as Timestamp,
     updatedAt: serverTimestamp() as Timestamp,
   };
@@ -392,7 +395,13 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  await updateDoc(userDocRef, {...data, updatedAt: serverTimestamp()});
+  // Ensure assignedMapel is always an array, even if data.assignedMapel is undefined
+  const updateData = {
+    ...data,
+    assignedMapel: data.assignedMapel || [], // Default to empty array if not provided
+    updatedAt: serverTimestamp()
+  };
+  await updateDoc(userDocRef, updateData);
 };
 
 export const deleteUserRecord = async (uid: string): Promise<void> => {

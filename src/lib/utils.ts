@@ -62,4 +62,24 @@ export const SEMESTERS = [
   { value: 2, label: 'Genap' },
 ];
 
-// MATA_PELAJARAN constant removed as mapel will be dynamic
+export const AVAILABLE_MAPEL_FOR_ASSIGNMENT = [
+  "Matematika Wajib",
+  "Matematika Peminatan",
+  "Bahasa Indonesia",
+  "Bahasa Inggris",
+  "Fisika",
+  "Kimia",
+  "Biologi",
+  "Sejarah Indonesia",
+  "Sejarah Peminatan",
+  "Geografi",
+  "Sosiologi",
+  "Ekonomi",
+  "Pendidikan Pancasila dan Kewarganegaraan (PPKn)",
+  "Pendidikan Agama dan Budi Pekerti",
+  "Seni Budaya",
+  "Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)",
+  "Prakarya dan Kewirausahaan (PKWU)",
+  "Informatika",
+  "Bahasa Asing Lainnya (Arab, Mandarin, Jerman, dll.)"
+].sort();

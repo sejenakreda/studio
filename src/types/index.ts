@@ -9,6 +9,7 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   role: Role;
+  assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

@@ -5,12 +5,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download } from "lucide-react";
 import {
   getAllUsersByRole,
   getAllTeachersDailyAttendanceForPeriod,
@@ -77,10 +78,8 @@ export default function ManageTeacherAttendancePage() {
       let records: TeacherDailyAttendance[] = [];
       const monthQueryValue = dailyFilterMonth === "all" ? null : dailyFilterMonth;
 
-      // Fetch records based on year and month (or whole year if monthQueryValue is null)
       const allRecordsForPeriod = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthQueryValue);
 
-      // Filter by teacher UID if a specific teacher is selected
       if (dailyFilterTeacherUid === "all") {
         records = allRecordsForPeriod;
       } else if (dailyFilterTeacherUid) {
@@ -90,7 +89,7 @@ export default function ManageTeacherAttendancePage() {
     } catch (error: any) {
       console.error("Admin - Error in fetchDailyAttendanceRecords:", error);
       setFetchError("Gagal memuat data kehadiran harian guru. Cek konsol browser untuk detail.");
-      toast({ variant: "destructive", title: "Error Memuat Data", description: "Gagal memuat data kehadiran harian. Kemungkinan ada masalah dengan query atau indeks Firestore. Coba periksa konsol browser untuk pesan error yang lebih spesifik dari Firebase." });
+      toast({ variant: "destructive", title: "Error Memuat Data", description: "Gagal memuat data kehadiran harian. Kemungkinan ada masalah dengan query atau indeks Firestore. Periksa konsol browser (klik kanan > Inspect > Console) untuk pesan error dari Firebase, mungkin terkait indeks." });
       setDailyRecords([]);
     } finally {
       setIsLoadingDailyRecords(false);
@@ -107,7 +106,7 @@ export default function ManageTeacherAttendancePage() {
     setIsDeletingDaily(true);
     try {
       await deleteTeacherDailyAttendance(dailyRecordToDelete.id);
-      await addActivityLog("Data Kehadiran Harian Guru Dihapus (Admin)", `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "yyyy-MM-dd")} dihapus oleh Admin: ${adminProfile.displayName}`, adminProfile.uid, adminProfile.displayName || "Admin");
+      await addActivityLog("Data Kehadiran Harian Guru Dihapus (Admin)", `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "EEEE, yyyy-MM-dd", {locale: indonesiaLocale})} dihapus oleh Admin: ${adminProfile.displayName}`, adminProfile.uid, adminProfile.displayName || "Admin");
       toast({ title: "Sukses", description: "Data kehadiran harian berhasil dihapus." });
       setDailyRecordToDelete(null); fetchDailyAttendanceRecords();
     } catch (error: any) { toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
@@ -116,7 +115,42 @@ export default function ManageTeacherAttendancePage() {
 
   const handleEditDailyRecord = (record: TeacherDailyAttendance) => {
       toast({ title: "Info", description: "Fitur edit kehadiran harian oleh Admin akan segera tersedia. Gunakan Hapus jika ada kesalahan."});
-      // Future: Open a dialog or navigate to an edit form for 'record'
+  };
+
+  const handleDownloadExcel = () => {
+    if (dailyRecords.length === 0) {
+      toast({
+        variant: "default",
+        title: "Tidak Ada Data",
+        description: "Tidak ada data kehadiran yang sesuai dengan filter untuk diunduh.",
+      });
+      return;
+    }
+
+    const dataForExcel = dailyRecords.map(rec => ({
+      'Nama Guru': rec.teacherName || rec.teacherUid,
+      'Hari, Tanggal': format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }),
+      'Status': rec.status,
+      'Catatan': rec.notes || '-',
+      'Dicatat Pada': rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
+      'Diperbarui Pada': rec.updatedAt ? format(rec.updatedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
+      'Pencatat Terakhir': rec.lastUpdatedByUid || '-', // Might need to resolve to name if UIDs are not desired
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Kehadiran Harian");
+
+    const wscols = [
+      { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    XLSX.writeFile(workbook, `rekap_kehadiran_harian_${dailyFilterYear}_${dailyFilterMonth === "all" ? "SemuaBulan" : MONTHS.find(m => m.value === dailyFilterMonth)?.label}.xlsx`);
+    toast({
+      title: "Unduhan Dimulai",
+      description: "File Excel rekap kehadiran harian sedang disiapkan.",
+    });
   };
 
 
@@ -131,8 +165,18 @@ export default function ManageTeacherAttendancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Kehadiran Harian (Dicatat Guru)</CardTitle>
-          <CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+                <CardTitle>Daftar Kehadiran Harian (Dicatat Guru)</CardTitle>
+                <CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription>
+            </div>
+            {dailyRecords.length > 0 && !isLoadingDailyRecords && (
+              <Button onClick={handleDownloadExcel} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Unduh Excel
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
@@ -143,12 +187,15 @@ export default function ManageTeacherAttendancePage() {
           {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
           {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
            : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
-           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecord(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
+           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecord(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
           }
         </CardContent>
       </Card>
 
-      {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
+      {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "EEEE, PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
     </div>
   );
 }
+
+
+    

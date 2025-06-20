@@ -39,7 +39,7 @@ type DailyAttendanceFormData = z.infer<typeof dailyAttendanceSchema>;
 export default function GuruDailyAttendancePage() {
   const { toast } = useToast();
   const { userProfile, loading: authLoading } = useAuth();
-  const [isLoadingData, setIsLoadingData] = useState(false); // For loading existing attendance for a date
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentAttendance, setCurrentAttendance] = useState<TeacherDailyAttendance | null>(null);
@@ -54,44 +54,51 @@ export default function GuruDailyAttendancePage() {
   });
 
   const watchedDate = form.watch("date");
+  const watchedStatus = form.watch("status");
 
-  const fetchAttendanceForDate = useCallback(async (date: Date) => {
-    if (!userProfile?.uid || !date) return;
+  const fetchAttendanceForDate = useCallback(async (dateToFetch: Date) => {
+    if (!userProfile?.uid || !dateToFetch) return;
+    
+    // console.log(`Fetching attendance for date: ${dateToFetch.toISOString()} by UID: ${userProfile.uid}`);
     setIsLoadingData(true);
     setFetchError(null);
-    setCurrentAttendance(null); // Reset current attendance
+    setCurrentAttendance(null); 
     try {
-      const attendanceRecord = await getTeacherDailyAttendanceForDate(userProfile.uid, date);
+      const attendanceRecord = await getTeacherDailyAttendanceForDate(userProfile.uid, dateToFetch);
       if (attendanceRecord) {
+        // console.log("Attendance record found:", attendanceRecord);
         setCurrentAttendance(attendanceRecord);
         form.reset({
-          date: attendanceRecord.date.toDate(),
+          date: attendanceRecord.date.toDate(), // Convert Firestore Timestamp back to JS Date
           status: attendanceRecord.status,
           notes: attendanceRecord.notes || "",
         });
       } else {
-         // Reset form to default for the new date if no record found
+        // console.log("No attendance record found, resetting form to defaults for new date.");
         form.reset({
-          date: date,
-          status: "Hadir",
+          date: dateToFetch, // Use the newly selected date
+          status: "Hadir", // Default status for a new entry
           notes: "",
         });
       }
     } catch (error: any) {
+      // console.error("Error fetching attendance data:", error);
       setFetchError("Gagal memuat data kehadiran untuk tanggal ini.");
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: "Error", description: error.message || "Gagal memuat data." });
     } finally {
       setIsLoadingData(false);
     }
-  }, [userProfile?.uid, form, toast]);
+  }, [userProfile?.uid, form, toast]); // `form` and `toast` are generally stable or memoized by their respective hooks
 
   useEffect(() => {
     if (watchedDate && userProfile?.uid && !authLoading) {
+      // console.log("Watched date changed or user profile became available. Calling fetchAttendanceForDate.");
       fetchAttendanceForDate(watchedDate);
     }
   }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate]);
 
   const onSubmit = async (data: DailyAttendanceFormData) => {
+    // console.log("Form submitted with data:", data);
     if (!userProfile?.uid || !userProfile.displayName) {
       toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak valid." });
       return;
@@ -101,13 +108,14 @@ export default function GuruDailyAttendancePage() {
       const attendancePayload: Omit<TeacherDailyAttendance, 'id' | 'recordedAt'> = {
         teacherUid: userProfile.uid,
         teacherName: userProfile.displayName,
-        date: Timestamp.fromDate(data.date),
+        date: Timestamp.fromDate(data.date), // Convert JS Date to Firestore Timestamp
         status: data.status,
         notes: data.notes || "",
       };
       
       const savedRecord = await addOrUpdateTeacherDailyAttendance(attendancePayload);
-      setCurrentAttendance(savedRecord); // Update local state with saved record
+      setCurrentAttendance(savedRecord); 
+      // console.log("Attendance saved/updated successfully:", savedRecord);
       
       toast({ title: "Sukses", description: `Kehadiran untuk tanggal ${format(data.date, "PPP", { locale: indonesiaLocale })} berhasil dicatat sebagai ${data.status}.` });
       
@@ -119,6 +127,7 @@ export default function GuruDailyAttendancePage() {
       );
       
     } catch (error: any) {
+      // console.error("Error saving attendance:", error);
       toast({ variant: "destructive", title: "Error Simpan", description: error.message || `Gagal mencatat kehadiran.` });
     } finally {
       setIsSubmitting(false);
@@ -179,6 +188,7 @@ export default function GuruDailyAttendancePage() {
                               className={`w-full justify-start text-left font-normal ${
                                 !field.value && "text-muted-foreground"
                               }`}
+                              disabled={isLoadingData || isSubmitting}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {field.value ? (
@@ -231,7 +241,7 @@ export default function GuruDailyAttendancePage() {
                             Status: <span className="font-semibold">{currentAttendance.status}</span>.
                             {currentAttendance.notes && <> Catatan: {currentAttendance.notes}</>}
                             <br />
-                            Dicatat pada: {format(currentAttendance.recordedAt.toDate(), "PPP, HH:mm", { locale: indonesiaLocale })}.
+                            Dicatat pada: {currentAttendance.recordedAt ? format(currentAttendance.recordedAt.toDate(), "PPP, HH:mm", { locale: indonesiaLocale }) : 'N/A'}.
                             <br />
                             <span className="text-xs italic">Anda dapat memperbarui jika ada perubahan.</span>
                         </AlertDescription>
@@ -252,7 +262,7 @@ export default function GuruDailyAttendancePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status Kehadiran</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingData}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingData || isSubmitting}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Pilih status..." />
@@ -273,13 +283,13 @@ export default function GuruDailyAttendancePage() {
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Catatan (Jika Izin/Sakit)</FormLabel>
+                      <FormLabel>Catatan (Jika Izin/Sakit/Alpa)</FormLabel>
                       <FormControl>
                         <Textarea 
-                          placeholder="Alasan izin atau sakit..." 
+                          placeholder="Alasan izin, sakit, atau keterangan alpa..." 
                           {...field} 
                           rows={3} 
-                          disabled={isLoadingData || (form.watch("status") !== "Izin" && form.watch("status") !== "Sakit")}
+                          disabled={isLoadingData || isSubmitting || watchedStatus === "Hadir"}
                         />
                       </FormControl>
                       <FormMessage />
@@ -301,3 +311,4 @@ export default function GuruDailyAttendancePage() {
   );
 }
 
+    

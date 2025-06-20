@@ -34,7 +34,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   roles: Array<'admin' | 'guru'>;
-  isExact?: boolean; // Untuk menandai apakah path harus cocok persis
+  isExact?: boolean; 
 }
 
 const navItems: NavItem[] = [
@@ -49,7 +49,7 @@ const navItems: NavItem[] = [
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'], isExact: true },
   { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
-  { href: "/guru/students", label: "Daftar Siswa", icon: BookUser, roles: ['guru'] }, // Label diubah
+  { href: "/guru/students", label: "Daftar Siswa", icon: BookUser, roles: ['guru'] }, 
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
   { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
 ];
@@ -211,5 +211,4 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
     

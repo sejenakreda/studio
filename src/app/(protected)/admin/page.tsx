@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone, BookUser as StudentIcon } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone, BookUser } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -65,7 +65,7 @@ export default function AdminDashboardPage() {
     { 
       title: "Total Siswa", 
       value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
-      icon: StudentIcon, 
+      icon: BookUser, 
       color: "text-emerald-500", 
       bgColor: "bg-emerald-100 dark:bg-emerald-900/30", 
       href: "/admin/students" 
@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
             </Link>
              <Link href="/admin/students">
               <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <StudentIcon className="h-5 w-5" /> Kelola Siswa
+                <BookUser className="h-5 w-5" /> Kelola Siswa
               </Button>
             </Link>
             <Link href="/admin/mapel">
@@ -233,5 +233,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
     

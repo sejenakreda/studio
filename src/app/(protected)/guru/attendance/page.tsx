@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { ArrowLeft, Save, Loader2, AlertCircle, CalendarIcon, CheckCircle2, Info } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, CalendarIcon, CheckCircle2, Info, Edit, Lock } from "lucide-react";
 
 import { addOrUpdateTeacherDailyAttendance, getTeacherDailyAttendanceForDate, addActivityLog } from '@/lib/firestoreService';
 import type { TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
@@ -39,11 +39,12 @@ type DailyAttendanceFormData = z.infer<typeof dailyAttendanceSchema>;
 export default function GuruDailyAttendancePage() {
   const { toast } = useToast();
   const { userProfile, loading: authLoading } = useAuth();
-  const [isLoadingData, setIsLoadingData] = useState(false); // Initialized to false, will be true during fetch
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentAttendance, setCurrentAttendance] = useState<TeacherDailyAttendance | null>(null);
   const isFetchingRef = useRef(false);
+  const [isFormDisabled, setIsFormDisabled] = useState(false);
 
   const form = useForm<DailyAttendanceFormData>({
     resolver: zodResolver(dailyAttendanceSchema),
@@ -61,6 +62,7 @@ export default function GuruDailyAttendancePage() {
     if (!userProfile?.uid || !dateToFetch) {
       setIsLoadingData(false); 
       isFetchingRef.current = false;
+      setIsFormDisabled(false);
       return;
     }
     
@@ -70,22 +72,15 @@ export default function GuruDailyAttendancePage() {
       const attendanceRecord = await getTeacherDailyAttendanceForDate(userProfile.uid, dateToFetch);
       if (attendanceRecord) {
         setCurrentAttendance(attendanceRecord);
-        // Use setValue to avoid re-triggering watchedDate if logically same date
-        const recordDateJS = attendanceRecord.date.toDate();
+        setIsFormDisabled(true); // Disable form if record exists
         form.setValue('status', attendanceRecord.status);
         form.setValue('notes', attendanceRecord.notes || "");
         
-        // Only update the date in the form if it's actually a different day
-        // This prevents useEffect loops if form.reset/setValue was the trigger for 'watchedDate'
-        if (recordDateJS.getFullYear() !== dateToFetch.getFullYear() ||
-            recordDateJS.getMonth() !== dateToFetch.getMonth() ||
-            recordDateJS.getDate() !== dateToFetch.getDate()) {
-          form.setValue('date', recordDateJS);
+        if (attendanceRecord.date.toDate().getTime() !== dateToFetch.getTime()) {
+            form.setValue('date', attendanceRecord.date.toDate());
         }
-
       } else {
-        // If no record, reset status and notes for the dateToFetch
-        // Ensure the form's date field is aligned with dateToFetch
+        setIsFormDisabled(false); // Enable form if no record
         if (form.getValues('date').getTime() !== dateToFetch.getTime()){
              form.setValue('date', dateToFetch, { shouldDirty: true, shouldValidate: true });
         }
@@ -95,6 +90,7 @@ export default function GuruDailyAttendancePage() {
     } catch (error: any) {
       setFetchError("Gagal memuat data kehadiran untuk tanggal ini.");
       toast({ variant: "destructive", title: "Error", description: error.message || "Gagal memuat data." });
+      setIsFormDisabled(false);
     } finally {
       setIsLoadingData(false);
       isFetchingRef.current = false; 
@@ -110,7 +106,7 @@ export default function GuruDailyAttendancePage() {
     if (!userProfile || typeof userProfile.uid !== 'string' || userProfile.uid.trim() === '') {
       setFetchError("Sesi guru tidak ditemukan atau profil tidak valid. Silakan login ulang.");
       setCurrentAttendance(null);
-      // Reset form but keep the current date if possible, or default to new Date()
+      setIsFormDisabled(true);
       form.reset({ date: watchedDate || new Date(), status: "Hadir", notes: "" }); 
       setIsLoadingData(false); 
       isFetchingRef.current = false; 
@@ -120,6 +116,7 @@ export default function GuruDailyAttendancePage() {
     if (!watchedDate) {
       setCurrentAttendance(null);
       setIsLoadingData(false);
+      setIsFormDisabled(false);
       isFetchingRef.current = false;
       return;
     }
@@ -132,7 +129,7 @@ export default function GuruDailyAttendancePage() {
     setIsLoadingData(true); 
     fetchAttendanceForDate(watchedDate);
 
-  }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate, form]);
+  }, [watchedDate, userProfile?.uid, userProfile, authLoading, fetchAttendanceForDate, form]);
 
 
   const onSubmit = async (data: DailyAttendanceFormData) => {
@@ -140,18 +137,24 @@ export default function GuruDailyAttendancePage() {
       toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak valid." });
       return;
     }
+    if (isFormDisabled) {
+        toast({ variant: "default", title: "Info", description: "Kehadiran untuk tanggal ini sudah dicatat dan tidak dapat diubah." });
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const attendancePayload: Omit<TeacherDailyAttendance, 'id' | 'recordedAt'> = {
+      const attendancePayload: Omit<TeacherDailyAttendance, 'id' | 'recordedAt' | 'updatedAt' | 'lastUpdatedByUid'> & {lastUpdatedByUid: string} = {
         teacherUid: userProfile.uid,
         teacherName: userProfile.displayName,
         date: Timestamp.fromDate(data.date), 
         status: data.status,
         notes: data.notes || "",
+        lastUpdatedByUid: userProfile.uid,
       };
       
       const savedRecord = await addOrUpdateTeacherDailyAttendance(attendancePayload);
       setCurrentAttendance(savedRecord); 
+      setIsFormDisabled(true); // Disable form after successful submission
       
       toast({ title: "Sukses", description: `Kehadiran untuk tanggal ${format(data.date, "PPP", { locale: indonesiaLocale })} berhasil dicatat sebagai ${data.status}.` });
       
@@ -169,7 +172,7 @@ export default function GuruDailyAttendancePage() {
     }
   };
   
-  if (authLoading && !userProfile) { // Show full page loader only if auth is loading AND no profile yet
+  if (authLoading && !userProfile) {
     return <div className="flex justify-center items-center min-h-[300px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
@@ -184,12 +187,12 @@ export default function GuruDailyAttendancePage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Catat Kehadiran Harian</h1>
           <p className="text-muted-foreground">
-            Pilih tanggal dan catat status kehadiran Anda.
+            Pilih tanggal dan catat status kehadiran Anda. Data yang sudah disimpan tidak dapat diubah.
           </p>
         </div>
       </div>
 
-      {!userProfile && !authLoading && ( // This case handles if auth finished but profile is still null
+      {!userProfile && !authLoading && (
          <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Sesi Tidak Ditemukan</AlertTitle>
@@ -197,13 +200,12 @@ export default function GuruDailyAttendancePage() {
         </Alert>
       )}
 
-      {userProfile && ( // Only render form if userProfile exists
+      {userProfile && (
         <Card>
           <CardHeader>
             <CardTitle>Form Kehadiran Harian</CardTitle>
             <CardDescription>
               Status kehadiran terakhir yang tercatat untuk tanggal yang dipilih akan ditampilkan.
-              Jika tidak ada, Anda dapat mencatat baru.
             </CardDescription>
           </CardHeader>
           <Form {...form}>
@@ -223,7 +225,7 @@ export default function GuruDailyAttendancePage() {
                               className={`w-full justify-start text-left font-normal ${
                                 !field.value && "text-muted-foreground"
                               }`}
-                              disabled={isLoadingData || isSubmitting}
+                              disabled={isLoadingData || isSubmitting || isFormDisabled}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {field.value ? (
@@ -238,7 +240,10 @@ export default function GuruDailyAttendancePage() {
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                                if(date) field.onChange(date);
+                                setIsFormDisabled(false); // Re-enable form briefly to allow new fetch
+                            }}
                             disabled={(date) =>
                               date > new Date() || date < new Date("2020-01-01")
                             }
@@ -271,14 +276,12 @@ export default function GuruDailyAttendancePage() {
                 {!isLoadingData && !fetchError && currentAttendance && (
                     <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        <AlertTitle className="text-green-700 dark:text-green-400">Kehadiran Tercatat</AlertTitle>
+                        <AlertTitle className="text-green-700 dark:text-green-400">Kehadiran Tercatat (Tidak Dapat Diubah)</AlertTitle>
                         <AlertDescription className="text-green-600 dark:text-green-300">
                             Status: <span className="font-semibold">{currentAttendance.status}</span>.
                             {currentAttendance.notes && <> Catatan: {currentAttendance.notes}</>}
                             <br />
                             Dicatat pada: {currentAttendance.recordedAt instanceof Timestamp ? format(currentAttendance.recordedAt.toDate(), "PPP, HH:mm", { locale: indonesiaLocale }) : 'N/A'}.
-                            <br />
-                            <span className="text-xs italic">Anda dapat memperbarui jika ada perubahan.</span>
                         </AlertDescription>
                     </Alert>
                 )}
@@ -297,7 +300,7 @@ export default function GuruDailyAttendancePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status Kehadiran</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingData || isSubmitting}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingData || isSubmitting || isFormDisabled}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Pilih status..." />
@@ -324,7 +327,7 @@ export default function GuruDailyAttendancePage() {
                           placeholder="Alasan izin, sakit, atau keterangan alpa..." 
                           {...field} 
                           rows={3} 
-                          disabled={isLoadingData || isSubmitting || watchedStatus === "Hadir"}
+                          disabled={isLoadingData || isSubmitting || watchedStatus === "Hadir" || isFormDisabled}
                         />
                       </FormControl>
                       <FormMessage />
@@ -333,9 +336,9 @@ export default function GuruDailyAttendancePage() {
                 />
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={isSubmitting || isLoadingData}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  {currentAttendance ? "Perbarui Kehadiran" : "Simpan Kehadiran"}
+                <Button type="submit" disabled={isSubmitting || isLoadingData || isFormDisabled}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isFormDisabled ? <Lock className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />)}
+                  {isFormDisabled ? "Data Terkunci" : (currentAttendance ? "Perbarui Kehadiran" : "Simpan Kehadiran")}
                 </Button>
               </CardFooter>
             </form>

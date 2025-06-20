@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -73,7 +73,7 @@ const navigationStructure: NavGroup[] = [
     groupLabel: "Kehadiran Guru",
     roles: ['admin'],
     items: [
-       { href: "/admin/teacher-attendance", label: "Rekap Kehadiran (Bulanan)", icon: CalendarCheck },
+       { href: "/admin/teacher-attendance", label: "Kelola Rekap Kehadiran", icon: CalendarCheck },
     ]
   },
   {
@@ -109,7 +109,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     items: [
       { href: "/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
-      // Nanti bisa ditambahkan menu "Lihat Rekap Kehadiran Saya" jika diperlukan
+      { href: "/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
     ],
   }
 ];

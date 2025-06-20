@@ -127,10 +127,12 @@ export type TeacherDailyAttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Alpa';
 export interface TeacherDailyAttendance {
   id?: string; // Composite ID: teacherUid_YYYY-MM-DD
   teacherUid: string;
-  teacherName?: string; // For display, denormalized
-  date: Timestamp; // The specific date of attendance
+  teacherName?: string;
+  date: Timestamp;
   status: TeacherDailyAttendanceStatus;
-  notes?: string; // Reason for Izin/Sakit
-  recordedAt: Timestamp; // When this record was created/updated
+  notes?: string;
+  recordedAt: Timestamp; // First time this daily record was created
+  updatedAt?: Timestamp; // Last time this record was updated
+  lastUpdatedByUid?: string; // UID of user who last updated (guru on initial, admin on edit)
 }
 

@@ -308,13 +308,16 @@ const teacherAttendanceConverter: FirestoreDataConverter<TeacherAttendance> = {
 
 const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttendance> = {
   toFirestore: (attendance: Omit<TeacherDailyAttendance, 'id'>): DocumentData => {
+    // Ensure all fields are present, providing defaults for optional ones if necessary
     return {
       teacherUid: attendance.teacherUid,
-      teacherName: attendance.teacherName,
+      teacherName: attendance.teacherName || 'Guru',
       date: attendance.date, // Should be a Firestore Timestamp
       status: attendance.status,
-      notes: attendance.notes || null,
-      recordedAt: attendance.recordedAt || serverTimestamp(),
+      notes: attendance.notes || '',
+      recordedAt: attendance.recordedAt || serverTimestamp(), // Initial record time
+      updatedAt: serverTimestamp(), // Always update this on write
+      lastUpdatedByUid: attendance.lastUpdatedByUid || attendance.teacherUid, // Defaults to teacher who made it
     };
   },
   fromFirestore: (
@@ -330,6 +333,8 @@ const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttend
       status: data.status,
       notes: data.notes,
       recordedAt: data.recordedAt,
+      updatedAt: data.updatedAt,
+      lastUpdatedByUid: data.lastUpdatedByUid,
     };
   }
 };
@@ -824,31 +829,54 @@ export const deleteTeacherAttendance = async (id: string): Promise<void> => {
 const TEACHER_DAILY_ATTENDANCE_COLLECTION = 'teacherDailyAttendance';
 
 export const addOrUpdateTeacherDailyAttendance = async (
-  attendanceData: Omit<TeacherDailyAttendance, 'id' | 'recordedAt'> & { teacherName?: string }
+  attendanceData: Omit<TeacherDailyAttendance, 'id' | 'recordedAt' | 'updatedAt' | 'lastUpdatedByUid'> & { lastUpdatedByUid: string }
 ): Promise<TeacherDailyAttendance> => {
-  const { teacherUid, date, status, notes, teacherName } = attendanceData;
+  const { teacherUid, date, teacherName } = attendanceData;
   
-  const dateObj = date.toDate(); // Convert Firestore Timestamp to JS Date
+  const dateObj = date.toDate();
   const year = dateObj.getFullYear();
-  const month = dateObj.getMonth() + 1; // JS month is 0-indexed
+  const month = dateObj.getMonth() + 1;
   const day = dateObj.getDate();
   const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   const docId = `${teacherUid}_${formattedDate}`;
 
   const docRef = doc(db, TEACHER_DAILY_ATTENDANCE_COLLECTION, docId).withConverter(teacherDailyAttendanceConverter);
+  const docSnap = await getDoc(docRef);
+
+  let dataToSave: TeacherDailyAttendance;
+
+  if (docSnap.exists()) {
+    // Update existing record
+    dataToSave = {
+      ...docSnap.data(), // Preserve existing fields like original recordedAt
+      ...attendanceData, // Apply new changes
+      id: docId,
+      updatedAt: serverTimestamp() as Timestamp, // Always update this
+      lastUpdatedByUid: attendanceData.lastUpdatedByUid, // User performing the update
+    };
+  } else {
+    // Create new record
+    dataToSave = {
+      ...attendanceData,
+      id: docId,
+      teacherName: teacherName || 'Guru',
+      recordedAt: serverTimestamp() as Timestamp, // Set initial record time
+      updatedAt: serverTimestamp() as Timestamp,
+      lastUpdatedByUid: attendanceData.lastUpdatedByUid,
+    };
+  }
   
-  const dataToSave: Omit<TeacherDailyAttendance, 'id'> = {
-    teacherUid,
-    teacherName: teacherName || 'Guru', // Default if not provided
-    date, // Store as Firestore Timestamp
-    status,
-    notes: notes || '',
-    recordedAt: serverTimestamp() as Timestamp,
+  // Remove id before saving to Firestore as it's the document key
+  const { id, ...firestoreData } = dataToSave; 
+  await setDoc(docRef, firestoreData, { merge: true });
+
+  // Simulate server timestamps for immediate UI update if needed
+  const now = Timestamp.now();
+  return { 
+    ...dataToSave, 
+    recordedAt: dataToSave.recordedAt instanceof Timestamp ? dataToSave.recordedAt : (docSnap.exists() ? docSnap.data().recordedAt : now),
+    updatedAt: now 
   };
-
-  await setDoc(docRef, dataToSave, { merge: true }); // Use setDoc with merge to create or update
-
-  return { ...dataToSave, id: docId, recordedAt: Timestamp.now() }; // Return with ID and simulated timestamp
 };
 
 
@@ -873,7 +901,9 @@ export const getTeacherDailyAttendanceForMonth = async (
   month: number // 1-12
 ): Promise<TeacherDailyAttendance[]> => {
   const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-  const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59)); // Last day of the month
+  // End of the month needs to be precise for correct range
+  const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+
 
   const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
   const q = query(
@@ -886,4 +916,31 @@ export const getTeacherDailyAttendanceForMonth = async (
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
+
+export const deleteTeacherDailyAttendance = async (id: string): Promise<void> => {
+  if (!id) throw new Error("Document ID is required for deletion.");
+  const docRef = doc(db, TEACHER_DAILY_ATTENDANCE_COLLECTION, id);
+  await deleteDoc(docRef);
+};
+
+// Used by Admin to fetch daily records across all teachers for a specific period (e.g., a month)
+export const getAllTeachersDailyAttendanceForPeriod = async (
+  year: number,
+  month: number // 1-12
+): Promise<TeacherDailyAttendance[]> => {
+  const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+  const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+
+  const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
+  const q = query(
+    collRef,
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+    orderBy('teacherName', 'asc'),
+    orderBy('date', 'asc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
 

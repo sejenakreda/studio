@@ -258,14 +258,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           "flex w-full items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                           "group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
                         )}
-                        // Override default AccordionTrigger chevron for consistency, or hide it if group-data icon
-                        // The default chevron is part of AccordionTrigger's children
-                        // The SidebarMenuButton already handles icons.
-                        // So, we pass the chevron as part of the children to SidebarMenuButton for consistent styling.
                       >
                         {group.groupIcon && <group.groupIcon className="h-5 w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5" />}
                         <span className="flex-1 group-data-[collapsible=icon]:hidden">{group.groupLabel}</span>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden" />
+                        {/* Removed explicit ChevronDown here, AccordionTrigger handles its own */}
                       </AccordionTrigger>
                       <AccordionContent className="pb-0">
                         <SidebarMenu className="ml-4 mt-1 border-l border-sidebar-border pl-3 group-data-[collapsible=icon]:hidden">

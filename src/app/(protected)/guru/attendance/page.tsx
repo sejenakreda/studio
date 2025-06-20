@@ -39,7 +39,7 @@ type DailyAttendanceFormData = z.infer<typeof dailyAttendanceSchema>;
 export default function GuruDailyAttendancePage() {
   const { toast } = useToast();
   const { userProfile, loading: authLoading } = useAuth();
-  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false); // Initialized to false, will be true during fetch
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentAttendance, setCurrentAttendance] = useState<TeacherDailyAttendance | null>(null);
@@ -64,55 +64,75 @@ export default function GuruDailyAttendancePage() {
       return;
     }
     
-    // isFetchingRef.current is already true, set by useEffect
-    // setIsLoadingData(true) will be set here
-    
-    setIsLoadingData(true);
     setFetchError(null);
     setCurrentAttendance(null); 
     try {
       const attendanceRecord = await getTeacherDailyAttendanceForDate(userProfile.uid, dateToFetch);
       if (attendanceRecord) {
         setCurrentAttendance(attendanceRecord);
-        form.reset({
-          date: attendanceRecord.date.toDate(), 
-          status: attendanceRecord.status,
-          notes: attendanceRecord.notes || "",
-        });
+        // Use setValue to avoid re-triggering watchedDate if logically same date
+        const recordDateJS = attendanceRecord.date.toDate();
+        form.setValue('status', attendanceRecord.status);
+        form.setValue('notes', attendanceRecord.notes || "");
+        
+        // Only update the date in the form if it's actually a different day
+        // This prevents useEffect loops if form.reset/setValue was the trigger for 'watchedDate'
+        if (recordDateJS.getFullYear() !== dateToFetch.getFullYear() ||
+            recordDateJS.getMonth() !== dateToFetch.getMonth() ||
+            recordDateJS.getDate() !== dateToFetch.getDate()) {
+          form.setValue('date', recordDateJS);
+        }
+
       } else {
-        form.reset({
-          date: dateToFetch, 
-          status: "Hadir", 
-          notes: "",
-        });
+        // If no record, reset status and notes for the dateToFetch
+        // Ensure the form's date field is aligned with dateToFetch
+        if (form.getValues('date').getTime() !== dateToFetch.getTime()){
+             form.setValue('date', dateToFetch, { shouldDirty: true, shouldValidate: true });
+        }
+        form.setValue('status', "Hadir", { shouldDirty: true, shouldValidate: true });
+        form.setValue('notes', "", { shouldDirty: true, shouldValidate: true });
       }
     } catch (error: any) {
       setFetchError("Gagal memuat data kehadiran untuk tanggal ini.");
       toast({ variant: "destructive", title: "Error", description: error.message || "Gagal memuat data." });
     } finally {
       setIsLoadingData(false);
-      isFetchingRef.current = false; // Reset fetching flag
+      isFetchingRef.current = false; 
     }
   }, [userProfile?.uid, form, toast]);
 
   useEffect(() => {
-    const canFetch = watchedDate && userProfile?.uid && !authLoading;
-
-    if (canFetch) {
-      if (isFetchingRef.current) {
-        return; // Already fetching, do nothing
-      }
-      isFetchingRef.current = true; // Set flag before starting async operation
-      fetchAttendanceForDate(watchedDate);
-    } else {
-      // Conditions to fetch are not met (e.g., user logged out, date cleared)
-      // Ensure loading state is false if it was somehow left true.
-      if (isLoadingData) {
-        setIsLoadingData(false);
-      }
-      isFetchingRef.current = false; // Ensure flag is clear
+    if (authLoading) {
+      isFetchingRef.current = false;
+      return;
     }
-  }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate, isLoadingData]);
+
+    if (!userProfile || typeof userProfile.uid !== 'string' || userProfile.uid.trim() === '') {
+      setFetchError("Sesi guru tidak ditemukan atau profil tidak valid. Silakan login ulang.");
+      setCurrentAttendance(null);
+      // Reset form but keep the current date if possible, or default to new Date()
+      form.reset({ date: watchedDate || new Date(), status: "Hadir", notes: "" }); 
+      setIsLoadingData(false); 
+      isFetchingRef.current = false; 
+      return;
+    }
+
+    if (!watchedDate) {
+      setCurrentAttendance(null);
+      setIsLoadingData(false);
+      isFetchingRef.current = false;
+      return;
+    }
+    
+    if (isFetchingRef.current) { 
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    setIsLoadingData(true); 
+    fetchAttendanceForDate(watchedDate);
+
+  }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate, form]);
 
 
   const onSubmit = async (data: DailyAttendanceFormData) => {
@@ -149,7 +169,7 @@ export default function GuruDailyAttendancePage() {
     }
   };
   
-  if (authLoading) {
+  if (authLoading && !userProfile) { // Show full page loader only if auth is loading AND no profile yet
     return <div className="flex justify-center items-center min-h-[300px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
@@ -169,7 +189,7 @@ export default function GuruDailyAttendancePage() {
         </div>
       </div>
 
-      {!userProfile && !authLoading && (
+      {!userProfile && !authLoading && ( // This case handles if auth finished but profile is still null
          <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Sesi Tidak Ditemukan</AlertTitle>
@@ -177,7 +197,7 @@ export default function GuruDailyAttendancePage() {
         </Alert>
       )}
 
-      {userProfile && (
+      {userProfile && ( // Only render form if userProfile exists
         <Card>
           <CardHeader>
             <CardTitle>Form Kehadiran Harian</CardTitle>
@@ -325,6 +345,4 @@ export default function GuruDailyAttendancePage() {
     </div>
   );
 }
-    
-
     

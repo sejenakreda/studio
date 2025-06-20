@@ -79,8 +79,8 @@ export default function InputGradesPage() {
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
   const [assignedMapelList, setAssignedMapelList] = useState<string[]>([]);
   
-  const [pageIsLoading, setPageIsLoading] = useState(true); // Overall page data loading (students, weights, years etc.)
-  const [isLoadingGradeData, setIsLoadingGradeData] = useState(false); // For loading existing grade for a student
+  const [pageIsLoading, setPageIsLoading] = useState(true);
+  const [isLoadingGradeData, setIsLoadingGradeData] = useState(false); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingKkm, setIsSavingKkm] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -153,40 +153,94 @@ export default function InputGradesPage() {
     setOverallAcademicStatus('Menghitung...');
   }, [form]);
 
+  const setDefaultsBasedOnDataAndParams = useCallback((
+      studentList: Siswa[],
+      activeYearsData: string[],
+      guruMapel: string[],
+      uniqueStudentClasses: string[]
+    ) => {
+      const studentIdParam = searchParams.get('studentId');
+      const academicYearParam = searchParams.get('academicYear');
+      const semesterParam = searchParams.get('semester');
+      const mapelParam = searchParams.get('mapel');
+      const classParam = searchParams.get('class');
+      
+      let defaultClassVal = "all";
+      if (classParam && uniqueStudentClasses.includes(classParam)) {
+          defaultClassVal = classParam;
+      }
+      form.setValue('selectedClass', defaultClassVal);
+
+      let defaultStudentIdVal = "";
+      const newStudentMap = new Map((studentList || []).map(s => [s.id_siswa, s])); // Temporary map for this logic
+      if (studentIdParam && newStudentMap.has(studentIdParam)) {
+          defaultStudentIdVal = studentIdParam;
+          const studentFromParam = newStudentMap.get(studentIdParam);
+          if (studentFromParam && studentFromParam.kelas && uniqueStudentClasses.includes(studentFromParam.kelas)) {
+            form.setValue('selectedClass', studentFromParam.kelas);
+          }
+      } else if (defaultClassVal !== "all") {
+          const studentsInClass = (studentList || []).filter(s => s.kelas === defaultClassVal);
+          if (studentsInClass.length > 0) defaultStudentIdVal = studentsInClass[0].id_siswa;
+      } else if (studentList && studentList.length > 0) {
+          defaultStudentIdVal = studentList[0].id_siswa;
+      }
+      form.setValue('selectedStudentId', defaultStudentIdVal);
+
+      let defaultYearVal = "";
+      if (academicYearParam && activeYearsData.includes(academicYearParam)) {
+          defaultYearVal = academicYearParam;
+      } else if (activeYearsData.includes(CURRENT_ACADEMIC_YEAR)) {
+        defaultYearVal = CURRENT_ACADEMIC_YEAR;
+      } else if (activeYearsData.length > 0) {
+        defaultYearVal = activeYearsData[0];
+      }
+      form.setValue('selectedAcademicYear', defaultYearVal);
+      
+      let defaultSemesterVal = SEMESTERS[0]?.value || 1;
+      if (semesterParam && SEMESTERS.some(s => String(s.value) === semesterParam)) {
+          defaultSemesterVal = parseInt(semesterParam, 10);
+      }
+      form.setValue('selectedSemester', defaultSemesterVal);
+
+      let defaultMapelVal = "";
+      if (mapelParam && guruMapel.includes(mapelParam)) {
+        defaultMapelVal = mapelParam;
+      } else if (guruMapel.length > 0) {
+        defaultMapelVal = guruMapel[0];
+      }
+      form.setValue('selectedMapel', defaultMapelVal);
+      
+      if (!studentIdParam || !academicYearParam || !semesterParam || !mapelParam) {
+          resetGradeFieldsToZero();
+      }
+  }, [searchParams, form, resetGradeFieldsToZero]);
+
   useEffect(() => {
-    async function loadPageData() {
-      // console.log("loadPageData triggered. authIsLoading:", authIsLoading, "userProfile:", userProfile, "retryCounter:", retryCounter);
+    const loadPageData = async () => {
+      setPageIsLoading(true);
       setFetchError(null);
-      setPageIsLoading(true); // Start with page loading true
+      setAllStudents([]);
+      setAvailableClasses([]);
+      setStudentMap(new Map());
+      setWeights(null);
+      setSelectableYears([]);
+      setAssignedMapelList([]);
 
       if (authIsLoading) {
-        // console.log("Auth is loading, returning from loadPageData");
-        // pageIsLoading remains true as we wait for auth
+        // Still waiting for auth context to resolve, pageIsLoading remains true
         return;
       }
 
-      // Auth is done, now check userProfile
       if (!userProfile || !userProfile.uid) {
-        // console.log("User profile or UID missing after auth done");
         setFetchError("Sesi guru tidak ditemukan. Silakan login ulang.");
         setPageIsLoading(false);
-        setAssignedMapelList([]);
-        setAllStudents([]);
-        setAvailableClasses([]);
-        setWeights(null);
-        setSelectableYears([]);
         return;
       }
 
-      // User profile is available, check assigned mapel
-      const guruMapel = userProfile.assignedMapel || [];
-      setAssignedMapelList(guruMapel); 
-
-      if (guruMapel.length === 0) {
-        // console.log("No mapel assigned to user");
+      if (!userProfile.assignedMapel || userProfile.assignedMapel.length === 0) {
         setFetchError("Anda belum memiliki mata pelajaran yang ditugaskan oleh Admin. Silakan hubungi Admin untuk menugaskan mapel agar Anda dapat menginput nilai.");
         try {
-          // Attempt to load non-mapel specific data like active years for display purposes
           const activeYearsDataNoMapel = await getActiveAcademicYears();
           setSelectableYears(activeYearsDataNoMapel);
           if (activeYearsDataNoMapel.length > 0) {
@@ -196,16 +250,15 @@ export default function InputGradesPage() {
           }
           form.setValue('selectedSemester', SEMESTERS[0]?.value || 1);
         } catch (e) {
-          console.error("Error fetching active years (no mapel scenario):", e);
+           // Silently fail if fetching years fails in this error state
         }
         setPageIsLoading(false);
         return;
       }
+      
+      setAssignedMapelList(userProfile.assignedMapel || []);
 
-      // At this point: Auth is done, userProfile is valid, and guruMapel is not empty.
-      // Proceed to fetch other page-specific data
       try {
-        // console.log("Fetching students, weights, active years");
         const [studentList, weightData, activeYearsData] = await Promise.all([
           getStudents(),
           getWeights(),
@@ -222,73 +275,16 @@ export default function InputGradesPage() {
         setWeights(weightData);
         setSelectableYears(activeYearsData);
         
-        // Set form defaults based on params or logical defaults AFTER data is fetched
-        const studentIdParam = searchParams.get('studentId');
-        const academicYearParam = searchParams.get('academicYear');
-        const semesterParam = searchParams.get('semester');
-        const mapelParam = searchParams.get('mapel');
-        const classParam = searchParams.get('class');
-        
-        let defaultClassVal = "all";
-        if (classParam && uniqueStudentClasses.includes(classParam)) {
-            defaultClassVal = classParam;
-        }
-        form.setValue('selectedClass', defaultClassVal);
-
-        let defaultStudentIdVal = "";
-        if (studentIdParam && newStudentMap.has(studentIdParam)) {
-            defaultStudentIdVal = studentIdParam;
-            const studentFromParam = newStudentMap.get(studentIdParam);
-            if (studentFromParam && studentFromParam.kelas && uniqueStudentClasses.includes(studentFromParam.kelas)) {
-              form.setValue('selectedClass', studentFromParam.kelas);
-            }
-        } else if (defaultClassVal !== "all") {
-            const studentsInClass = (studentList || []).filter(s => s.kelas === defaultClassVal);
-            if (studentsInClass.length > 0) defaultStudentIdVal = studentsInClass[0].id_siswa;
-        } else if (studentList && studentList.length > 0) {
-            defaultStudentIdVal = studentList[0].id_siswa;
-        }
-        form.setValue('selectedStudentId', defaultStudentIdVal);
-
-        let defaultYearVal = "";
-        if (academicYearParam && activeYearsData.includes(academicYearParam)) {
-            defaultYearVal = academicYearParam;
-        } else if (activeYearsData.includes(CURRENT_ACADEMIC_YEAR)) {
-          defaultYearVal = CURRENT_ACADEMIC_YEAR;
-        } else if (activeYearsData.length > 0) {
-          defaultYearVal = activeYearsData[0];
-        }
-        form.setValue('selectedAcademicYear', defaultYearVal);
-        
-        let defaultSemesterVal = SEMESTERS[0]?.value || 1;
-        if (semesterParam && SEMESTERS.some(s => String(s.value) === semesterParam)) {
-            defaultSemesterVal = parseInt(semesterParam, 10);
-        }
-        form.setValue('selectedSemester', defaultSemesterVal);
-
-        let defaultMapelVal = "";
-        if (mapelParam && guruMapel.includes(mapelParam)) {
-          defaultMapelVal = mapelParam;
-        } else if (guruMapel.length > 0) {
-          defaultMapelVal = guruMapel[0];
-        }
-        form.setValue('selectedMapel', defaultMapelVal);
-        
-        if (!studentIdParam || !academicYearParam || !semesterParam || !mapelParam) {
-            resetGradeFieldsToZero();
-        }
+        setDefaultsBasedOnDataAndParams(studentList || [], activeYearsData, userProfile.assignedMapel || [], uniqueStudentClasses);
   
       } catch (error: any) {
-        console.error("Error fetching page data (students/weights/years):", error);
-        setFetchError("Gagal memuat data pendukung (siswa/bobot/tahun ajaran). Silakan coba lagi.");
+        setFetchError("Gagal memuat data pendukung (siswa/bobot/tahun ajaran). Silakan coba lagi. Error: " + error.message);
       } finally {
-        // console.log("Finished loadPageData, setting pageIsLoading to false");
         setPageIsLoading(false);
       }
-    }
+    };
     loadPageData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authIsLoading, userProfile, searchParams, retryCounter]); // Removed form, toast, resetGradeFieldsToZero
+  }, [authIsLoading, userProfile, retryCounter, setDefaultsBasedOnDataAndParams, form]); // Removed searchParams, router
 
   useEffect(() => {
     async function fetchKkmData() {
@@ -299,26 +295,23 @@ export default function InputGradesPage() {
         }
         return;
       }
-      setIsLoadingGradeData(true);
+      // KKM loading is part of overall grade data loading
+      // setIsLoadingGradeData(true); // This is handled by fetchAndSetGrade's loading state
       try {
         const kkmData = await getKkmSetting(selectedMapel, selectedAcademicYear);
         const kkmVal = kkmData ? kkmData.kkmValue : 70;
         form.setValue("kkmValue", kkmVal);
         setCurrentKkm(kkmVal);
       } catch (error) {
-        console.error("Error fetching KKM:", error);
         toast({ variant: "destructive", title: "Error KKM", description: "Gagal memuat KKM. Menggunakan default 70." });
          form.setValue("kkmValue", 70);
          setCurrentKkm(70);
-      } finally {
-        // setIsLoadingGradeData(false) will be handled by fetchAndSetGrade
       }
     }
     if(!authIsLoading){ 
       fetchKkmData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMapel, selectedAcademicYear, pageIsLoading, fetchError, authIsLoading]);
+  }, [selectedMapel, selectedAcademicYear, pageIsLoading, fetchError, authIsLoading, form, toast]);
 
   useEffect(() => {
     async function fetchAndSetGrade() {
@@ -350,7 +343,6 @@ export default function InputGradesPage() {
            resetGradeFieldsToZero();
         }
       } catch (error) {
-        console.error("Error fetching grade data:", error);
         toast({ variant: "destructive", title: "Error", description: "Gagal memuat data nilai." });
         resetGradeFieldsToZero();
       } finally {
@@ -360,8 +352,7 @@ export default function InputGradesPage() {
     if(!authIsLoading && !pageIsLoading && userProfile?.uid && !fetchError){
       fetchAndSetGrade();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, pageIsLoading, authIsLoading, userProfile?.uid, fetchError]);
+  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, pageIsLoading, authIsLoading, userProfile?.uid, fetchError, form, resetGradeFieldsToZero, toast, isLoadingGradeData]);
 
  useEffect(() => {
     if (weights && !pageIsLoading && !authIsLoading && userProfile?.uid && selectedMapel && selectedStudentId && typeof kkmValue === 'number' && !fetchError) {
@@ -428,7 +419,6 @@ export default function InputGradesPage() {
         setUntuntasComponents([]);
         setCalculatedFinalGrade(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ 
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue,
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis,
@@ -466,7 +456,6 @@ export default function InputGradesPage() {
       );
       
     } catch (error) {
-      console.error("Error saving KKM:", error);
       toast({ variant: "destructive", title: "Error Simpan KKM", description: "Gagal menyimpan KKM." });
     } finally {
       setIsSavingKkm(false);
@@ -478,11 +467,6 @@ export default function InputGradesPage() {
 
     if (authIsLoading || !userProfile?.uid) {
       toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak ditemukan. Silakan login ulang." });
-      setIsSubmitting(false);
-      return;
-    }
-    if (fetchError && fetchError.includes("Anda belum memiliki mata pelajaran")) { 
-      toast({ variant: "destructive", title: "Error", description: "Tidak ada mapel ditugaskan. Tidak dapat menyimpan nilai." });
       setIsSubmitting(false);
       return;
     }
@@ -540,7 +524,6 @@ export default function InputGradesPage() {
       await addOrUpdateGrade(nilaiWithFinal, userProfile.uid); 
       toast({ title: "Sukses", description: "Data nilai siswa untuk mapel " + data.selectedMapel + " berhasil disimpan." });
     } catch (error) {
-      console.error("Error saving grade data:", error);
       toast({ variant: "destructive", title: "Error", description: "Gagal menyimpan data nilai." });
     } finally {
       setIsSubmitting(false);
@@ -629,7 +612,6 @@ export default function InputGradesPage() {
         toast({ title: "Template Diunduh", description: "Template untuk mapel " + currentMapel + ", TA " + currentYear + " Semester " + (SEMESTERS.find(s=>s.value === currentSemester)?.label || currentSemester) + (currentClassFilter !== "all" && currentClassFilter ? " Kelas " + currentClassFilter : "") + " telah diunduh." });
 
     } catch (error) {
-        console.error("Error downloading grade template:", error);
         toast({ title: "Error Unduh Template", description: "Gagal membuat template nilai.", variant: "destructive"});
     } finally {
         setIsImportingFile(false);
@@ -872,7 +854,6 @@ export default function InputGradesPage() {
         }
         
       } catch (err) {
-        console.error("Error processing Excel file for grades:", err);
         toast({ variant: "destructive", title: "Error Baca File", description: "Gagal memproses file Excel nilai." });
       } finally {
         setIsImportingFile(false);
@@ -893,13 +874,46 @@ export default function InputGradesPage() {
 
   const isFormEffectivelyDisabled = pageIsLoading || authIsLoading || fetchError !== null;
 
-  if (authIsLoading) {
-    return (
-      <div className="space-y-6">
+  const LoadingSkeletonComponent = () => (
+     <div className="space-y-6">
         <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div className="w-full"><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
-        <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}</div></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="mt-6">
+            <CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
+            <CardContent className="space-y-6">
+                <div>
+                    <Skeleton className="h-6 w-32 mb-2 rounded-md" />
+                    <div className="space-y-3 mt-2">
+                        <Skeleton className="h-10 w-full rounded-md" />
+                    </div>
+                    <Skeleton className="h-9 w-40 mt-3 rounded-md" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="space-y-1.5"><Skeleton className="h-5 w-24 rounded-md" /><Skeleton className="h-10 w-full rounded-md" /></div>
+                    ))}
+                </div>
+                <Skeleton className="h-28 w-full mt-6 rounded-md" />
+            </CardContent>
+            <CardFooter><Skeleton className="h-10 w-32 rounded-md" /></CardFooter>
+        </Card>
       </div>
-    );
+  );
+
+
+  if (authIsLoading || (pageIsLoading && !fetchError)) {
+    return <LoadingSkeletonComponent />;
   }
   
 
@@ -910,283 +924,290 @@ export default function InputGradesPage() {
         <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Input &amp; Lihat Nilai Siswa</h1><p className="text-muted-foreground">Pilih filter, mapel yang diampu &amp; KKM, lalu input atau perbarui nilai.</p></div>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <Card>
-            <CardHeader><CardTitle>Filter Data &amp; Pengaturan Mapel</CardTitle><CardDescription>Pilih kelas, siswa, periode, mata pelajaran, dan atur KKM.</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
-              {fetchError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error Memuat Data</AlertTitle>
-                  <AlertDescription>{fetchError}</AlertDescription>
-                  <Button onClick={retryInitialDataLoad} variant="outline" className="mt-2">Coba Lagi</Button>
-                </Alert>
-              )}
-              {pageIsLoading && !fetchError && (
-                <div className="flex items-center justify-center p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Memuat data filter...</span></div>
-              )}
+      {fetchError && (
+        <Card>
+          <CardHeader><CardTitle>Error Memuat Data</CardTitle></CardHeader>
+          <CardContent>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{fetchError}</AlertDescription>
+            </Alert>
+            <Button onClick={retryInitialDataLoad} variant="outline" className="mt-4">
+              Coba Lagi
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-              {!pageIsLoading && !fetchError && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                  <FormField 
-                    control={form.control} 
-                    name="selectedClass" 
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Filter Kelas</FormLabel>
-                        <Select 
-                           onValueChange={(value) => {
-                              field.onChange(value);
-                              form.setValue('selectedStudentId', '', { shouldDirty: true }); 
-                            }}
-                          value={field.value || "all"} 
-                          disabled={availableClasses.length === 0}
-                        >
-                          <FormControl><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger></FormControl>
-                          <SelectContent>{availableClasses.length === 0 ? (<SelectItem value="no_class_data" disabled>Belum ada data kelas</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} 
-                  />
-                  <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={filteredStudentsForDropdown.length === 0 || !selectedClass }><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{filteredStudentsForDropdown.length === 0 ? (<SelectItem value="no_students" disabled>{selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu atau tidak ada siswa"}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="no_active_years" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} ><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={assignedMapelList.length === 0}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Pilih mapel yang diampu..." /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {assignedMapelList.length === 0 ? (
-                           <SelectItem value="no_mapel" disabled>Anda belum ditugaskan mapel</SelectItem>
-                        ) : (
-                          assignedMapelList.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  <FormMessage /></FormItem>)} />
-                   <FormField
-                  control={form.control}
-                  name="kkmValue"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>KKM</FormLabel>
-                      <div className="flex items-center gap-2">
-                          <FormControl>
-                          <Input
-                              type="number"
-                              placeholder="cth: 75"
-                              {...field}
-                              value={field.value ?? ""} 
-                              onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                              disabled={!selectedMapel || !selectedAcademicYear}
-                          />
-                          </FormControl>
-                          <Button
-                          type="button"
-                          onClick={handleSaveKkm}
-                          variant="outline"
-                          size="icon"
-                          title="Simpan KKM"
-                          disabled={isSavingKkm || !selectedMapel || !selectedAcademicYear || form.getValues('kkmValue') === currentKkm}
-                          >
-                          {isSavingKkm ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
-                          </Button>
-                      </div>
-                      <FormDescription>KKM saat ini untuk mapel &amp; TA ini: <span className="font-bold">{currentKkm}</span></FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {(isLoadingGradeData && selectedMapel && !isFormEffectivelyDisabled && selectedStudentId ) ? (
-             <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai &amp; KKM...</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent></Card>
-          ) : isFormEffectivelyDisabled || pageIsLoading ? null : (
-            <Card className="mt-6">
-              <CardHeader><CardTitle>Form Input Nilai</CardTitle><CardDescription>Masukkan nilai (0-100) atau jumlah hari hadir. Nilai akhir akan dihitung otomatis.</CardDescription></CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <FormLabel className="text-base font-medium">Nilai Tugas</FormLabel>
-                  <div className="space-y-3 mt-2">
-                    {tugasFields.map((field, index) => (
-                      <FormField
-                        key={field.id}
-                        control={form.control}
-                        name={`tugas.${index}`}
-                        render={({ field: tugasField }) => (
-                          <FormItem className="flex items-center gap-2">
-                            <FormLabel className="w-28 shrink-0">Tugas Ke-{index + 1}</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0-100"
-                                {...tugasField}
-                                value={tugasField.value ?? ""}
-                                onChange={e => tugasField.onChange(parseFloat(e.target.value) || 0)}
-                                disabled={!selectedStudentId || !selectedMapel}
-                              />
-                            </FormControl>
-                            {tugasFields.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => removeTugas(index)}
-                                title={`Hapus Tugas Ke-${index+1}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendTugas(0)}
-                    className="mt-3"
-                    disabled={!selectedStudentId || !selectedMapel}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Tambah Input Tugas
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {otherGradeInputFields.map(fieldInfo => (
-                    <FormField
-                      key={fieldInfo.name}
-                      control={form.control}
-                      name={fieldInfo.name as keyof GradeFormData}
+      {!fetchError && userProfile && userProfile.assignedMapel && userProfile.assignedMapel.length > 0 && (
+        <>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <Card>
+                <CardHeader><CardTitle>Filter Data &amp; Pengaturan Mapel</CardTitle><CardDescription>Pilih kelas, siswa, periode, mata pelajaran, dan atur KKM.</CardDescription></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                    <FormField 
+                      control={form.control} 
+                      name="selectedClass" 
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{fieldInfo.label}</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder={fieldInfo.name === "jumlahHariHadir" ? "0 - " + (totalDaysForCurrentSemester || 'N/A') : "0-100"}
-                              {...field}
-                              value={field.value ?? ""} 
-                              onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                              disabled={!selectedStudentId || !selectedMapel || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0))}
-                            />
-                          </FormControl>
-                          {fieldInfo.name === "jumlahHariHadir" && (
-                             <FormDescription className="text-xs">
-                                {typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0
-                                  ? "Total hari efektif: " + totalDaysForCurrentSemester + " hari. Persentase: "
-                                  : "Total hari efektif belum diatur Admin. "}
-                                {attendancePercentage !== null && typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0 && (
-                                  <span className="font-semibold text-primary">{attendancePercentage.toFixed(1)}%</span>
-                                )}
-                             </FormDescription>
-                          )}
-                           {fieldInfo.bonusKey && weights && (
-                            <FormDescription className="text-xs">
-                              Maks. bonus tambahan: +{weights[fieldInfo.bonusKey] ?? 0} poin. Input nilai 0-100.
-                            </FormDescription>
-                          )}
-                          {fieldInfo.desc && !fieldInfo.bonusKey && (
-                              <FormDescription className="text-xs">{fieldInfo.desc}</FormDescription>
-                          )}
+                          <FormLabel>Filter Kelas</FormLabel>
+                          <Select 
+                            onValueChange={(value) => {
+                                field.onChange(value);
+                                form.setValue('selectedStudentId', '', { shouldDirty: true }); 
+                              }}
+                            value={field.value || "all"} 
+                            disabled={availableClasses.length === 0 || isFormEffectivelyDisabled}
+                          >
+                            <FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih kelas..."} /></SelectTrigger></FormControl>
+                            <SelectContent>{availableClasses.length === 0 ? (<SelectItem value="no_class_data" disabled>{pageIsLoading ? "Memuat..." : "Belum ada data kelas"}</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
-                      )}
+                      )} 
                     />
-                  ))}
-                </div>
-                {calculatedFinalGrade !== null && selectedStudentId && selectedMapel && (
-                  <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + 
-                                  (overallAcademicStatus === 'Tuntas' ? 'border-green-600/50' : overallAcademicStatus === 'Belum Tuntas' ? 'border-destructive' : 'border-border')}
-                  >
-                    <BarChartHorizontalBig className="mx-auto h-10 w-10 text-primary mb-2" />
-                    <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor) untuk {selectedMapel}</p>
-                    <p className={"text-4xl font-bold " + (overallAcademicStatus === 'Tuntas' ? 'text-green-600' : overallAcademicStatus === 'Belum Tuntas' ? 'text-destructive' : 'text-foreground')}>
-                      {calculatedFinalGrade.toFixed(2)}
-                    </p>
-                    <p className="text-base text-muted-foreground mt-1">
-                      KKM: {kkmValue} - 
-                      Status: {overallAcademicStatus === 'Menghitung...' ? (
-                        <span className="italic">Menghitung...</span>
-                      ) : overallAcademicStatus === 'Tuntas' ? (
-                        <span className="font-semibold text-green-600 inline-flex items-center"><CheckCircle2 className="mr-1 h-4 w-4"/>Tuntas</span>
-                      ) : (
-                        <span className="font-semibold text-destructive inline-flex items-center"><XCircle className="mr-1 h-4 w-4"/>Belum Tuntas</span>
-                      )}
-                    </p>
-                    {untuntasComponents.length > 0 && overallAcademicStatus === 'Belum Tuntas' && (
-                      <div className="mt-2 text-sm text-destructive">
-                        <p className="font-medium">Komponen akademik inti yang belum tuntas (di bawah KKM {kkmValue}):</p>
-                        <ul className="list-disc list-inside text-left max-w-md mx-auto">
-                          {untuntasComponents.map(comp => (
-                            <li key={comp.name}>{comp.name}: {comp.value}</li>
-                          ))}
-                        </ul>
+                    <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={filteredStudentsForDropdown.length === 0 || !selectedClass || isFormEffectivelyDisabled }><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih siswa..."} /></SelectTrigger></FormControl><SelectContent>{filteredStudentsForDropdown.length === 0 ? (<SelectItem value="no_students" disabled>{pageIsLoading ? "Memuat..." : (selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu atau tidak ada siswa")}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0 || isFormEffectivelyDisabled}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih tahun ajaran..."} /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="no_active_years" disabled>{pageIsLoading ? "Memuat..." : "Tidak ada tahun aktif"}</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={isFormEffectivelyDisabled} ><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih semester..."} /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""} disabled={assignedMapelList.length === 0 || isFormEffectivelyDisabled}>
+                        <FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih mapel yang diampu..."} /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {assignedMapelList.length === 0 ? (
+                            <SelectItem value="no_mapel" disabled>{pageIsLoading ? "Memuat..." : "Anda belum ditugaskan mapel"}</SelectItem>
+                          ) : (
+                            assignedMapelList.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    <FormMessage /></FormItem>)} />
+                    <FormField
+                    control={form.control}
+                    name="kkmValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>KKM</FormLabel>
+                        <div className="flex items-center gap-2">
+                            <FormControl>
+                            <Input
+                                type="number"
+                                placeholder="cth: 75"
+                                {...field}
+                                value={field.value ?? ""} 
+                                onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                disabled={!selectedMapel || !selectedAcademicYear || isFormEffectivelyDisabled}
+                            />
+                            </FormControl>
+                            <Button
+                            type="button"
+                            onClick={handleSaveKkm}
+                            variant="outline"
+                            size="icon"
+                            title="Simpan KKM"
+                            disabled={isSavingKkm || !selectedMapel || !selectedAcademicYear || form.getValues('kkmValue') === currentKkm || isFormEffectivelyDisabled}
+                            >
+                            {isSavingKkm ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                        <FormDescription>KKM saat ini untuk mapel &amp; TA ini: <span className="font-bold">{currentKkm}</span></FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {(isLoadingGradeData && selectedMapel && !isFormEffectivelyDisabled && selectedStudentId ) ? (
+                <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai &amp; KKM...</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent></Card>
+              ) : isFormEffectivelyDisabled ? null : (
+                <Card className="mt-6">
+                  <CardHeader><CardTitle>Form Input Nilai</CardTitle><CardDescription>Masukkan nilai (0-100) atau jumlah hari hadir. Nilai akhir akan dihitung otomatis.</CardDescription></CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <FormLabel className="text-base font-medium">Nilai Tugas</FormLabel>
+                      <div className="space-y-3 mt-2">
+                        {tugasFields.map((field, index) => (
+                          <FormField
+                            key={field.id}
+                            control={form.control}
+                            name={`tugas.${index}`}
+                            render={({ field: tugasField }) => (
+                              <FormItem className="flex items-center gap-2">
+                                <FormLabel className="w-28 shrink-0">Tugas Ke-{index + 1}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="0-100"
+                                    {...tugasField}
+                                    value={tugasField.value ?? ""}
+                                    onChange={e => tugasField.onChange(parseFloat(e.target.value) || 0)}
+                                    disabled={!selectedStudentId || !selectedMapel || isFormEffectivelyDisabled}
+                                  />
+                                </FormControl>
+                                {tugasFields.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => removeTugas(index)}
+                                    title={`Hapus Tugas Ke-${index+1}`}
+                                    disabled={isFormEffectivelyDisabled}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendTugas(0)}
+                        className="mt-3"
+                        disabled={!selectedStudentId || !selectedMapel || isFormEffectivelyDisabled}
+                      >
+                        <PlusCircle className="mr-2 h-4 w-4" /> Tambah Input Tugas
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {otherGradeInputFields.map(fieldInfo => (
+                        <FormField
+                          key={fieldInfo.name}
+                          control={form.control}
+                          name={fieldInfo.name as keyof GradeFormData}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{fieldInfo.label}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder={fieldInfo.name === "jumlahHariHadir" ? "0 - " + (totalDaysForCurrentSemester || 'N/A') : "0-100"}
+                                  {...field}
+                                  value={field.value ?? ""} 
+                                  onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                  disabled={!selectedStudentId || !selectedMapel || (fieldInfo.name === "jumlahHariHadir" && (typeof totalDaysForCurrentSemester !== 'number' || totalDaysForCurrentSemester <=0)) || isFormEffectivelyDisabled}
+                                />
+                              </FormControl>
+                              {fieldInfo.name === "jumlahHariHadir" && (
+                                <FormDescription className="text-xs">
+                                    {typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0
+                                      ? "Total hari efektif: " + totalDaysForCurrentSemester + " hari. Persentase: "
+                                      : "Total hari efektif belum diatur Admin. "}
+                                    {attendancePercentage !== null && typeof totalDaysForCurrentSemester === 'number' && totalDaysForCurrentSemester > 0 && (
+                                      <span className="font-semibold text-primary">{attendancePercentage.toFixed(1)}%</span>
+                                    )}
+                                </FormDescription>
+                              )}
+                              {fieldInfo.bonusKey && weights && (
+                                <FormDescription className="text-xs">
+                                  Maks. bonus tambahan: +{weights[fieldInfo.bonusKey] ?? 0} poin. Input nilai 0-100.
+                                </FormDescription>
+                              )}
+                              {fieldInfo.desc && !fieldInfo.bonusKey && (
+                                  <FormDescription className="text-xs">{fieldInfo.desc}</FormDescription>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    {calculatedFinalGrade !== null && selectedStudentId && selectedMapel && (
+                      <div className={"mt-6 p-4 border-2 border-dashed rounded-lg bg-muted/50 text-center " + 
+                                      (overallAcademicStatus === 'Tuntas' ? 'border-green-600/50' : overallAcademicStatus === 'Belum Tuntas' ? 'border-destructive' : 'border-border')}
+                      >
+                        <BarChartHorizontalBig className="mx-auto h-10 w-10 text-primary mb-2" />
+                        <p className="text-sm font-medium text-muted-foreground">Nilai Akhir (Rapor) untuk {selectedMapel}</p>
+                        <p className={"text-4xl font-bold " + (overallAcademicStatus === 'Tuntas' ? 'text-green-600' : overallAcademicStatus === 'Belum Tuntas' ? 'text-destructive' : 'text-foreground')}>
+                          {calculatedFinalGrade.toFixed(2)}
+                        </p>
+                        <p className="text-base text-muted-foreground mt-1">
+                          KKM: {kkmValue} - 
+                          Status: {overallAcademicStatus === 'Menghitung...' ? (
+                            <span className="italic">Menghitung...</span>
+                          ) : overallAcademicStatus === 'Tuntas' ? (
+                            <span className="font-semibold text-green-600 inline-flex items-center"><CheckCircle2 className="mr-1 h-4 w-4"/>Tuntas</span>
+                          ) : (
+                            <span className="font-semibold text-destructive inline-flex items-center"><XCircle className="mr-1 h-4 w-4"/>Belum Tuntas</span>
+                          )}
+                        </p>
+                        {untuntasComponents.length > 0 && overallAcademicStatus === 'Belum Tuntas' && (
+                          <div className="mt-2 text-sm text-destructive">
+                            <p className="font-medium">Komponen akademik inti yang belum tuntas (di bawah KKM {kkmValue}):</p>
+                            <ul className="list-disc list-inside text-left max-w-md mx-auto">
+                              {untuntasComponents.map(comp => (
+                                <li key={comp.name}>{comp.name}: {comp.value}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {!weights && <p className="text-xs text-destructive mt-1">Bobot/Hari Efektif belum dimuat, nilai akhir mungkin tidak akurat.</p>}
                       </div>
                     )}
-                    {!weights && <p className="text-xs text-destructive mt-1">Bobot/Hari Efektif belum dimuat, nilai akhir mungkin tidak akurat.</p>}
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear || !selectedMapel || fetchError !== null}>
-                  {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
-                </Button>
-                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || fetchError !== null}>
-                  <FileDown className="mr-2 h-4 w-4" /> Ekspor Nilai Ini
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
-        </form>
-      </Form>
+                  </CardContent>
+                  <CardFooter className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={isSubmitting || !selectedStudentId || !weights || !selectedAcademicYear || !selectedMapel || fetchError !== null || isFormEffectivelyDisabled}>
+                      {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || fetchError !== null || isFormEffectivelyDisabled}>
+                      <FileDown className="mr-2 h-4 w-4" /> Ekspor Nilai Ini
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+            </form>
+          </Form>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Impor &amp; Ekspor Nilai Massal</CardTitle>
-          <CardDescription>Gunakan template Excel untuk impor nilai secara massal. Template akan menyertakan daftar siswa, serta tahun ajaran, semester, dan mapel yang terpilih di filter atas.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-2 items-center">
-            <Input
-              type="file"
-              accept=".xlsx, .xls"
-              onChange={handleFileChange}
-              ref={fileImportInputRef}
-              disabled={isFormEffectivelyDisabled || !watchedFormValues.selectedMapel}
-              className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-            />
-            <Button onClick={handleImportGradesFromFile} disabled={isImportingFile || !selectedImportFile || isFormEffectivelyDisabled || !watchedFormValues.selectedMapel} className="w-full sm:w-auto">
-              {isImportingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-              {isImportingFile ? 'Mengimpor...' : 'Impor File Nilai'}
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Unduh template di bawah ini. Template akan berisi ` + "`id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, `semester`, dan `mapel`" + ` yang sudah terisi sesuai filter.
-            Guru tinggal mengisi komponen nilai. Sistem akan membaca kolom ` + "`tugas1` hingga `tugas5`" + ` (sesuai template) dan komponen lain. File impor harus berisi mapel yang telah ditugaskan kepada Anda dan cocok dengan filter mapel yang aktif.
-          </p>
-        </CardContent>
-        <CardFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDownloadGradeTemplate}
-            disabled={isImportingFile || isFormEffectivelyDisabled || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester || !watchedFormValues.selectedMapel}
-          >
-            <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
-          </Button>
-        </CardFooter>
-      </Card>
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Impor &amp; Ekspor Nilai Massal</CardTitle>
+              <CardDescription>Gunakan template Excel untuk impor nilai secara massal. Template akan menyertakan daftar siswa, serta tahun ajaran, semester, dan mapel yang terpilih di filter atas.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-2 items-center">
+                <Input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleFileChange}
+                  ref={fileImportInputRef}
+                  disabled={isFormEffectivelyDisabled || !watchedFormValues.selectedMapel}
+                  className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                />
+                <Button onClick={handleImportGradesFromFile} disabled={isImportingFile || !selectedImportFile || isFormEffectivelyDisabled || !watchedFormValues.selectedMapel} className="w-full sm:w-auto">
+                  {isImportingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                  {isImportingFile ? 'Mengimpor...' : 'Impor File Nilai'}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Unduh template di bawah ini. Template akan berisi ` + "`id_siswa`, `nama_siswa`, `nis`, `kelas`, `tahun_ajaran`, `semester`, dan `mapel`" + ` yang sudah terisi sesuai filter.
+                Guru tinggal mengisi komponen nilai. Sistem akan membaca kolom ` + "`tugas1` hingga `tugas5`" + ` (sesuai template) dan komponen lain. File impor harus berisi mapel yang telah ditugaskan kepada Anda dan cocok dengan filter mapel yang aktif.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDownloadGradeTemplate}
+                disabled={isImportingFile || isFormEffectivelyDisabled || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester || !watchedFormValues.selectedMapel}
+              >
+                <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
 
-        
+    

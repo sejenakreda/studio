@@ -119,7 +119,7 @@ export default function InputGradesPage() {
     selectedAcademicYear, 
     selectedSemester, 
     selectedMapel, 
-    kkmValue, // This is directly from form.watch()
+    kkmValue, 
     tugas, 
     tes, pts, pas, jumlahHariHadir, eskul, osis
   } = watchedFormValues;
@@ -270,7 +270,7 @@ export default function InputGradesPage() {
 
   useEffect(() => {
     async function fetchAndSetGrade() {
-      if (isLoadingInitialData || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights) {
+      if (isLoadingInitialData || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights || !userProfile?.uid) {
         if (!isLoadingInitialData) {
            resetGradeFieldsToZero();
         }
@@ -279,7 +279,7 @@ export default function InputGradesPage() {
       setIsLoadingGradeData(true);
       setFetchError(null);
       try {
-        const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear, selectedMapel);
+        const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear, selectedMapel, userProfile.uid);
         const totalDaysForSemesterVal = selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
         
         if (gradeData) {
@@ -306,10 +306,10 @@ export default function InputGradesPage() {
         setIsLoadingGradeData(false);
       }
     }
-    if(!isLoadingInitialData){
+    if(!isLoadingInitialData && userProfile?.uid){ // Ensure userProfile.uid is available
       fetchAndSetGrade();
     }
-  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, isLoadingInitialData, resetGradeFieldsToZero, form, toast]);
+  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, isLoadingInitialData, resetGradeFieldsToZero, form, toast, userProfile?.uid]);
 
  useEffect(() => {
     if (weights && !isLoadingInitialData && selectedMapel && selectedStudentId && typeof kkmValue === 'number') {
@@ -337,7 +337,8 @@ export default function InputGradesPage() {
         pas: pas ?? 0, 
         kehadiran: currentAttendancePercentage,
         eskul: eskul ?? 0, 
-        osis: osis ?? 0, 
+        osis: osis ?? 0,
+        teacherUid: userProfile?.uid // Added teacherUid here for calculation context
       };
       const finalGrade = calculateFinalGrade(currentNilai, weights);
       setCalculatedFinalGrade(finalGrade);
@@ -378,7 +379,7 @@ export default function InputGradesPage() {
   }, [ // Dependencies
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue,
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis,
-    weights, isLoadingInitialData 
+    weights, isLoadingInitialData, userProfile?.uid // Added userProfile.uid
   ]);
 
   const handleSaveKkm = async () => {
@@ -434,6 +435,12 @@ export default function InputGradesPage() {
       setIsSubmitting(false);
       return;
     }
+    if (!userProfile?.uid) {
+      toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak ditemukan. Silakan login ulang." });
+      setIsSubmitting(false);
+      return;
+    }
+
 
     const totalDaysForSemesterVal = data.selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
     let calculatedKehadiranPercentage = 0;
@@ -447,7 +454,7 @@ export default function InputGradesPage() {
 
     const tugasScoresToSave = data.tugas.map(t => t || 0);
 
-    const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
+    const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir' | 'teacherUid'> = { // Exclude teacherUid as it's passed separately to service
       id_siswa: data.selectedStudentId,
       mapel: data.selectedMapel,
       semester: data.selectedSemester,
@@ -461,11 +468,11 @@ export default function InputGradesPage() {
       osis: data.osis ?? 0,
     };
     
-    const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights);
-    const nilaiWithFinal: Omit<Nilai, 'id'> = {...nilaiToSave, nilai_akhir: finalGradeValue};
+    const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights); // Cast for calculation
+    const nilaiWithFinal: Omit<Nilai, 'id'> = {...nilaiToSave, nilai_akhir: finalGradeValue, teacherUid: userProfile.uid};
 
     try {
-      await addOrUpdateGrade(nilaiWithFinal);
+      await addOrUpdateGrade(nilaiWithFinal, userProfile.uid); // Pass teacherUid to service
       toast({ title: "Sukses", description: "Data nilai siswa untuk mapel " + data.selectedMapel + " berhasil disimpan." });
     } catch (error) {
       console.error("Error saving grade data:", error);
@@ -589,7 +596,6 @@ export default function InputGradesPage() {
         excelRow[`Tugas ${index + 1}`] = tugasNilai ?? 0;
     });
     
-    // Ensure at least 5 task columns for consistency, pad with empty if fewer.
     const maxTugasCols = Math.max(5, (values.tugas || []).length);
     for (let i = (values.tugas || []).length; i < maxTugasCols; i++) {
         if (!excelRow.hasOwnProperty(`Tugas ${i + 1}`)) { 
@@ -650,6 +656,10 @@ export default function InputGradesPage() {
     const currentSelectedMapel = form.getValues().selectedMapel;
     if (!currentSelectedMapel) {
         toast({ variant: "destructive", title: "Mapel Belum Dipilih", description: "Silakan pilih mata pelajaran di filter terlebih dahulu sebelum mengimpor." });
+        return;
+    }
+    if (!userProfile?.uid) {
+        toast({ variant: "destructive", title: "Error Sesi", description: "Sesi guru tidak valid. Impor dibatalkan." });
         return;
     }
 
@@ -735,27 +745,25 @@ export default function InputGradesPage() {
           }
 
           const importedTugasScores = [];
-          // Iterate through tugas1, tugas2, ..., tugasN columns found in the Excel row
           for (const key in row) {
             if (key.startsWith("tugas") && row[key] !== undefined && String(row[key]).trim() !== '') {
                 const numValue = Number(row[key]);
                 if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
                     importedTugasScores.push(numValue);
                 } else {
-                    importedTugasScores.push(0); // Default to 0 if invalid
+                    importedTugasScores.push(0); 
                     errorDetails.push(`Nilai ${key} (${row[key]}) tidak valid untuk ${row.id_siswa}, mapel ${row.mapel}. Dianggap 0.`);
                 }
             } else if (key.startsWith("tugas") && row.hasOwnProperty(key) && (row[key] === undefined || String(row[key]).trim() === '')) {
-                importedTugasScores.push(0); // If column exists but is empty, count as 0
+                importedTugasScores.push(0); 
             }
           }
-          // If no tugas columns were found at all (e.g., tugas1, tugas2...), default to a single 0
           if (importedTugasScores.length === 0) {
             importedTugasScores.push(0);
           }
 
 
-          const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir'> = {
+          const nilaiToSave: Omit<Nilai, 'id' | 'nilai_akhir' | 'teacherUid'> = {
             id_siswa: row.id_siswa,
             mapel: row.mapel.trim(),
             semester: semesterNum,
@@ -769,10 +777,10 @@ export default function InputGradesPage() {
             osis: (typeof row.osis === 'number' && row.osis >=0 && row.osis <=100) ? row.osis : 0,
           };
           const finalGradeValue = calculateFinalGrade(nilaiToSave as Nilai, weights);
-          const nilaiWithFinal: Omit<Nilai, 'id'> = { ...nilaiToSave, nilai_akhir: finalGradeValue };
+          const nilaiWithFinal: Omit<Nilai, 'id'> = { ...nilaiToSave, nilai_akhir: finalGradeValue, teacherUid: userProfile.uid };
 
           try {
-            await addOrUpdateGrade(nilaiWithFinal);
+            await addOrUpdateGrade(nilaiWithFinal, userProfile.uid);
             successCount++;
           } catch (err: any) {
             failCount++;
@@ -857,7 +865,7 @@ export default function InputGradesPage() {
                       <Select 
                          onValueChange={(value) => {
                             field.onChange(value);
-                            if (!isLoadingInitialData) { // Only reset if not during initial load
+                            if (!isLoadingInitialData) { 
                               form.setValue('selectedStudentId', '', { shouldDirty: true }); 
                             }
                           }}
@@ -1116,8 +1124,3 @@ export default function InputGradesPage() {
     </div>
   );
 }
-    
-
-    
-
-    

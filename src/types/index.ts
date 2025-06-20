@@ -40,6 +40,7 @@ export interface Nilai {
   eskul: number; // Extracurricular
   osis: number;
   nilai_akhir?: number; // Calculated final grade
+  teacherUid?: string; // UID of the teacher who created/owns this grade entry
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

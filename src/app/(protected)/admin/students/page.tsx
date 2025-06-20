@@ -130,14 +130,16 @@ export default function AdminManageStudentsPage() {
       return;
     }
     try {
-      const existingStudentById = allStudents.find(s => s.id_siswa === data.id_siswa); 
+      // Fetch current students list again to ensure no race conditions if allStudents state is stale
+      const currentStudentList = await getStudents();
+      const existingStudentById = currentStudentList.find(s => s.id_siswa === data.id_siswa); 
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error Validasi", description: "ID Siswa ini sudah digunakan." });
         setIsSubmitting(false);
         return;
       }
-      const existingStudentByNis = allStudents.find(s => s.nis === data.nis); 
+      const existingStudentByNis = currentStudentList.find(s => s.nis === data.nis); 
       if (existingStudentByNis) {
         form.setError("nis", { type: "manual", message: "NIS ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error Validasi", description: "NIS ini sudah digunakan." });
@@ -271,7 +273,7 @@ export default function AdminManageStudentsPage() {
         let failCount = 0;
         const errorMessages: string[] = [];
         
-        const currentStudentList = await getStudents(); 
+        const currentStudentList = await getStudents(); // Fetch fresh list before loop
 
         for (const student of json) {
           if (!student.nama || !student.nis || !student.kelas || !student.id_siswa) {
@@ -308,19 +310,21 @@ export default function AdminManageStudentsPage() {
           }
 
           try {
-            await addStudent({
+            const newStudent = {
               nama: student.nama,
               nis: student.nis,
               kelas: student.kelas,
               id_siswa: student.id_siswa,
-            });
+            };
+            await addStudent(newStudent);
              await addActivityLog(
               "Siswa Baru Diimpor (Admin)",
-              `Siswa: ${student.nama} (NIS: ${student.nis}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
+              `Siswa: ${newStudent.nama} (NIS: ${newStudent.nis}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
               currentAdminProfile.uid,
               currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
             );
             successCount++;
+            currentStudentList.push({ ...newStudent, id: 'temp-id-' + successCount }); // Add to local list to prevent re-adding if file has duplicates
           } catch (error: any) {
             failCount++;
             errorMessages.push(`Gagal impor ${student.nama} (NIS: ${student.nis}): ${error.message}. Dilewati.`);

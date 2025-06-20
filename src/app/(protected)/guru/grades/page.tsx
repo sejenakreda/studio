@@ -144,7 +144,7 @@ export default function InputGradesPage() {
         selectedSemester: SEMESTERS[0]?.value || 1, selectedMapel: "", kkmValue: 70,
         tugas: [0], tes: 0, pts: 0, pas: 0, jumlahHariHadir: 0, eskul: 0, osis: 0,
     });
-    resetGradeFieldsToZero(); // This will clear the grade-specific inputs
+    resetGradeFieldsToZero();
   }, [form, resetGradeFieldsToZero]);
 
 
@@ -279,7 +279,7 @@ export default function InputGradesPage() {
     };
 
     initPage();
-  }, [authIsLoading, userProfile, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams]);
+  }, [authIsLoading, userProfile, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams, form]);
 
 
   useEffect(() => {
@@ -588,7 +588,6 @@ export default function InputGradesPage() {
                   setIsImportingFile(false); return;
               }
 
-              // Validate headers (basic check)
               const headers = Object.keys(jsonData[0]);
               const requiredHeaders = ['id_siswa', 'tugas1', 'tes', 'pts', 'pas', 'jumlah_hari_hadir'];
               if (!requiredHeaders.every(header => headers.includes(header))) {
@@ -614,7 +613,7 @@ export default function InputGradesPage() {
                   }
 
                   const tugasScores: number[] = [];
-                  for (let i = 1; i <= 5; i++) { // Assuming tugas1 to tugas5
+                  for (let i = 1; i <= 5; i++) { 
                       const tugasVal = parseFloat(row[`tugas${i}`]);
                       tugasScores.push(isNaN(tugasVal) ? 0 : Math.min(Math.max(tugasVal,0),100) );
                   }
@@ -650,6 +649,11 @@ export default function InputGradesPage() {
 
                   try {
                       await addOrUpdateGrade(nilaiWithFinal, userProfile.uid);
+                      await addActivityLog(
+                        "Nilai Diimpor Guru dari Excel",
+                        `Siswa: ${studentData.nama}, Mapel: ${selectedMapel}, TA: ${selectedAcademicYear}, Smt: ${selectedSemester}. Nilai Akhir: ${finalGrade.toFixed(2)} oleh Guru: ${userProfile.displayName || userProfile.email}`,
+                        userProfile.uid, userProfile.displayName || userProfile.email || "Guru"
+                      );
                       successCount++;
                   } catch (err: any) {
                       failCount++; errorDetails.push(`Gagal simpan nilai untuk ${studentId}: ${err.message}.`);
@@ -662,11 +666,11 @@ export default function InputGradesPage() {
                   duration: failCount > 0 ? 10000 : 5000,
               });
               if (errorDetails.length > 0) console.warn("Detail error impor:", errorDetails);
-              if (successCount > 0 && selectedStudentId && selectedStudentId === jsonData[0]?.id_siswa) { // Refresh form if current student was updated
+              if (successCount > 0 && selectedStudentId && selectedStudentId === jsonData[0]?.id_siswa) {
                 const currentStudentGrade = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear, selectedMapel, userProfile.uid);
                 if(currentStudentGrade) form.reset(currentStudentGrade as GradeFormData); else resetGradeFieldsToZero();
               } else if (successCount > 0 && selectedStudentId) {
-                 // Optionally fetch the grade for current student if they were NOT in the import but to reflect KKM or other general changes.
+                 // No specific action needed to refresh other student's data unless the UI needs to reflect global changes.
               }
           } catch (error: any) {
               toast({ variant: "destructive", title: "Error Baca File", description: `Gagal memproses file: ${error.message}` });
@@ -684,7 +688,7 @@ export default function InputGradesPage() {
   };
 
   const retryInitialDataLoad = () => setRetryCounter(prev => prev + 1);
-  const isFormEffectivelyDisabled = pageIsLoading || authIsLoading || fetchError !== null;
+  const isFormEffectivelyDisabled = pageIsLoading || authIsLoading || fetchError !== null; // Helper to disable form sections
 
   const totalDaysForCurrentSemester = useMemo(() => {
     if (!weights || !selectedSemester) return null;
@@ -735,15 +739,15 @@ export default function InputGradesPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                     {/* Filter Kelas */}
-                    <FormField control={form.control} name="selectedClass" render={({ field }) => (<FormItem><FormLabel>Filter Kelas</FormLabel><Select onValueChange={(value) => { field.onChange(value); form.setValue('selectedStudentId', '', { shouldDirty: true }); }} value={field.value || "all"} disabled={pageIsLoading || availableClasses.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat kelas..." : (availableClasses.length === 0 ? "Belum ada data kelas" : "Pilih kelas...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_classes_placeholder" disabled>Memuat kelas...</SelectItem>) : availableClasses.length === 0 ? (<SelectItem value="no_class_data_placeholder" disabled>Belum ada data kelas</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedClass" render={({ field }) => (<FormItem><FormLabel>Filter Kelas</FormLabel><Select onValueChange={(value) => { field.onChange(value); form.setValue('selectedStudentId', '', { shouldDirty: true }); }} value={field.value || "all"} disabled={isFormEffectivelyDisabled || availableClasses.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat kelas..." : (availableClasses.length === 0 ? "Belum ada data kelas" : "Pilih kelas...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_classes_placeholder" disabled>Memuat kelas...</SelectItem>) : availableClasses.length === 0 ? (<SelectItem value="no_class_data_placeholder" disabled>Belum ada data kelas</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                     {/* Pilih Siswa */}
-                    <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={pageIsLoading || filteredStudentsForDropdown.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat siswa..." : (filteredStudentsForDropdown.length === 0 ? (selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih siswa...") : "Pilih siswa...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_students_placeholder" disabled>Memuat siswa...</SelectItem>) : filteredStudentsForDropdown.length === 0 ? (<SelectItem value="no_students_placeholder" disabled>{selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu atau tidak ada siswa"}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormEffectivelyDisabled || filteredStudentsForDropdown.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat siswa..." : (filteredStudentsForDropdown.length === 0 ? (selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih siswa...") : "Pilih siswa...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_students_placeholder" disabled>Memuat siswa...</SelectItem>) : filteredStudentsForDropdown.length === 0 ? (<SelectItem value="no_students_placeholder" disabled>{selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu atau tidak ada siswa"}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     {/* Tahun Ajaran */}
-                    <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={pageIsLoading || selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat tahun..." : (selectableYears.length === 0 ? "Tidak ada tahun aktif" : "Pilih tahun ajaran...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_years_placeholder" disabled>Memuat tahun...</SelectItem>) : selectableYears.length === 0 ? (<SelectItem value="no_active_years_placeholder" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormEffectivelyDisabled || selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat tahun..." : (selectableYears.length === 0 ? "Tidak ada tahun aktif" : "Pilih tahun ajaran...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_years_placeholder" disabled>Memuat tahun...</SelectItem>) : selectableYears.length === 0 ? (<SelectItem value="no_active_years_placeholder" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     {/* Semester */}
-                    <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={pageIsLoading} ><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih semester..."} /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={isFormEffectivelyDisabled} ><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat..." : "Pilih semester..."} /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     {/* Mata Pelajaran */}
-                    <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={pageIsLoading || assignedMapelList.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat mapel..." : (assignedMapelList.length === 0 ? "Belum ada mapel ditugaskan" : "Pilih mapel yang diampu...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_mapel_placeholder" disabled>Memuat mapel...</SelectItem>) : assignedMapelList.length === 0 ? (<SelectItem value="no_mapel_assigned_placeholder" disabled>Belum ada mapel ditugaskan</SelectItem>) : (assignedMapelList.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormEffectivelyDisabled || assignedMapelList.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={pageIsLoading ? "Memuat mapel..." : (assignedMapelList.length === 0 ? "Belum ada mapel ditugaskan" : "Pilih mapel yang diampu...")} /></SelectTrigger></FormControl><SelectContent>{pageIsLoading ? (<SelectItem value="loading_mapel_placeholder" disabled>Memuat mapel...</SelectItem>) : assignedMapelList.length === 0 ? (<SelectItem value="no_mapel_assigned_placeholder" disabled>Belum ada mapel ditugaskan</SelectItem>) : (assignedMapelList.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     {/* KKM */}
                     <FormField control={form.control} name="kkmValue" render={({ field }) => (<FormItem><FormLabel>KKM</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="number" placeholder="cth: 75" {...field} value={field.value ?? ""} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} disabled={isFormEffectivelyDisabled || !selectedMapel || !selectedAcademicYear}/></FormControl><Button type="button" onClick={handleSaveKkm} variant="outline" size="icon" title="Simpan KKM" disabled={isFormEffectivelyDisabled || isSavingKkm || !selectedMapel || !selectedAcademicYear || form.getValues('kkmValue') === currentKkm }><Target className="h-4 w-4" /></Button></div><FormDescription>KKM saat ini untuk mapel & TA ini: <span className="font-bold">{currentKkm}</span></FormDescription><FormMessage /></FormItem>)} />
                   </div>
@@ -775,3 +779,4 @@ export default function InputGradesPage() {
     </div>
   );
 }
+

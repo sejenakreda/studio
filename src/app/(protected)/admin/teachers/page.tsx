@@ -271,7 +271,7 @@ export default function ManageTeachersPage() {
         const errorMessages: string[] = [];
         let anyInvalidMapelDetected = false;
 
-        const currentTeacherList = await getAllUsersByRole('guru'); 
+        const currentTeacherList = await getAllUsersByRole('guru'); // Fetch fresh list
 
         for (const teacher of json) {
           if (!teacher.displayName || !teacher.email || !teacher.password) {
@@ -329,6 +329,14 @@ export default function ManageTeachersPage() {
               await signOut(auth);
             }
             successCount++;
+            // Optimistically add to local list to avoid re-adding if file has duplicates not caught by fresh fetch
+            currentTeacherList.push({ 
+                uid: userCredential.user.uid, 
+                email: teacher.email, 
+                displayName: teacher.displayName, 
+                role: 'guru', 
+                assignedMapel: finalAssignedMapel 
+            });
           } catch (error: any) {
             failCount++;
             if (error.code === 'auth/email-already-in-use') {

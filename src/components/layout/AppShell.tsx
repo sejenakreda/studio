@@ -16,12 +16,12 @@ import {
   SidebarTrigger,
   SidebarFooter,
   SidebarMenuBadge,
-  SidebarSeparator, // Ditambahkan untuk memisahkan grup
+  SidebarSeparator, 
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -30,7 +30,7 @@ import { getAllPengumuman } from "@/lib/firestoreService";
 import type { Pengumuman } from "@/types";
 import { Timestamp } from "firebase/firestore";
 
-// Definisikan tipe baru untuk item menu dan grup
+
 interface NavMenuItem {
   href: string;
   label: string;
@@ -39,15 +39,15 @@ interface NavMenuItem {
 }
 
 interface NavGroup {
-  groupLabel?: string; // Label untuk grup, opsional
+  groupLabel?: string; 
   items: NavMenuItem[];
-  roles: Array<'admin' | 'guru'>; // Peran yang dapat melihat grup ini
+  roles: Array<'admin' | 'guru'>; 
 }
 
-// Struktur navigasi baru yang dikelompokkan
+
 const navigationStructure: NavGroup[] = [
   // --- Admin Items ---
-  { // Dasbor Admin (tanpa label grup eksplisit, akan muncul pertama)
+  { 
     roles: ['admin'],
     items: [{ href: "/admin", label: "Dasbor Admin", icon: Home, isExact: true }],
   },
@@ -70,10 +70,10 @@ const navigationStructure: NavGroup[] = [
     ],
   },
    {
-    groupLabel: "Kehadiran",
+    groupLabel: "Kehadiran Guru",
     roles: ['admin'],
     items: [
-       { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+       { href: "/admin/teacher-attendance", label: "Rekap Kehadiran (Bulanan)", icon: CalendarCheck },
     ]
   },
   {
@@ -86,7 +86,7 @@ const navigationStructure: NavGroup[] = [
   },
 
   // --- Guru Items ---
-  { // Dasbor Guru (tanpa label grup eksplisit)
+  { 
     roles: ['guru'],
     items: [{ href: "/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
   },
@@ -96,7 +96,7 @@ const navigationStructure: NavGroup[] = [
     items: [{ href: "/guru/announcements", label: "Pengumuman", icon: Megaphone }],
   },
   {
-    groupLabel: "Akademik Guru",
+    groupLabel: "Akademik",
     roles: ['guru'],
     items: [
       { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
@@ -104,6 +104,14 @@ const navigationStructure: NavGroup[] = [
       { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
     ],
   },
+  {
+    groupLabel: "Kehadiran Saya",
+    roles: ['guru'],
+    items: [
+      { href: "/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
+      // Nanti bisa ditambahkan menu "Lihat Rekap Kehadiran Saya" jika diperlukan
+    ],
+  }
 ];
 
 
@@ -215,7 +223,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <React.Fragment key={`group-${group.groupLabel || 'main'}-${groupIndex}`}>
                   {group.groupLabel && (
                     <>
-                      {/* Tambahkan separator hanya jika ini bukan grup pertama DAN grup ini memiliki label */}
                       {groupIndex > 0 && <SidebarSeparator className="my-2" />}
                       <div className="px-3 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
                         {group.groupLabel}

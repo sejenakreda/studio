@@ -21,10 +21,10 @@ import {
   limit,
   arrayRemove,
   arrayUnion,
-  QuerySnapshot // Added for type consistency
+  QuerySnapshot 
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -33,7 +33,6 @@ import { getCurrentAcademicYear } from './utils';
 const bobotConverter: FirestoreDataConverter<Bobot> = {
   toFirestore: (bobot: Bobot): DocumentData => {
     const data: any = { ...bobot };
-    // delete data.id; // ID should not be part of the document data itself if it's the doc ID
     return {
         tugas: bobot.tugas || 0,
         tes: bobot.tes || 0,
@@ -307,6 +306,34 @@ const teacherAttendanceConverter: FirestoreDataConverter<TeacherAttendance> = {
   }
 };
 
+const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttendance> = {
+  toFirestore: (attendance: Omit<TeacherDailyAttendance, 'id'>): DocumentData => {
+    return {
+      teacherUid: attendance.teacherUid,
+      teacherName: attendance.teacherName,
+      date: attendance.date, // Should be a Firestore Timestamp
+      status: attendance.status,
+      notes: attendance.notes || null,
+      recordedAt: attendance.recordedAt || serverTimestamp(),
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): TeacherDailyAttendance => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      teacherUid: data.teacherUid,
+      teacherName: data.teacherName,
+      date: data.date,
+      status: data.status,
+      notes: data.notes,
+      recordedAt: data.recordedAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -317,8 +344,9 @@ export const getWeights = async (): Promise<Bobot> => {
   if (docSnap.exists()) {
     return docSnap.data();
   }
+  // Return default weights if not found in Firestore
   return {
-    id: WEIGHTS_DOC_ID, // Default ID
+    id: WEIGHTS_DOC_ID,
     tugas: 20, tes: 20, pts: 20, pas: 25,
     kehadiran: 15, eskul: 5, osis: 5,
     totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90
@@ -367,7 +395,7 @@ export const deleteStudent = async (id: string): Promise<void> => {
   const studentData = studentSnapshot.data();
   if (!studentData) {
       console.warn("Data siswa tidak valid untuk ID (dokumen) " + id);
-      await deleteDoc(docRef); // Attempt to delete the main doc anyway if data is malformed
+      await deleteDoc(docRef); 
       return;
   }
   const studentSpecificId = studentData.id_siswa;
@@ -435,6 +463,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
+  // Query modified to match the index Firebase suggested
   const q = query(collRef,
                   where('id_siswa', '==', id_siswa),
                   orderBy("tahun_ajaran", "desc"),
@@ -461,7 +490,7 @@ export const getGradesForTeacherDisplay = async (
   if (mapelList.length === 0) return [];
   
   const mapelChunks: string[][] = [];
-  const CHUNK_SIZE = 30; // Firestore 'in' query optimal limit (max is 30)
+  const CHUNK_SIZE = 30; // Firestore 'in' query optimal limit
   for (let i = 0; i < mapelList.length; i += CHUNK_SIZE) {
       mapelChunks.push(mapelList.slice(i, i + CHUNK_SIZE));
   }
@@ -718,8 +747,8 @@ export const deletePengumuman = async (id: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
-// --- Teacher Attendance Service ---
-const TEACHER_ATTENDANCE_COLLECTION = 'teacherAttendance';
+// --- Teacher Attendance Service (Monthly Rekap by Admin) ---
+const TEACHER_ATTENDANCE_COLLECTION = 'teacherAttendance'; // Rekap bulanan oleh Admin
 
 export const addOrUpdateTeacherAttendance = async (
   attendanceData: Omit<TeacherAttendance, 'id' | 'recordedAt' | 'updatedAt'>
@@ -733,26 +762,23 @@ export const addOrUpdateTeacherAttendance = async (
   let finalData: TeacherAttendance;
 
   if (docSnap.exists()) {
-    // Update existing record
     const existingData = docSnap.data();
     finalData = {
       ...existingData,
-      ...attendanceData, // Overwrite with new data
+      ...attendanceData, 
       id: docId,
       updatedAt: serverTimestamp() as Timestamp,
     };
-    await updateDoc(docRef, { ...finalData, id: undefined }); // Don't store ID in document
+    await updateDoc(docRef, { ...finalData, id: undefined }); 
   } else {
-    // Add new record
     finalData = {
       ...attendanceData,
       id: docId,
       recordedAt: serverTimestamp() as Timestamp,
       updatedAt: serverTimestamp() as Timestamp,
     };
-    await setDoc(docRef, { ...finalData, id: undefined }); // Don't store ID in document
+    await setDoc(docRef, { ...finalData, id: undefined }); 
   }
-  // For returning, simulate the server timestamp for immediate use
   const now = Timestamp.now();
   return {
     ...finalData,
@@ -772,21 +798,6 @@ export const getTeacherAttendance = async (
   return docSnap.exists() ? docSnap.data() : null;
 };
 
-export const getTeacherAttendanceForYear = async (
-  teacherUid: string,
-  year: number
-): Promise<TeacherAttendance[]> => {
-  const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
-  const q = query(
-    collRef,
-    where('teacherUid', '==', teacherUid),
-    where('year', '==', year),
-    orderBy('month', 'asc')
-  );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
-};
-
 export const getAllTeacherAttendanceRecords = async (
   filters?: { year?: number, month?: number, teacherUid?: string }
 ): Promise<TeacherAttendance[]> => {
@@ -796,9 +807,8 @@ export const getAllTeacherAttendanceRecords = async (
   if (filters?.month) queryConstraints.push(where('month', '==', filters.month));
   if (filters?.teacherUid) queryConstraints.push(where('teacherUid', '==', filters.teacherUid));
   
-  // Add default ordering
   if (filters?.year) queryConstraints.push(orderBy('month', 'asc'));
-  queryConstraints.push(orderBy('teacherName', 'asc')); // Fallback if no year
+  queryConstraints.push(orderBy('teacherName', 'asc')); 
   
   const q = query(collRef, ...queryConstraints);
   const querySnapshot = await getDocs(q);
@@ -809,3 +819,71 @@ export const deleteTeacherAttendance = async (id: string): Promise<void> => {
     const docRef = doc(db, TEACHER_ATTENDANCE_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
+// --- Teacher Daily Attendance Service (Input by Guru) ---
+const TEACHER_DAILY_ATTENDANCE_COLLECTION = 'teacherDailyAttendance';
+
+export const addOrUpdateTeacherDailyAttendance = async (
+  attendanceData: Omit<TeacherDailyAttendance, 'id' | 'recordedAt'> & { teacherName?: string }
+): Promise<TeacherDailyAttendance> => {
+  const { teacherUid, date, status, notes, teacherName } = attendanceData;
+  
+  const dateObj = date.toDate(); // Convert Firestore Timestamp to JS Date
+  const year = dateObj.getFullYear();
+  const month = dateObj.getMonth() + 1; // JS month is 0-indexed
+  const day = dateObj.getDate();
+  const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const docId = `${teacherUid}_${formattedDate}`;
+
+  const docRef = doc(db, TEACHER_DAILY_ATTENDANCE_COLLECTION, docId).withConverter(teacherDailyAttendanceConverter);
+  
+  const dataToSave: Omit<TeacherDailyAttendance, 'id'> = {
+    teacherUid,
+    teacherName: teacherName || 'Guru', // Default if not provided
+    date, // Store as Firestore Timestamp
+    status,
+    notes: notes || '',
+    recordedAt: serverTimestamp() as Timestamp,
+  };
+
+  await setDoc(docRef, dataToSave, { merge: true }); // Use setDoc with merge to create or update
+
+  return { ...dataToSave, id: docId, recordedAt: Timestamp.now() }; // Return with ID and simulated timestamp
+};
+
+
+export const getTeacherDailyAttendanceForDate = async (
+  teacherUid: string,
+  date: Date 
+): Promise<TeacherDailyAttendance | null> => {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const docId = `${teacherUid}_${formattedDate}`;
+  
+  const docRef = doc(db, TEACHER_DAILY_ATTENDANCE_COLLECTION, docId).withConverter(teacherDailyAttendanceConverter);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : null;
+};
+
+export const getTeacherDailyAttendanceForMonth = async (
+  teacherUid: string,
+  year: number,
+  month: number // 1-12
+): Promise<TeacherDailyAttendance[]> => {
+  const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+  const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59)); // Last day of the month
+
+  const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
+  const q = query(
+    collRef,
+    where('teacherUid', '==', teacherUid),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+    orderBy('date', 'asc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+

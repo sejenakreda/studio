@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"; // FormLabel here for RHF
-import { Label } from "@/components/ui/label"; // Standard Label for non-RHF parts
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"; 
+import { Label } from "@/components/ui/label"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, CalendarCheck, User, CalendarDays, Search, Trash2, Edit, Filter } from "lucide-react";
@@ -71,12 +71,11 @@ export default function ManageTeacherAttendancePage() {
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditing, setIsEditing] = useState<string | null>(null); // Store ID of record being edited
+  const [isEditing, setIsEditing] = useState<string | null>(null); 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<TeacherAttendance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Filters for displaying records
   const [filterYear, setFilterYear] = useState<number>(currentYear);
   const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
   const [filterTeacherUid, setFilterTeacherUid] = useState<string | "all">("all");
@@ -91,7 +90,7 @@ export default function ManageTeacherAttendancePage() {
       daysPresent: 0,
       daysAbsentWithReason: 0,
       daysAbsentWithoutReason: 0,
-      totalSchoolDaysInMonth: 20, // Default
+      totalSchoolDaysInMonth: 20, 
       notes: "",
     },
   });
@@ -137,15 +136,14 @@ export default function ManageTeacherAttendancePage() {
     fetchAttendanceRecords();
   }, [fetchTeachersList, fetchAttendanceRecords]);
   
-  // Effect to fetch existing record when teacher/month/year changes in form for editing
   useEffect(() => {
     const loadRecordForEditing = async () => {
-      if (watchedTeacherUid && watchedYear && watchedMonth && !isEditing) { // only if not currently in edit mode by button
+      if (watchedTeacherUid && watchedYear && watchedMonth && !isEditing) { 
         form.reset({ 
           ...form.getValues(), 
           daysPresent: 0, daysAbsentWithReason: 0, daysAbsentWithoutReason: 0, 
           totalSchoolDaysInMonth: form.getValues('totalSchoolDaysInMonth') || 20, notes: "" 
-        }); // Reset specific fields
+        }); 
 
         const record = await getTeacherAttendance(watchedTeacherUid, watchedYear, watchedMonth);
         if (record) {
@@ -159,9 +157,9 @@ export default function ManageTeacherAttendancePage() {
             totalSchoolDaysInMonth: record.totalSchoolDaysInMonth,
             notes: record.notes || "",
           });
-          setIsEditing(record.id || null); // Set editing mode with existing record ID
+          setIsEditing(record.id || null); 
         } else {
-          setIsEditing(null); // Not editing, new record
+          setIsEditing(null); 
         }
       }
     };
@@ -185,10 +183,10 @@ export default function ManageTeacherAttendancePage() {
       
       const savedRecord = await addOrUpdateTeacherAttendance(attendancePayload);
       
-      toast({ title: "Sukses", description: `Kehadiran guru ${teacher?.displayName || ''} untuk ${MONTHS.find(m=>m.value === data.month)?.label} ${data.year} berhasil ${isEditing ? 'diperbarui' : 'disimpan'}.` });
+      toast({ title: "Sukses", description: `Rekap kehadiran guru ${teacher?.displayName || ''} untuk ${MONTHS.find(m=>m.value === data.month)?.label} ${data.year} berhasil ${isEditing ? 'diperbarui' : 'disimpan'}.` });
       
       await addActivityLog(
-        `Kehadiran Guru ${isEditing ? 'Diperbarui' : 'Dicatat'}`,
+        `Rekap Kehadiran Guru ${isEditing ? 'Diperbarui' : 'Dicatat'} (Admin)`,
         `Guru: ${teacher?.displayName}, Periode: ${MONTHS.find(m=>m.value === data.month)?.label} ${data.year}. H:${data.daysPresent}, I/S:${data.daysAbsentWithReason}, A:${data.daysAbsentWithoutReason}. Oleh: ${adminProfile.displayName}`,
         adminProfile.uid,
         adminProfile.displayName || "Admin"
@@ -196,9 +194,9 @@ export default function ManageTeacherAttendancePage() {
       
       form.reset({ teacherUid: "", year: currentYear, month: new Date().getMonth() + 1, daysPresent: 0, daysAbsentWithReason: 0, daysAbsentWithoutReason: 0, totalSchoolDaysInMonth: 20, notes: "" });
       setIsEditing(null);
-      fetchAttendanceRecords(); // Refresh list
+      fetchAttendanceRecords(); 
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message || `Gagal menyimpan kehadiran.` });
+      toast({ variant: "destructive", title: "Error", description: error.message || `Gagal menyimpan rekap kehadiran.` });
     } finally {
       setIsSubmitting(false);
     }
@@ -229,12 +227,12 @@ export default function ManageTeacherAttendancePage() {
     try {
       await deleteTeacherAttendance(recordToDelete.id);
       await addActivityLog(
-        "Data Kehadiran Guru Dihapus",
+        "Data Rekap Kehadiran Guru Dihapus (Admin)",
         `Data untuk Guru: ${recordToDelete.teacherName}, Periode: ${MONTHS.find(m=>m.value === recordToDelete.month)?.label} ${recordToDelete.year} dihapus oleh Admin: ${adminProfile.displayName}`,
         adminProfile.uid,
         adminProfile.displayName || "Admin"
       );
-      toast({ title: "Sukses", description: "Data kehadiran berhasil dihapus." });
+      toast({ title: "Sukses", description: "Data rekap kehadiran berhasil dihapus." });
       setRecordToDelete(null);
       fetchAttendanceRecords();
     } catch (error: any) {
@@ -259,17 +257,17 @@ export default function ManageTeacherAttendancePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Rekap Kehadiran Guru</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Rekap Kehadiran Guru Bulanan (Manual Admin)</h1>
           <p className="text-muted-foreground">
-            Catat dan kelola data kehadiran guru per bulan.
+            Catat dan kelola data rekapitulasi kehadiran guru per bulan.
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{isEditing ? "Edit Kehadiran Guru" : "Catat Kehadiran Guru Baru"}</CardTitle>
-          <CardDescription>Pilih guru, periode, dan masukkan detail kehadiran.</CardDescription>
+          <CardTitle>{isEditing ? "Edit Rekap Kehadiran Guru" : "Catat Rekap Kehadiran Guru Baru"}</CardTitle>
+          <CardDescription>Pilih guru, periode, dan masukkan detail rekap kehadiran.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -356,7 +354,7 @@ export default function ManageTeacherAttendancePage() {
             <CardFooter className="gap-2">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                {isEditing ? "Simpan Perubahan" : "Simpan Kehadiran"}
+                {isEditing ? "Simpan Perubahan" : "Simpan Rekap"}
               </Button>
               {isEditing && (
                 <Button type="button" variant="outline" onClick={handleResetForm}>
@@ -370,13 +368,13 @@ export default function ManageTeacherAttendancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Data Kehadiran Guru Tercatat</CardTitle>
-          <CardDescription>Lihat dan kelola data kehadiran yang sudah tersimpan.</CardDescription>
+          <CardTitle>Data Rekap Kehadiran Guru Bulanan</CardTitle>
+          <CardDescription>Lihat dan kelola data rekap kehadiran yang sudah tersimpan (dicatat manual oleh Admin).</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
-                 <div> {/* Removed FormItem as it's not part of RHF form here */}
-                    <Label htmlFor="filter-teacher">Filter Guru</Label> {/* Used standard Label */}
+                 <div> 
+                    <Label htmlFor="filter-teacher">Filter Guru</Label> 
                     <Select onValueChange={setFilterTeacherUid} value={filterTeacherUid} disabled={isLoadingTeachers}>
                         <SelectTrigger id="filter-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat guru..." : "Pilih guru..."} /></SelectTrigger>
                         <SelectContent>
@@ -386,15 +384,15 @@ export default function ManageTeacherAttendancePage() {
                         </SelectContent>
                     </Select>
                  </div>
-                 <div> {/* Removed FormItem */}
-                    <Label htmlFor="filter-year">Filter Tahun</Label> {/* Used standard Label */}
+                 <div> 
+                    <Label htmlFor="filter-year">Filter Tahun</Label> 
                     <Select onValueChange={(v) => setFilterYear(parseInt(v))} value={String(filterYear)}>
                         <SelectTrigger id="filter-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger>
                         <SelectContent>{YEARS.map(year => (<SelectItem key={year} value={String(year)}>{year}</SelectItem>))}</SelectContent>
                     </Select>
                  </div>
-                 <div> {/* Removed FormItem */}
-                    <Label htmlFor="filter-month">Filter Bulan</Label> {/* Used standard Label */}
+                 <div> 
+                    <Label htmlFor="filter-month">Filter Bulan</Label> 
                     <Select onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(filterMonth)}>
                         <SelectTrigger id="filter-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger>
                         <SelectContent><SelectItem value="all">Semua Bulan</SelectItem>{MONTHS.map(month => (<SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>))}</SelectContent>
@@ -409,8 +407,8 @@ export default function ManageTeacherAttendancePage() {
           ) : attendanceRecords.length === 0 && !fetchError ? (
             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
               <CalendarCheck className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Data Kehadiran</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran yang tercatat sesuai filter.</p>
+              <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Data Rekap Kehadiran</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Belum ada data rekap kehadiran yang tercatat sesuai filter.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -459,9 +457,9 @@ export default function ManageTeacherAttendancePage() {
         <AlertDialog open={!!recordToDelete} onOpenChange={(isOpen) => !isOpen && setRecordToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Anda Yakin Ingin Menghapus Data Ini?</AlertDialogTitle>
+              <AlertDialogTitle>Anda Yakin Ingin Menghapus Data Rekap Ini?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tindakan ini akan menghapus data kehadiran untuk guru <span className="font-semibold">{recordToDelete.teacherName}</span>
+                Tindakan ini akan menghapus data rekap kehadiran untuk guru <span className="font-semibold">{recordToDelete.teacherName}</span>
                 pada periode {MONTHS.find(m=>m.value === recordToDelete.month)?.label} {recordToDelete.year}. Tindakan ini tidak dapat diurungkan.
               </AlertDialogDescription>
             </AlertDialogHeader>

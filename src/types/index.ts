@@ -106,7 +106,7 @@ export interface Pengumuman {
   createdByDisplayName?: string;
 }
 
-export interface TeacherAttendance {
+export interface TeacherAttendance { // Rekap bulanan oleh Admin
   id?: string; // Firestore document ID (e.g., teacherUid_year_month)
   teacherUid: string;
   teacherName?: string; // For display convenience
@@ -121,3 +121,16 @@ export interface TeacherAttendance {
   recordedAt: Timestamp;
   updatedAt?: Timestamp;
 }
+
+export type TeacherDailyAttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Alpa';
+
+export interface TeacherDailyAttendance {
+  id?: string; // Composite ID: teacherUid_YYYY-MM-DD
+  teacherUid: string;
+  teacherName?: string; // For display, denormalized
+  date: Timestamp; // The specific date of attendance
+  status: TeacherDailyAttendanceStatus;
+  notes?: string; // Reason for Izin/Sakit
+  recordedAt: Timestamp; // When this record was created/updated
+}
+

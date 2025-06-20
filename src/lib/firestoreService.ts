@@ -88,13 +88,18 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Nilai): DocumentData => {
-    const data: any = { ...nilai };
-    delete data.id;
-    if (!data.createdAt) {
-        data.createdAt = serverTimestamp();
-    }
+    const data: any = { ...nilai }; // Spread all properties first
+    delete data.id; // Remove client-side ID
+
+    // Ensure createdAt is set if not provided (for new documents)
+    // If nilai.createdAt is already a Timestamp (e.g., from an existing doc being updated), it will be used.
+    // If nilai.createdAt is undefined (new doc), serverTimestamp() is used.
+    data.createdAt = nilai.createdAt instanceof Timestamp ? nilai.createdAt : serverTimestamp();
+    
+    // Always set/update updatedAt
     data.updatedAt = serverTimestamp();
-    if (nilai.teacherUid) data.teacherUid = nilai.teacherUid;
+    
+    // teacherUid is part of Nilai type and should be passed, so it's already in `data` from the spread.
     return data;
   },
   fromFirestore: (
@@ -418,36 +423,53 @@ export const deleteStudent = async (id: string): Promise<void> => {
 // --- Nilai (Grade) Service ---
 export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: string): Promise<Nilai> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const nilaiToSaveWithTeacherUid = { ...nilai, teacherUid };
+  // Ensure teacherUid from the authenticated session is part of the object to be saved/queried
+  const nilaiToProcess = { ...nilai, teacherUid };
 
   const q = query(gradesCollRef,
-    where('teacherUid', '==', teacherUid),
-    where('id_siswa', '==', nilaiToSaveWithTeacherUid.id_siswa),
-    where('mapel', '==', nilaiToSaveWithTeacherUid.mapel),
-    where('semester', '==', nilaiToSaveWithTeacherUid.semester),
-    where('tahun_ajaran', '==', nilaiToSaveWithTeacherUid.tahun_ajaran),
+    where('teacherUid', '==', teacherUid), // Query with the authenticated teacher's UID
+    where('id_siswa', '==', nilaiToProcess.id_siswa),
+    where('mapel', '==', nilaiToProcess.mapel),
+    where('semester', '==', nilaiToProcess.semester),
+    where('tahun_ajaran', '==', nilaiToProcess.tahun_ajaran),
     limit(1)
   );
   const querySnapshot = await getDocs(q);
 
   let docId: string;
-  let newCreatedAt = nilaiToSaveWithTeacherUid.createdAt;
+  let finalSavedNilai: Nilai;
 
   if (!querySnapshot.empty) {
     const existingDoc = querySnapshot.docs[0];
     docId = existingDoc.id;
-    if (existingDoc.data().createdAt) {
-        newCreatedAt = existingDoc.data().createdAt;
-    }
-    await updateDoc(existingDoc.ref, { ...nilaiToSaveWithTeacherUid, createdAt: newCreatedAt, updatedAt: serverTimestamp() });
+    const existingData = existingDoc.data();
+    
+    // Prepare data for update, ensuring original createdAt is preserved.
+    // The converter will handle serverTimestamp for updatedAt.
+    // All other fields from nilaiToProcess (which includes latest teacherUid) will be used.
+    const dataForUpdate: Nilai = {
+        ...nilaiToProcess, // Includes latest values and teacherUid
+        id: docId, // Not used by toFirestore but good for local consistency
+        createdAt: existingData.createdAt, // Preserve original createdAt
+    };
+    await updateDoc(existingDoc.ref, dataForUpdate);
+    finalSavedNilai = { ...dataForUpdate, updatedAt: Timestamp.now() }; // Simulate updatedAt for return value
   } else {
-    const docRef = await addDoc(gradesCollRef, { ...nilaiToSaveWithTeacherUid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    // For a new document, createdAt will be handled by the converter (sets serverTimestamp if not present).
+    // Spread nilaiToProcess to ensure all fields, including teacherUid, are passed.
+    const dataForAdd: Omit<Nilai, 'id'> = {
+        ...nilaiToProcess,
+        // `createdAt` can be omitted, converter will set serverTimestamp()
+        // `updatedAt` will be set by converter
+    };
+    const docRef = await addDoc(gradesCollRef, dataForAdd as Nilai); // Cast as Nilai for converter
     docId = docRef.id;
-    newCreatedAt = Timestamp.now();
+    // Simulate timestamps for immediate return
+    finalSavedNilai = { ...dataForAdd, id: docId, createdAt: Timestamp.now(), updatedAt: Timestamp.now() } as Nilai;
   }
-  const savedNilai = { ...nilaiToSaveWithTeacherUid, id: docId, createdAt: newCreatedAt } as Nilai;
-  return savedNilai;
+  return finalSavedNilai;
 };
+
 
 export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran: string, mapel: string, teacherUid: string): Promise<Nilai | null> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
@@ -537,13 +559,20 @@ export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[]
   querySnapshot.docs.forEach(doc => {
     const data = doc.data();
     if (data.mapel && typeof data.mapel === 'string') {
-      if (assignedMapelList && assignedMapelList.length > 0) {
-        if (assignedMapelList.includes(data.mapel)) {
+      // If it's for a specific teacher (teacherUid provided)
+      if (teacherUid) {
+        // And if that teacher has an assignedMapelList, only include mapel from that list
+        if (assignedMapelList && assignedMapelList.length > 0) {
+          if (assignedMapelList.includes(data.mapel)) {
+            mapelSet.add(data.mapel);
+          }
+        } else {
+          // If teacherUid is provided but no assignedMapelList (or it's empty),
+          // include any mapel associated with their grades.
           mapelSet.add(data.mapel);
         }
-      } else if (!teacherUid) {
-        mapelSet.add(data.mapel);
-      } else if (teacherUid && (!assignedMapelList || assignedMapelList.length === 0)) {
+      } else {
+        // If no teacherUid (e.g., admin fetching all unique mapel), add all mapel.
         mapelSet.add(data.mapel);
       }
     }
@@ -832,9 +861,9 @@ export const addOrUpdateTeacherDailyAttendance = async (
 ): Promise<TeacherDailyAttendance> => {
   const { teacherUid, date, teacherName } = attendanceData;
 
-  const dateObj = date.toDate();
+  const dateObj = date.toDate(); // Ensure date is a JS Date object before formatting
   const year = dateObj.getFullYear();
-  const month = dateObj.getMonth() + 1;
+  const month = dateObj.getMonth() + 1; // JS months are 0-indexed
   const day = dateObj.getDate();
   const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   const docId = `${teacherUid}_${formattedDate}`;
@@ -846,10 +875,11 @@ export const addOrUpdateTeacherDailyAttendance = async (
 
   if (docSnap.exists()) {
     // Update existing record
+    const existingData = docSnap.data();
     dataToSave = {
-      ...docSnap.data(), // Preserve existing fields like original recordedAt
-      ...attendanceData, // Apply new changes
-      id: docId,
+      ...existingData, // Preserve existing fields like original recordedAt
+      ...attendanceData, // Apply new changes (status, notes, lastUpdatedByUid)
+      id: docId, // Not stored in Firestore, but useful for the return type
       updatedAt: serverTimestamp() as Timestamp, // Always update this
       lastUpdatedByUid: attendanceData.lastUpdatedByUid, // User performing the update
     };
@@ -857,8 +887,8 @@ export const addOrUpdateTeacherDailyAttendance = async (
     // Create new record
     dataToSave = {
       ...attendanceData,
-      id: docId,
-      teacherName: teacherName || 'Guru',
+      id: docId, // Not stored in Firestore
+      teacherName: teacherName || 'Guru', // Default if not provided
       recordedAt: serverTimestamp() as Timestamp, // Set initial record time
       updatedAt: serverTimestamp() as Timestamp,
       lastUpdatedByUid: attendanceData.lastUpdatedByUid,
@@ -867,12 +897,13 @@ export const addOrUpdateTeacherDailyAttendance = async (
 
   // Remove id before saving to Firestore as it's the document key
   const { id, ...firestoreData } = dataToSave;
-  await setDoc(docRef, firestoreData, { merge: true });
+  await setDoc(docRef, firestoreData, { merge: true }); // Use set with merge for both create and update
 
   // Simulate server timestamps for immediate UI update if needed
   const now = Timestamp.now();
   return {
     ...dataToSave,
+    // If it's an update, recordedAt comes from existingData, otherwise it's now (simulated)
     recordedAt: dataToSave.recordedAt instanceof Timestamp ? dataToSave.recordedAt : (docSnap.exists() ? docSnap.data().recordedAt : now),
     updatedAt: now
   };
@@ -943,9 +974,10 @@ export const getAllTeachersDailyAttendanceForPeriod = async (
     collRef,
     where('date', '>=', startDate),
     where('date', '<=', endDate),
-    orderBy('date', 'asc'),
-    orderBy('teacherName', 'asc')
+    orderBy('date', 'asc'), // Ensure date is the first orderBy for range queries
+    orderBy('teacherName', 'asc') // Then order by teacherName
   );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
+

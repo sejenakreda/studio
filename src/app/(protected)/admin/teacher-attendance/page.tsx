@@ -11,14 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange } from "lucide-react";
 import {
   getAllUsersByRole,
   getAllTeachersDailyAttendanceForPeriod,
   deleteTeacherDailyAttendance,
   addActivityLog
 } from '@/lib/firestoreService';
-import type { UserProfile, TeacherDailyAttendance } from '@/types';
+import type { UserProfile, TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -43,6 +43,17 @@ const MONTHS = [
 
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+interface MonthlySummary {
+  teacherUid: string;
+  teacherName: string;
+  Hadir: number;
+  Izin: number;
+  Sakit: number;
+  Alpa: number;
+  "Total Tercatat": number;
+}
+
 
 export default function ManageTeacherAttendancePage() {
   const { toast } = useToast();
@@ -85,10 +96,10 @@ export default function ManageTeacherAttendancePage() {
       } else if (dailyFilterTeacherUid) {
         records = allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
       }
-      setDailyRecords(records);
+      setDailyRecords(records.sort((a, b) => b.date.toMillis() - a.date.toMillis())); // Sort newest first for display
     } catch (error: any) {
       console.error("Admin - Error in fetchDailyAttendanceRecords:", error);
-      setFetchError("Gagal memuat data kehadiran harian guru. Cek konsol browser untuk detail.");
+      setFetchError("Gagal memuat data kehadiran harian guru. Pastikan indeks Firestore sudah dibuat. Cek konsol browser untuk detail.");
       toast({ variant: "destructive", title: "Error Memuat Data", description: "Gagal memuat data kehadiran harian. Kemungkinan ada masalah dengan query atau indeks Firestore. Periksa konsol browser (klik kanan > Inspect > Console) untuk pesan error dari Firebase, mungkin terkait indeks." });
       setDailyRecords([]);
     } finally {
@@ -117,12 +128,12 @@ export default function ManageTeacherAttendancePage() {
       toast({ title: "Info", description: "Fitur edit kehadiran harian oleh Admin akan segera tersedia. Gunakan Hapus jika ada kesalahan."});
   };
 
-  const handleDownloadExcel = () => {
+  const handleDownloadDailyExcel = () => {
     if (dailyRecords.length === 0) {
       toast({
         variant: "default",
-        title: "Tidak Ada Data",
-        description: "Tidak ada data kehadiran yang sesuai dengan filter untuk diunduh.",
+        title: "Tidak Ada Data Harian",
+        description: "Tidak ada data kehadiran harian yang sesuai dengan filter untuk diunduh.",
       });
       return;
     }
@@ -134,7 +145,7 @@ export default function ManageTeacherAttendancePage() {
       'Catatan': rec.notes || '-',
       'Dicatat Pada': rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
       'Diperbarui Pada': rec.updatedAt ? format(rec.updatedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
-      'Pencatat Terakhir': rec.lastUpdatedByUid || '-', // Might need to resolve to name if UIDs are not desired
+      'Pencatat Terakhir': rec.lastUpdatedByUid || '-', 
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -146,10 +157,78 @@ export default function ManageTeacherAttendancePage() {
     ];
     worksheet['!cols'] = wscols;
 
-    XLSX.writeFile(workbook, `rekap_kehadiran_harian_${dailyFilterYear}_${dailyFilterMonth === "all" ? "SemuaBulan" : MONTHS.find(m => m.value === dailyFilterMonth)?.label}.xlsx`);
+    const monthLabel = dailyFilterMonth === "all" ? "SemuaBulan" : MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth);
+    XLSX.writeFile(workbook, `rekap_harian_kehadiran_${dailyFilterYear}_${monthLabel}.xlsx`);
     toast({
       title: "Unduhan Dimulai",
       description: "File Excel rekap kehadiran harian sedang disiapkan.",
+    });
+  };
+
+  const handleDownloadMonthlySummaryExcel = async () => {
+    if (dailyFilterMonth === "all") {
+      toast({ variant: "default", title: "Pilih Bulan Spesifik", description: "Untuk rekap bulanan, silakan pilih bulan tertentu." });
+      return;
+    }
+
+    // Fetch all records for the specific month and year, ignoring teacher filter for summary
+    let recordsForMonth: TeacherDailyAttendance[];
+    try {
+        recordsForMonth = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, dailyFilterMonth);
+    } catch (err) {
+        toast({ variant: "destructive", title: "Gagal Ambil Data Bulanan", description: "Tidak dapat mengambil data untuk rekap bulanan." });
+        return;
+    }
+    
+    if (recordsForMonth.length === 0) {
+      toast({ variant: "default", title: "Tidak Ada Data Bulanan", description: "Tidak ada data kehadiran untuk direkap pada bulan ini." });
+      return;
+    }
+
+    const summaryMap = new Map<string, MonthlySummary>();
+
+    recordsForMonth.forEach(rec => {
+      if (!summaryMap.has(rec.teacherUid)) {
+        summaryMap.set(rec.teacherUid, {
+          teacherUid: rec.teacherUid,
+          teacherName: rec.teacherName || rec.teacherUid,
+          Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, 'Total Tercatat': 0
+        });
+      }
+      const teacherSummary = summaryMap.get(rec.teacherUid)!;
+      teacherSummary[rec.status]++;
+      teacherSummary['Total Tercatat']++;
+    });
+
+    const dataForExcel = Array.from(summaryMap.values()).map(summary => ({
+      'Nama Guru': summary.teacherName,
+      'Bulan': MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth),
+      'Tahun': dailyFilterYear,
+      'Total Hadir': summary.Hadir,
+      'Total Izin': summary.Izin,
+      'Total Sakit': summary.Sakit,
+      'Total Alpa': summary.Alpa,
+      'Total Hari Tercatat': summary['Total Tercatat'],
+    }));
+    
+    dataForExcel.sort((a,b) => a['Nama Guru'].localeCompare(b['Nama Guru']));
+
+
+    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Kehadiran Bulanan");
+
+    const wscols = [
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, 
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    const monthLabel = MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth);
+    XLSX.writeFile(workbook, `rekap_bulanan_kehadiran_${dailyFilterYear}_${monthLabel}.xlsx`);
+    toast({
+      title: "Unduhan Dimulai",
+      description: "File Excel rekap kehadiran bulanan sedang disiapkan.",
     });
   };
 
@@ -170,12 +249,24 @@ export default function ManageTeacherAttendancePage() {
                 <CardTitle>Daftar Kehadiran Harian (Dicatat Guru)</CardTitle>
                 <CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription>
             </div>
-            {dailyRecords.length > 0 && !isLoadingDailyRecords && (
-              <Button onClick={handleDownloadExcel} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Unduh Excel
-              </Button>
-            )}
+            <div className="flex flex-col sm:flex-row gap-2">
+                {dailyRecords.length > 0 && !isLoadingDailyRecords && (
+                <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto">
+                    <Download className="mr-2 h-4 w-4" />
+                    Unduh Detail Harian
+                </Button>
+                )}
+                <Button 
+                  onClick={handleDownloadMonthlySummaryExcel} 
+                  variant="outline" 
+                  className="w-full sm:w-auto"
+                  disabled={dailyFilterMonth === "all" || !dailyFilterYear || isLoadingDailyRecords}
+                  title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}
+                >
+                    <CalendarRange className="mr-2 h-4 w-4" />
+                    Unduh Rekap Bulanan
+                </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -187,7 +278,7 @@ export default function ManageTeacherAttendancePage() {
           {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
           {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
            : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
-           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecord(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
+           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecord(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
           }
         </CardContent>
       </Card>
@@ -196,6 +287,4 @@ export default function ManageTeacherAttendancePage() {
     </div>
   );
 }
-
-
     

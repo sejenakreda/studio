@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone } from "lucide-react";
+import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone, BookUser as StudentIcon } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +63,14 @@ export default function AdminDashboardPage() {
       href: "/admin/teachers" 
     },
     { 
+      title: "Total Siswa", 
+      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
+      icon: StudentIcon, 
+      color: "text-emerald-500", 
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/30", 
+      href: "/admin/students" 
+    },
+    { 
       title: "Kelola Mapel", 
       value: "Master Data", 
       icon: ListChecks, 
@@ -87,8 +95,8 @@ export default function AdminDashboardPage() {
       href: "/admin/weights" 
     },
     { 
-      title: "Total Siswa (Global)", 
-      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
+      title: "Semua Nilai Siswa", 
+      value: "Global View", 
       icon: FileText, 
       color: "text-purple-500", 
       bgColor: "bg-purple-100 dark:bg-purple-900/30", 
@@ -117,7 +125,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {stats.map((stat) => (
           <Link 
             href={stat.href} 
@@ -184,6 +192,11 @@ export default function AdminDashboardPage() {
                 <Users className="h-5 w-5" /> Kelola Guru
               </Button>
             </Link>
+             <Link href="/admin/students">
+              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
+                <StudentIcon className="h-5 w-5" /> Kelola Siswa
+              </Button>
+            </Link>
             <Link href="/admin/mapel">
               <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
                 <ListChecks className="h-5 w-5" /> Kelola Mapel
@@ -220,4 +233,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
     

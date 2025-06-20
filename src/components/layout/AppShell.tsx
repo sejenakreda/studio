@@ -40,6 +40,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin", label: "Dasbor Admin", icon: Home, roles: ['admin'], isExact: true },
   { href: "/admin/teachers", label: "Kelola Guru", icon: Users, roles: ['admin'] },
+  { href: "/admin/students", label: "Kelola Siswa", icon: BookUser, roles: ['admin'] },
   { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks, roles: ['admin'] },
   { href: "/admin/announcements", label: "Pengumuman", icon: Megaphone, roles: ['admin'] },
   { href: "/admin/weights", label: "Atur Bobot", icon: Settings, roles: ['admin'] },
@@ -48,7 +49,7 @@ const navItems: NavItem[] = [
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'], isExact: true },
   { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
-  { href: "/guru/students", label: "Kelola Siswa", icon: BookUser, roles: ['guru'] },
+  { href: "/guru/students", label: "Daftar Siswa", icon: BookUser, roles: ['guru'] }, // Label diubah
   { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
   { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
 ];
@@ -74,7 +75,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const newestTimestamp = allFetchedAnnouncements[0].createdAt.toMillis();
               localStorage.setItem(lastSeenKey, newestTimestamp.toString());
             } else {
-              // If no announcements, still update last seen to now to prevent old badge if announcements are deleted
               localStorage.setItem(lastSeenKey, Timestamp.now().toMillis().toString());
             }
             setAnnouncementBadgeCount(0); 
@@ -102,8 +102,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       updateBadgeLogic();
     } else {
       setAnnouncementBadgeCount(0);
-      // Clear localStorage for other roles or if userProfile.uid is not available
-      // This prevents a logged-out admin from seeing a guru's badge count if IDs were mixed up (unlikely but safe)
       if(userProfile?.uid) { 
         localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
       }
@@ -113,7 +111,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 
   const handleLogout = async () => {
-    // No need to clear specific localStorage here, as new login or different user will use their own key
     await signOut(auth);
     router.push("/login");
   };
@@ -128,18 +125,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
     
-    // Find an exact match first
     const exactMatch = filteredNavItems.find(item => item.href === pathname);
     if (exactMatch) {
       return exactMatch.label;
     }
 
-    // Find the longest prefix match for nested routes
     let bestMatch = null;
     for (const item of filteredNavItems) {
-      // Skip if it's an exact-only item and not an exact match
       if (item.isExact) continue; 
-
       if (pathname.startsWith(item.href)) {
         if (!bestMatch || item.href.length > bestMatch.href.length) {
           bestMatch = item;
@@ -218,4 +211,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
     

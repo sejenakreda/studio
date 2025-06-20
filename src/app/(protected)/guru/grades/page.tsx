@@ -84,6 +84,7 @@ export default function InputGradesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingKkm, setIsSavingKkm] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [hasNoMapelAssignedError, setHasNoMapelAssignedError] = useState(false);
   
   const [calculatedFinalGrade, setCalculatedFinalGrade] = useState<number | null>(null);
   const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
@@ -94,6 +95,7 @@ export default function InputGradesPage() {
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [isImportingFile, setIsImportingFile] = useState(false);
   const fileImportInputRef = useRef<HTMLInputElement>(null);
+  const [retryCounter, setRetryCounter] = useState(0);
 
   const form = useForm<GradeFormData>({
     resolver: zodResolver(gradeSchema),
@@ -155,25 +157,46 @@ export default function InputGradesPage() {
   }, [form]);
 
   useEffect(() => {
-    async function fetchInitialDataInternal() {
+    async function fetchInitialPageData() {
       if (authIsLoading) {
-        setIsLoadingInitialData(true); // Keep loading if auth is still resolving
+        setIsLoadingInitialData(true);
+        setFetchError(null);
+        setHasNoMapelAssignedError(false);
         return;
       }
-
+  
       if (!userProfile || !userProfile.uid) {
         setFetchError("Sesi guru tidak ditemukan. Silakan login ulang.");
         setIsLoadingInitialData(false);
-        // Clear out any potentially stale data
-        setAllStudents([]); setAvailableClasses([]); setWeights(null);
-        setSelectableYears([]); setAssignedMapelList([]);
+        setHasNoMapelAssignedError(false);
+        setAssignedMapelList([]);
+        setAllStudents([]); setAvailableClasses([]); setWeights(null); setSelectableYears([]);
+        form.reset(form.formState.defaultValues); 
+        resetGradeFieldsToZero();
         return;
       }
       
-      setIsLoadingInitialData(true); 
+      setIsLoadingInitialData(true);
       setFetchError(null);
+      setHasNoMapelAssignedError(false);
+  
       try {
-        const [studentList, weightData, activeYears] = await Promise.all([
+        const guruMapel = userProfile.assignedMapel || [];
+        setAssignedMapelList(guruMapel);
+  
+        if (guruMapel.length === 0) {
+          setHasNoMapelAssignedError(true);
+          // Fetch data not dependent on mapel
+          const activeYearsData = await getActiveAcademicYears();
+          setSelectableYears(activeYearsData);
+          // Set form defaults that don't depend on mapel
+          form.setValue('selectedAcademicYear', activeYearsData.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : (activeYearsData[0] || ""));
+          form.setValue('selectedSemester', SEMESTERS[0]?.value || 1);
+          setIsLoadingInitialData(false);
+          return; // Stop further data fetching dependent on mapel
+        }
+  
+        const [studentList, weightData, activeYearsData] = await Promise.all([
           getStudents(),
           getWeights(),
           getActiveAcademicYears()
@@ -182,16 +205,14 @@ export default function InputGradesPage() {
         setAllStudents(studentList || []);
         const uniqueStudentClasses = [...new Set((studentList || []).map(s => s.kelas).filter(Boolean) as string[])].sort();
         setAvailableClasses(uniqueStudentClasses);
-
+  
         const newStudentMap = new Map((studentList || []).map(s => [s.id_siswa, s]));
         setStudentMap(newStudentMap);
-
+  
         setWeights(weightData);
-        setSelectableYears(activeYears);
-
-        const guruAssignedMapel = userProfile?.assignedMapel || [];
-        setAssignedMapelList(guruAssignedMapel);
+        setSelectableYears(activeYearsData);
         
+        // Set form defaults based on params or logical defaults
         const studentIdParam = searchParams.get('studentId');
         const academicYearParam = searchParams.get('academicYear');
         const semesterParam = searchParams.get('semester');
@@ -216,12 +237,12 @@ export default function InputGradesPage() {
         form.setValue('selectedStudentId', defaultStudentIdVal);
 
         let defaultYearVal = "";
-        if (academicYearParam && activeYears.includes(academicYearParam)) {
+        if (academicYearParam && activeYearsData.includes(academicYearParam)) {
             defaultYearVal = academicYearParam;
-        } else if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
+        } else if (activeYearsData.includes(CURRENT_ACADEMIC_YEAR)) {
           defaultYearVal = CURRENT_ACADEMIC_YEAR;
-        } else if (activeYears.length > 0) {
-          defaultYearVal = activeYears[0];
+        } else if (activeYearsData.length > 0) {
+          defaultYearVal = activeYearsData[0];
         }
         form.setValue('selectedAcademicYear', defaultYearVal);
         
@@ -232,30 +253,33 @@ export default function InputGradesPage() {
         form.setValue('selectedSemester', defaultSemesterVal);
 
         let defaultMapelVal = "";
-        if (mapelParam && guruAssignedMapel.includes(mapelParam)) {
+        if (mapelParam && guruMapel.includes(mapelParam)) {
           defaultMapelVal = mapelParam;
-        } else if (guruAssignedMapel.length > 0) {
-          defaultMapelVal = guruAssignedMapel[0];
+        } else if (guruMapel.length > 0) {
+          defaultMapelVal = guruMapel[0];
         }
         form.setValue('selectedMapel', defaultMapelVal);
         
         resetGradeFieldsToZero();
-
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-        setFetchError("Gagal memuat data siswa, bobot, atau tahun ajaran. Silakan coba lagi.");
+  
+      } catch (error: any) {
+        console.error("Error fetching initial page data:", error);
+        setFetchError("Gagal memuat data awal untuk halaman input nilai. Silakan coba lagi.");
         toast({ variant: "destructive", title: "Error", description: "Gagal memuat data awal." });
+        setAssignedMapelList([]); // Clear mapel list on error
       } finally {
         setIsLoadingInitialData(false);
       }
     }
-    fetchInitialDataInternal();
-  }, [authIsLoading, userProfile, searchParams, toast, form, resetGradeFieldsToZero]); 
+    fetchInitialPageData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authIsLoading, userProfile, searchParams, toast, form, resetGradeFieldsToZero, retryCounter]);
+
 
   useEffect(() => {
     async function fetchKkmData() {
-      if (isLoadingInitialData || !selectedMapel || !selectedAcademicYear) {
-        if (!isLoadingInitialData) {
+      if (isLoadingInitialData || !selectedMapel || !selectedAcademicYear || hasNoMapelAssignedError || fetchError) {
+        if (!isLoadingInitialData && !hasNoMapelAssignedError && !fetchError) {
              form.setValue("kkmValue", 70); 
              setCurrentKkm(70);
         }
@@ -276,21 +300,21 @@ export default function InputGradesPage() {
         setIsLoadingGradeData(false);
       }
     }
-    if(!isLoadingInitialData){ // Only run if initial data (including auth check) is done
+    if(!isLoadingInitialData && !authIsLoading){ 
       fetchKkmData();
     }
-  }, [selectedMapel, selectedAcademicYear, isLoadingInitialData, form, toast]);
+  }, [selectedMapel, selectedAcademicYear, isLoadingInitialData, form, toast, hasNoMapelAssignedError, fetchError, authIsLoading]);
 
   useEffect(() => {
     async function fetchAndSetGrade() {
-      if (isLoadingInitialData || authIsLoading || !userProfile?.uid || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights ) {
-        if (!isLoadingInitialData && !authIsLoading) { // if data load is done and auth is done, then reset
+      if (isLoadingInitialData || authIsLoading || !userProfile?.uid || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights || hasNoMapelAssignedError || fetchError ) {
+        if (!isLoadingInitialData && !authIsLoading && !hasNoMapelAssignedError && !fetchError) { 
            resetGradeFieldsToZero();
         }
         return;
       }
       setIsLoadingGradeData(true);
-      setFetchError(null);
+      // No need to setFetchError(null) here, as major errors handled by initial load
       try {
         const gradeData = await getGrade(selectedStudentId, selectedSemester, selectedAcademicYear, selectedMapel, userProfile.uid);
         const totalDaysForSemesterVal = selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
@@ -312,20 +336,20 @@ export default function InputGradesPage() {
         }
       } catch (error) {
         console.error("Error fetching grade data:", error);
-        setFetchError("Gagal memuat data nilai siswa. Silakan coba lagi.");
+        // setFetchError("Gagal memuat data nilai siswa. Silakan coba lagi."); // Avoid overwriting initial load error
         toast({ variant: "destructive", title: "Error", description: "Gagal memuat data nilai." });
         resetGradeFieldsToZero();
       } finally {
         setIsLoadingGradeData(false);
       }
     }
-    if(!isLoadingInitialData && !authIsLoading && userProfile?.uid){
+    if(!isLoadingInitialData && !authIsLoading && userProfile?.uid && !hasNoMapelAssignedError && !fetchError){
       fetchAndSetGrade();
     }
-  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, isLoadingInitialData, authIsLoading, userProfile?.uid, resetGradeFieldsToZero, form, toast]);
+  }, [selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, weights, isLoadingInitialData, authIsLoading, userProfile?.uid, resetGradeFieldsToZero, form, toast, hasNoMapelAssignedError, fetchError]);
 
  useEffect(() => {
-    if (weights && !isLoadingInitialData && !authIsLoading && userProfile?.uid && selectedMapel && selectedStudentId && typeof kkmValue === 'number') {
+    if (weights && !isLoadingInitialData && !authIsLoading && userProfile?.uid && selectedMapel && selectedStudentId && typeof kkmValue === 'number' && !hasNoMapelAssignedError && !fetchError) {
       const totalDaysForSemesterVal = selectedSemester === 1
         ? weights.totalHariEfektifGanjil
         : weights.totalHariEfektifGenap;
@@ -384,7 +408,7 @@ export default function InputGradesPage() {
       const overallTuntas = (finalGrade !== null && finalGrade >= kkmToUse) && allAcademicComponentsAreTuntas;
       setOverallAcademicStatus(selectedStudentId && selectedMapel ? (overallTuntas ? 'Tuntas' : 'Belum Tuntas') : 'Menghitung...');
 
-    } else if (!selectedStudentId || !selectedMapel) {
+    } else if (!selectedStudentId || !selectedMapel || hasNoMapelAssignedError || fetchError) {
         setOverallAcademicStatus('Menghitung...');
         setUntuntasComponents([]);
         setCalculatedFinalGrade(null);
@@ -392,7 +416,7 @@ export default function InputGradesPage() {
   }, [ 
     selectedStudentId, selectedAcademicYear, selectedSemester, selectedMapel, kkmValue,
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis,
-    weights, isLoadingInitialData, authIsLoading, userProfile?.uid
+    weights, isLoadingInitialData, authIsLoading, userProfile?.uid, hasNoMapelAssignedError, fetchError
   ]);
 
   const handleSaveKkm = async () => {
@@ -436,13 +460,24 @@ export default function InputGradesPage() {
 
   const onSubmit = async (data: GradeFormData) => {
     setIsSubmitting(true);
-    setFetchError(null);
+    // No need to setFetchError(null) here as it's for initial load issues
 
     if (authIsLoading || !userProfile?.uid) {
       toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak ditemukan. Silakan login ulang." });
       setIsSubmitting(false);
       return;
     }
+    if (hasNoMapelAssignedError) {
+      toast({ variant: "destructive", title: "Error", description: "Tidak ada mapel ditugaskan. Tidak dapat menyimpan nilai." });
+      setIsSubmitting(false);
+      return;
+    }
+    if (fetchError) { // Check for existing initial load error
+        toast({ variant: "destructive", title: "Error Sistem", description: "Tidak dapat menyimpan nilai karena ada masalah saat memuat data awal. Coba muat ulang halaman." });
+        setIsSubmitting(false);
+        return;
+    }
+
 
     if (!weights) {
       toast({ variant: "destructive", title: "Error", description: "Konfigurasi bobot & hari efektif belum dimuat." });
@@ -494,7 +529,6 @@ export default function InputGradesPage() {
       toast({ title: "Sukses", description: "Data nilai siswa untuk mapel " + data.selectedMapel + " berhasil disimpan." });
     } catch (error) {
       console.error("Error saving grade data:", error);
-      setFetchError("Gagal menyimpan data nilai. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: "Gagal menyimpan data nilai." });
     } finally {
       setIsSubmitting(false);
@@ -526,6 +560,9 @@ export default function InputGradesPage() {
             variant: "default"
         });
         return;
+    }
+    if (hasNoMapelAssignedError || fetchError) {
+      toast({title:"Operasi Tidak Diizinkan", description: "Tidak dapat membuat template karena belum ada mapel ditugaskan atau terjadi error sistem.", variant: "destructive"}); return;
     }
     setIsImportingFile(true); 
     try {
@@ -588,8 +625,8 @@ export default function InputGradesPage() {
   };
 
   const handleExportCurrentGrade = () => {
-    if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights) {
-      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Pilih siswa, tahun ajaran, semester, dan mapel terlebih dahulu." });
+    if (!selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || !weights || hasNoMapelAssignedError || fetchError) {
+      toast({ variant: "destructive", title: "Data Tidak Lengkap atau Error", description: "Pilih siswa, periode, mapel, dan pastikan tidak ada error sistem sebelum ekspor." });
       return;
     }
     const currentStudent = studentMap.get(selectedStudentId);
@@ -676,8 +713,8 @@ export default function InputGradesPage() {
         toast({ variant: "destructive", title: "Mapel Belum Dipilih", description: "Silakan pilih mata pelajaran di filter terlebih dahulu sebelum mengimpor." });
         return;
     }
-    if (authIsLoading || !userProfile?.uid) {
-        toast({ variant: "destructive", title: "Error Sesi", description: "Sesi guru tidak valid. Impor dibatalkan." });
+    if (authIsLoading || !userProfile?.uid || hasNoMapelAssignedError || fetchError) {
+        toast({ variant: "destructive", title: "Error Sesi atau Sistem", description: "Sesi guru tidak valid atau ada error sistem. Impor dibatalkan." });
         return;
     }
 
@@ -838,47 +875,15 @@ export default function InputGradesPage() {
     reader.readAsBinaryString(selectedImportFile);
   };
 
-  const retryFetchInitialData = () => {
-    // This will re-trigger the main useEffect by changing a dependency (userProfile or authIsLoading)
-    // If userProfile is somehow reset or a re-fetch is forced.
-    // For a direct call, you'd ideally abstract the fetchInitialDataInternal logic.
-    // For now, if userProfile exists, just re-run the logic.
-    async function fetchInitialDataInternal() {
-       if (authIsLoading) { setIsLoadingInitialData(true); return; }
-       if (!userProfile || !userProfile.uid) {
-        setFetchError("Sesi guru tidak ditemukan. Silakan login ulang."); setIsLoadingInitialData(false); return;
-       }
-      setIsLoadingInitialData(true); setFetchError(null);
-      try { /* ... same logic as in useEffect ... */
-        const [studentList, weightData, activeYears] = await Promise.all([ getStudents(), getWeights(), getActiveAcademicYears() ]);
-        setAllStudents(studentList || []);
-        const uniqueStudentClasses = [...new Set((studentList || []).map(s => s.kelas).filter(Boolean) as string[])].sort();
-        setAvailableClasses(uniqueStudentClasses);
-        const newStudentMap = new Map((studentList || []).map(s => [s.id_siswa, s]));
-        setStudentMap(newStudentMap);
-        setWeights(weightData); setSelectableYears(activeYears);
-        const guruAssignedMapel = userProfile?.assignedMapel || [];
-        setAssignedMapelList(guruAssignedMapel);
-        // Reset form fields based on params or defaults as in useEffect
-        const studentIdParam = searchParams.get('studentId'); const academicYearParam = searchParams.get('academicYear');
-        const semesterParam = searchParams.get('semester'); const mapelParam = searchParams.get('mapel');
-        const classParam = searchParams.get('class');
-        let defaultClassVal = "all"; if (classParam && uniqueStudentClasses.includes(classParam)) { defaultClassVal = classParam; } form.setValue('selectedClass', defaultClassVal);
-        let defaultStudentIdVal = ""; if (studentIdParam && newStudentMap.has(studentIdParam)) { defaultStudentIdVal = studentIdParam; } else if (defaultClassVal !== "all") { const studentsInClass = (studentList || []).filter(s => s.kelas === defaultClassVal); if (studentsInClass.length > 0) defaultStudentIdVal = studentsInClass[0].id_siswa; } else if (studentList && studentList.length > 0) { defaultStudentIdVal = studentList[0].id_siswa; } form.setValue('selectedStudentId', defaultStudentIdVal);
-        let defaultYearVal = ""; if (academicYearParam && activeYears.includes(academicYearParam)) { defaultYearVal = academicYearParam; } else if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) { defaultYearVal = CURRENT_ACADEMIC_YEAR; } else if (activeYears.length > 0) { defaultYearVal = activeYears[0]; } form.setValue('selectedAcademicYear', defaultYearVal);
-        let defaultSemesterVal = SEMESTERS[0]?.value || 1; if (semesterParam && SEMESTERS.some(s => String(s.value) === semesterParam)) { defaultSemesterVal = parseInt(semesterParam, 10); } form.setValue('selectedSemester', defaultSemesterVal);
-        let defaultMapelVal = ""; if (mapelParam && guruAssignedMapel.includes(mapelParam)) { defaultMapelVal = mapelParam; } else if (guruAssignedMapel.length > 0) { defaultMapelVal = guruAssignedMapel[0]; } form.setValue('selectedMapel', defaultMapelVal);
-        resetGradeFieldsToZero();
-      } catch (error) {
-        console.error("Error retrying initial data:", error); setFetchError("Gagal memuat ulang data.");
-        toast({ variant: "destructive", title: "Error", description: "Gagal memuat ulang data." });
-      } finally { setIsLoadingInitialData(false); }
-    }
-    fetchInitialDataInternal();
+  const retryInitialDataLoad = () => {
+    setFetchError(null);
+    setHasNoMapelAssignedError(false);
+    setIsLoadingInitialData(true);
+    setRetryCounter(prev => prev + 1); // Trigger the main useEffect
   };
 
 
-  if (isLoadingInitialData || authIsLoading) { // Show loading if either auth or initial page data is loading
+  if (authIsLoading || (isLoadingInitialData && !fetchError && !hasNoMapelAssignedError) ) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
@@ -887,7 +892,9 @@ export default function InputGradesPage() {
     );
   }
   
-  const noMapelAssigned = assignedMapelList.length === 0;
+  const isFormDisabled = fetchError !== null || hasNoMapelAssignedError;
+  const noMapelAssigned = assignedMapelList.length === 0 && !fetchError && !authIsLoading && !isLoadingInitialData;
+
 
   return (
     <div className="space-y-6">
@@ -901,8 +908,8 @@ export default function InputGradesPage() {
           <Card>
             <CardHeader><CardTitle>Filter Data &amp; Pengaturan Mapel</CardTitle><CardDescription>Pilih kelas, siswa, periode, mata pelajaran, dan atur KKM.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
-              {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription><Button onClick={retryFetchInitialData} variant="outline">Coba Lagi</Button></Alert>)}
-              {noMapelAssigned && !isLoadingInitialData && !authIsLoading && ( // Check authIsLoading here too
+              {fetchError && (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription><Button onClick={retryInitialDataLoad} variant="outline">Coba Lagi</Button></Alert>)}
+              {hasNoMapelAssignedError && !fetchError && ( 
                 <Alert variant="default">
                   <Info className="h-4 w-4" />
                   <AlertTitle>Belum Ada Mapel Ditugaskan</AlertTitle>
@@ -927,7 +934,7 @@ export default function InputGradesPage() {
                             }
                           }}
                         value={field.value || "all"} 
-                        disabled={availableClasses.length === 0 || noMapelAssigned || fetchError !== null}
+                        disabled={isFormDisabled || availableClasses.length === 0}
                       >
                         <FormControl><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger></FormControl>
                         <SelectContent>{availableClasses.length === 0 ? (<SelectItem value="all" disabled>Belum ada data kelas</SelectItem>) : (<><SelectItem value="all">Semua Kelas</SelectItem>{availableClasses.map(kls => (<SelectItem key={kls} value={kls}>{kls}</SelectItem>))}</>)}</SelectContent>
@@ -936,16 +943,14 @@ export default function InputGradesPage() {
                     </FormItem>
                   )} 
                 />
-                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={filteredStudentsForDropdown.length === 0 || noMapelAssigned || !selectedClass || fetchError !== null}><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{filteredStudentsForDropdown.length === 0 ? (<SelectItem value="-" disabled>{selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu"}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={selectableYears.length === 0 || noMapelAssigned || fetchError !== null}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="-" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={noMapelAssigned || fetchError !== null}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedStudentId" render={({ field }) => (<FormItem><FormLabel>Pilih Siswa</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormDisabled || filteredStudentsForDropdown.length === 0 || !selectedClass }><FormControl><SelectTrigger><SelectValue placeholder="Pilih siswa..." /></SelectTrigger></FormControl><SelectContent>{filteredStudentsForDropdown.length === 0 ? (<SelectItem value="-" disabled>{selectedClass && selectedClass !== "all" ? "Tidak ada siswa di kelas ini" : "Pilih kelas dahulu"}</SelectItem>) : (filteredStudentsForDropdown.map(student => (<SelectItem key={student.id_siswa} value={student.id_siswa}>{student.nama} ({student.nis})</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedAcademicYear" render={({ field }) => (<FormItem><FormLabel>Tahun Ajaran</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormDisabled || selectableYears.length === 0}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tahun ajaran..." /></SelectTrigger></FormControl><SelectContent>{selectableYears.length === 0 ? (<SelectItem value="-" disabled>Tidak ada tahun aktif</SelectItem>) : (selectableYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>)))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="selectedSemester" render={({ field }) => (<FormItem><FormLabel>Semester</FormLabel><Select onValueChange={(value) => field.onChange(parseInt(value))} value={String(field.value || SEMESTERS[0]?.value)} disabled={isFormDisabled}><FormControl><SelectTrigger><SelectValue placeholder="Pilih semester..." /></SelectTrigger></FormControl><SelectContent>{SEMESTERS.map(semester => (<SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectedMapel" render={({ field }) => (<FormItem><FormLabel>Mata Pelajaran</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""} disabled={noMapelAssigned || fetchError !== null}>
+                  <Select onValueChange={field.onChange} value={field.value || ""} disabled={isFormDisabled || assignedMapelList.length === 0}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Pilih mapel yang diampu..." /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {noMapelAssigned ? (
-                        <SelectItem value="-" disabled>Tidak ada mapel ditugaskan</SelectItem>
-                      ) : assignedMapelList.length === 0 ? (
+                      {assignedMapelList.length === 0 ? (
                          <SelectItem value="-" disabled>Anda belum ditugaskan mapel</SelectItem>
                       ) : (
                         assignedMapelList.map(mapel => (<SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>))
@@ -967,7 +972,7 @@ export default function InputGradesPage() {
                             {...field}
                             value={field.value ?? ""} 
                             onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                            disabled={noMapelAssigned || !selectedMapel || !selectedAcademicYear || fetchError !== null}
+                            disabled={isFormDisabled || !selectedMapel || !selectedAcademicYear}
                         />
                         </FormControl>
                         <Button
@@ -976,7 +981,7 @@ export default function InputGradesPage() {
                         variant="outline"
                         size="icon"
                         title="Simpan KKM"
-                        disabled={isSavingKkm || noMapelAssigned || !selectedMapel || !selectedAcademicYear || form.getValues('kkmValue') === currentKkm || fetchError !== null}
+                        disabled={isSavingKkm || isFormDisabled || !selectedMapel || !selectedAcademicYear || form.getValues('kkmValue') === currentKkm}
                         >
                         {isSavingKkm ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
                         </Button>
@@ -990,15 +995,9 @@ export default function InputGradesPage() {
             </CardContent>
           </Card>
 
-          {(isLoadingGradeData && selectedMapel && !noMapelAssigned && selectedStudentId && !fetchError) ? (
+          {(isLoadingGradeData && selectedMapel && !isFormDisabled && selectedStudentId ) ? (
              <Card className="mt-6"><CardHeader><CardTitle>Memuat Data Nilai &amp; KKM...</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></CardContent></Card>
-          ) : fetchError ? null : noMapelAssigned ? (
-            <Card className="mt-6"><CardHeader><CardTitle>Input Nilai Dinonaktifkan</CardTitle></CardHeader><CardContent><p className="text-muted-foreground text-center py-8">Silakan hubungi Admin untuk penugasan mata pelajaran.</p></CardContent></Card>
-          ) : !selectedMapel && !noMapelAssigned ? (
-             <Card className="mt-6"><CardHeader><CardTitle>Pilih Mata Pelajaran</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[100px]"><p className="text-muted-foreground">Silakan pilih mata pelajaran yang Anda ampu untuk melanjutkan.</p></CardContent></Card>
-          ) : !selectedStudentId && selectedMapel && !noMapelAssigned ? (
-             <Card className="mt-6"><CardHeader><CardTitle>Pilih Siswa</CardTitle></CardHeader><CardContent className="flex items-center justify-center min-h-[100px]"><p className="text-muted-foreground">Silakan pilih siswa untuk menginput atau melihat nilai.</p></CardContent></Card>
-          ) : (
+          ) : isFormDisabled ? null : (
             <Card className="mt-6">
               <CardHeader><CardTitle>Form Input Nilai</CardTitle><CardDescription>Masukkan nilai (0-100) atau jumlah hari hadir. Nilai akhir akan dihitung otomatis.</CardDescription></CardHeader>
               <CardContent className="space-y-6">
@@ -1130,10 +1129,10 @@ export default function InputGradesPage() {
                 )}
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={isSubmitting || noMapelAssigned || !selectedStudentId || !weights || !selectedAcademicYear || !selectedMapel || fetchError !== null}>
+                <Button type="submit" disabled={isSubmitting || isFormDisabled || !selectedStudentId || !weights || !selectedAcademicYear || !selectedMapel}>
                   {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>) : (<><Save className="mr-2 h-4 w-4" />Simpan Nilai</>)}
                 </Button>
-                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={noMapelAssigned || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel || fetchError !== null}>
+                 <Button type="button" variant="outline" onClick={handleExportCurrentGrade} disabled={isFormDisabled || !selectedStudentId || !selectedAcademicYear || !selectedSemester || !selectedMapel}>
                   <FileDown className="mr-2 h-4 w-4" /> Ekspor Nilai Ini
                 </Button>
               </CardFooter>
@@ -1154,10 +1153,10 @@ export default function InputGradesPage() {
               accept=".xlsx, .xls"
               onChange={handleFileChange}
               ref={fileImportInputRef}
-              disabled={noMapelAssigned || !watchedFormValues.selectedMapel || fetchError !== null}
+              disabled={isFormDisabled || !watchedFormValues.selectedMapel}
               className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
             />
-            <Button onClick={handleImportGradesFromFile} disabled={isImportingFile || !selectedImportFile || noMapelAssigned || !watchedFormValues.selectedMapel || fetchError !== null} className="w-full sm:w-auto">
+            <Button onClick={handleImportGradesFromFile} disabled={isImportingFile || !selectedImportFile || isFormDisabled || !watchedFormValues.selectedMapel} className="w-full sm:w-auto">
               {isImportingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
               {isImportingFile ? 'Mengimpor...' : 'Impor File Nilai'}
             </Button>
@@ -1172,7 +1171,7 @@ export default function InputGradesPage() {
             type="button"
             variant="outline"
             onClick={handleDownloadGradeTemplate}
-            disabled={isImportingFile || noMapelAssigned || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester || !watchedFormValues.selectedMapel || fetchError !== null}
+            disabled={isImportingFile || isFormDisabled || !watchedFormValues.selectedAcademicYear || !watchedFormValues.selectedSemester || !watchedFormValues.selectedMapel}
           >
             <Download className="mr-2 h-4 w-4" /> Unduh Template Impor Nilai
           </Button>

@@ -247,6 +247,7 @@ export default function AdminManageStudentsPage() {
     }
     setIsImporting(true);
     const reader = new FileReader();
+    const currentStudentList = await getStudents(); // Fetch fresh list before loop
 
     reader.onload = async (e) => {
       try {
@@ -273,8 +274,6 @@ export default function AdminManageStudentsPage() {
         let failCount = 0;
         const errorMessages: string[] = [];
         
-        const currentStudentList = await getStudents(); // Fetch fresh list before loop
-
         for (const student of json) {
           if (!student.nama || !student.nis || !student.kelas || !student.id_siswa) {
             failCount++;

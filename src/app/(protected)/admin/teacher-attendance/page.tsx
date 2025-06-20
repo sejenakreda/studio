@@ -341,7 +341,7 @@ export default function ManageTeacherAttendancePage() {
                 <CardTitle>Daftar Kehadiran Harian (Dicatat Guru)</CardTitle>
                 <CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {dailyRecords.length > 0 && !isLoadingDailyRecords && (
                 <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto">
                     <Download className="mr-2 h-4 w-4" />

@@ -243,6 +243,7 @@ export default function ManageTeachersPage() {
         return;
     }
     const masterMapelNames = masterMapel.map(m => m.namaMapel);
+    const currentTeacherList = await getAllUsersByRole('guru'); // Fetch fresh list
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -271,7 +272,6 @@ export default function ManageTeachersPage() {
         const errorMessages: string[] = [];
         let anyInvalidMapelDetected = false;
 
-        const currentTeacherList = await getAllUsersByRole('guru'); // Fetch fresh list
 
         for (const teacher of json) {
           if (!teacher.displayName || !teacher.email || !teacher.password) {
@@ -503,7 +503,7 @@ export default function ManageTeachersPage() {
               <CardTitle>Daftar Guru Terdaftar</CardTitle>
               <CardDescription>Berikut adalah daftar semua profil guru dalam sistem.</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
               <Button onClick={handleDownloadTeacherTemplate} variant="outline">
                 <Download className="mr-2 h-4 w-4" /> Unduh Template
               </Button>

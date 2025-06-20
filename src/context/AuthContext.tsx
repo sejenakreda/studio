@@ -26,39 +26,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const processAuthState = async (fbUser: FirebaseUser | null) => {
       if (fbUser) {
-        setUser(fbUser);
+        setUser(fbUser); // Set Firebase user immediately
         try {
           const userDocRef = doc(db as Firestore, 'users', fbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
+
           if (userDocSnap.exists()) {
-            const profileData = userDocSnap.data();
-            // Runtime validation for essential fields
-            if (profileData && 
-                typeof profileData.uid === 'string' && 
-                profileData.uid.trim() !== '' && 
-                profileData.role &&
-                (profileData.role === 'admin' || profileData.role === 'guru')) {
-              setUserProfile(profileData as UserProfile);
+            const profileDataFromDb = userDocSnap.data();
+
+            // Critical: Ensure the role exists and is valid from Firestore data.
+            if (profileDataFromDb &&
+                typeof profileDataFromDb.role === 'string' &&
+                (profileDataFromDb.role === 'admin' || profileDataFromDb.role === 'guru')) {
+
+              // Construct the UserProfile object.
+              // Prioritize fbUser.uid as the source of truth for the UID.
+              const constructedProfile: UserProfile = {
+                uid: fbUser.uid, // Use UID from Firebase Auth user
+                email: fbUser.email, // Use email from Firebase Auth user
+                displayName: profileDataFromDb.displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Pengguna',
+                role: profileDataFromDb.role as Role,
+                assignedMapel: profileDataFromDb.assignedMapel || [],
+                createdAt: profileDataFromDb.createdAt, // Keep existing timestamps if they exist
+                updatedAt: profileDataFromDb.updatedAt,
+              };
+
+              // Optional: Check for uid mismatch if profileDataFromDb.uid exists (for data integrity checks)
+              if (profileDataFromDb.uid && profileDataFromDb.uid !== fbUser.uid) {
+                console.warn(`AuthContext: UID mismatch for user ${fbUser.uid}. Firestore document has UID ${profileDataFromDb.uid}, but Auth UID is authoritative. Profile data used:`, constructedProfile);
+                // This is a data inconsistency but might not be a reason to log out if role is fine.
+              }
+
+              setUserProfile(constructedProfile);
             } else {
-              console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} is malformed or missing essential fields (uid, role). Logging out. Data:`, profileData);
+              // Role is missing or invalid in Firestore document
+              console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has missing, malformed, or invalid 'role'. Logging out. Firestore Data:`, profileDataFromDb);
               setUserProfile(null);
               await signOut(auth);
-              // setLoading(false) will be handled in the 'else' branch of the next onAuthStateChanged call
-              return; // Exit early as state will change again
+              // setLoading(false) will be handled by the next onAuthStateChanged call after signOut
+              return;
             }
           } else {
-            console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} not found. Logging out.`);
+            // Firestore document does not exist for this authenticated user
+            console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found. Logging out.`);
             setUserProfile(null);
             await signOut(auth);
+            // setLoading(false) will be handled by the next onAuthStateChanged call
             return;
           }
         } catch (error) {
-          console.error("AuthContext: Error fetching user profile for UID " + fbUser.uid + ". Logging out.", error);
+          console.error(`AuthContext: Error fetching/processing user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
           setUserProfile(null);
           await signOut(auth);
+          // setLoading(false) will be handled by the next onAuthStateChanged call
           return;
         }
       } else {
+        // fbUser is null (logged out or initial state)
         setUser(null);
         setUserProfile(null);
       }

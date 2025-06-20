@@ -34,8 +34,8 @@ interface GuruGradeSummaryView extends Nilai {
   nisSiswa?: string;
   kelasSiswa?: string;
   rataRataTugas?: number;
-  kkmValue?: number; 
-  isTuntas?: boolean; 
+  kkmValue?: number;
+  isTuntas?: boolean;
 }
 
 type SortableKeys = keyof Pick<GuruGradeSummaryView, 'namaSiswa' | 'nisSiswa' | 'kelasSiswa' | 'nilai_akhir' | 'mapel'>;
@@ -51,12 +51,12 @@ const ITEMS_PER_PAGE = 15;
 export default function RekapNilaiPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { userProfile } = useAuth();
+  const { userProfile, loading: authIsLoading } = useAuth();
 
   const [allGradesData, setAllGradesData] = useState<GuruGradeSummaryView[]>([]);
   const [studentsMap, setStudentsMap] = useState<Map<string, Siswa>>(new Map());
   const [kkmSettingsMap, setKkmSettingsMap] = useState<Map<string, number>>(new Map());
-  const [isLoading, setIsLoading] = useState(true);
+  const [pageIsLoading, setPageIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [gradeToDelete, setGradeToDelete] = useState<GuruGradeSummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,98 +66,121 @@ export default function RekapNilaiPage() {
   const [assignedMapelForFilter, setAssignedMapelForFilter] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
-  const [mapelFilter, setMapelFilter] = useState<string>(""); 
+  const [mapelFilter, setMapelFilter] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchInitialFilterData = useCallback(async () => {
-    if (!userProfile || !userProfile.uid) {
-      setError("Sesi guru tidak ditemukan atau tidak valid.");
-      setIsLoading(false);
-      return;
-    }
-     if (!userProfile.assignedMapel || userProfile.assignedMapel.length === 0) {
-      setError("Anda tidak memiliki mata pelajaran yang ditugaskan. Silakan hubungi Admin.");
-      setIsLoading(false);
-      toast({ variant: "destructive", title: "Error", description: "Tidak ada mapel ditugaskan." });
-      return;
-    }
-    
-    setIsLoading(true); // Keep loading true until grades are also fetched
-    setError(null);
-    try {
-      const [studentList, activeYears, uniqueMapelList] = await Promise.all([
-        getStudents(),
-        getActiveAcademicYears(),
-        getUniqueMapelNamesFromGrades(userProfile.assignedMapel, userProfile.uid) // Filter by teacher's own grades
-      ]);
-
-      setSelectableYears(activeYears);
-      const relevantMapel = uniqueMapelList.filter(mapel => userProfile.assignedMapel?.includes(mapel));
-      setAssignedMapelForFilter(relevantMapel);
-
-
-      if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
-        setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
-      } else if (activeYears.length > 0) {
-        setAcademicYearFilter(activeYears[0]);
-      } else {
-        setAcademicYearFilter(""); 
-        toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Silakan hubungi Admin."});
-      }
-
-      if (relevantMapel.length > 0 && !mapelFilter) {
-        setMapelFilter(relevantMapel[0]);
-      } else if (relevantMapel.length === 0 && userProfile.assignedMapel.length > 0) {
-        // If teacher has assigned mapel but no grades yet for any of them,
-        // default to their first assigned mapel for the filter UI.
-        setMapelFilter(userProfile.assignedMapel[0]);
-      }
-      
-      if (!Array.isArray(studentList)) throw new Error("Gagal memuat data siswa. Format tidak sesuai.");
-      const studentMap = new Map(studentList.map(s => [s.id_siswa, s]));
-      setStudentsMap(studentMap);
-      
-    } catch (err: any) {
-      console.error("Error fetching initial data for grade summary:", err);
-      setError("Gagal memuat data awal. Silakan coba lagi nanti.");
-      toast({
-        variant: "destructive",
-        title: "Error Memuat Data Awal",
-        description: err.message || "Terjadi kesalahan saat mengambil data.",
-      });
-       setIsLoading(false); // Ensure loading is false on error
-    } 
-    // setIsLoading(false) will be handled by the grades fetching effect
-  }, [toast, userProfile, mapelFilter]); // Removed mapelFilter to avoid loop, it's part of initial setup
-
+  // Effect for fetching initial filter data (academic years, mapel list, students map)
   useEffect(() => {
-    fetchInitialFilterData();
-  }, [fetchInitialFilterData]);
+    const fetchInitialData = async () => {
+      if (authIsLoading) {
+        setPageIsLoading(true);
+        return;
+      }
+
+      if (!userProfile || !userProfile.uid) {
+        setError("Sesi guru tidak ditemukan atau tidak valid.");
+        setPageIsLoading(false);
+        setAllGradesData([]);
+        return;
+      }
+
+      if (!userProfile.assignedMapel || userProfile.assignedMapel.length === 0) {
+        setError("Anda tidak memiliki mata pelajaran yang ditugaskan. Silakan hubungi Admin.");
+        setPageIsLoading(false);
+        setAllGradesData([]);
+        return;
+      }
+
+      setPageIsLoading(true);
+      setError(null);
+      try {
+        const [studentList, activeYears, uniqueMapelListFromGrades] = await Promise.all([
+          getStudents(),
+          getActiveAcademicYears(),
+          // Fetch unique mapel names based on *grades created by this teacher* for the filter
+          getUniqueMapelNamesFromGrades(userProfile.assignedMapel, userProfile.uid)
+        ]);
+
+        setSelectableYears(activeYears);
+        
+        // Filter uniqueMapelListFromGrades to only include those actually assigned to the teacher.
+        // This ensures the filter dropdown only shows mapel they teach AND have graded.
+        const relevantMapelForFilter = uniqueMapelListFromGrades.filter(mapel => userProfile.assignedMapel?.includes(mapel));
+        setAssignedMapelForFilter(relevantMapelForFilter);
+
+        if (activeYears.includes(CURRENT_ACADEMIC_YEAR) && !academicYearFilter) {
+          setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
+        } else if (activeYears.length > 0 && !academicYearFilter) {
+          setAcademicYearFilter(activeYears[0]);
+        } else if (activeYears.length === 0 && !academicYearFilter) {
+          setAcademicYearFilter("");
+          toast({ variant: "default", title: "Informasi", description: "Tidak ada tahun ajaran aktif. Hubungi Admin."});
+        }
+
+        // Set default mapel filter. If there are graded mapel, use the first one.
+        // Otherwise, if teacher has assigned mapel but no grades yet, use their first assigned one.
+        if (relevantMapelForFilter.length > 0 && !mapelFilter) {
+          setMapelFilter(relevantMapelForFilter[0]);
+        } else if (relevantMapelForFilter.length === 0 && userProfile.assignedMapel.length > 0 && !mapelFilter) {
+          setMapelFilter(userProfile.assignedMapel[0]); // Default to first assigned if no grades exist yet
+        }
+
+
+        if (!Array.isArray(studentList)) throw new Error("Gagal memuat data siswa. Format tidak sesuai.");
+        const studentMap = new Map(studentList.map(s => [s.id_siswa, s]));
+        setStudentsMap(studentMap);
+
+      } catch (err: any) {
+        console.error("Error fetching initial data for grade summary:", err);
+        setError("Gagal memuat data awal. Silakan coba lagi nanti.");
+        toast({
+          variant: "destructive",
+          title: "Error Memuat Data Awal",
+          description: err.message || "Terjadi kesalahan saat mengambil data.",
+        });
+      } finally {
+        // Loading for initial filter data is done.
+        // Actual grades loading will be handled by the next useEffect.
+        // If filters are ready, setPageIsLoading might be set to true again by fetchGradesAndKkm.
+        // If not, ensure pageIsLoading is false.
+        if (!(academicYearFilter && semesterFilter && mapelFilter)) {
+             setPageIsLoading(false);
+        }
+      }
+    };
+
+    fetchInitialData();
+  }, [authIsLoading, userProfile, toast]); // Removed academicYearFilter, mapelFilter from deps
+
 
   // Effect to fetch grades when filters or userProfile.uid change
   useEffect(() => {
     const fetchGradesAndKkm = async () => {
-      if (!userProfile || !userProfile.uid || !userProfile.assignedMapel || userProfile.assignedMapel.length === 0 || !academicYearFilter || !semesterFilter || !mapelFilter) {
-        setAllGradesData([]); 
-        setIsLoading(false); // Stop loading if filters are incomplete
+      if (authIsLoading) {
+        setPageIsLoading(true);
         return;
       }
-      
-      setIsLoading(true);
+      if (!userProfile || !userProfile.uid || !userProfile.assignedMapel || userProfile.assignedMapel.length === 0 || !academicYearFilter || !semesterFilter || !mapelFilter) {
+        setAllGradesData([]);
+        if (!authIsLoading) setPageIsLoading(false);
+        return;
+      }
+
+      setPageIsLoading(true);
       setError(null);
       try {
         const mapelListToQuery = mapelFilter === "all" ? userProfile.assignedMapel : (userProfile.assignedMapel.includes(mapelFilter) ? [mapelFilter] : []);
-        
+
         if(mapelListToQuery.length === 0 && mapelFilter !== "all"){
              setAllGradesData([]);
-             setIsLoading(false);
-             return; 
+             setPageIsLoading(false);
+             return;
         }
 
         const grades = await getGradesForTeacherDisplay(
-          userProfile.uid, // Pass teacher UID
-          mapelListToQuery, 
-          academicYearFilter, 
+          userProfile.uid,
+          mapelListToQuery,
+          academicYearFilter,
           parseInt(semesterFilter, 10)
         );
 
@@ -167,7 +190,7 @@ export default function RekapNilaiPage() {
         const kkmPromises = uniqueMapelTaPairsForKkm.map(async pair => {
           const [mapel, ta] = pair.split('__');
           const kkmSetting = await getKkmSetting(mapel, ta);
-          return { key: pair, value: kkmSetting?.kkmValue || 70 }; 
+          return { key: pair, value: kkmSetting?.kkmValue || 70 };
         });
         const kkmResults = await Promise.all(kkmPromises);
         const newKkmSettingsMap = new Map<string, number>();
@@ -184,7 +207,7 @@ export default function RekapNilaiPage() {
               allTasksTuntas = (grade.tugas || []).every(score => (score || 0) >= kkm);
           }
 
-          const allCoreComponentsTuntas = 
+          const allCoreComponentsTuntas =
             allTasksTuntas &&
             (grade.tes || 0) >= kkm &&
             (grade.pts || 0) >= kkm &&
@@ -215,21 +238,21 @@ export default function RekapNilaiPage() {
         });
         setAllGradesData([]);
       } finally {
-        setIsLoading(false);
+        setPageIsLoading(false);
       }
     };
-    
-    if(userProfile?.uid && academicYearFilter && semesterFilter && mapelFilter) { // Check userProfile.uid
+
+    if (!authIsLoading && userProfile?.uid && academicYearFilter && semesterFilter && mapelFilter) {
       fetchGradesAndKkm();
-    } else {
-      setAllGradesData([]); 
-      setIsLoading(false); 
+    } else if (!authIsLoading) {
+      setAllGradesData([]);
+      setPageIsLoading(false);
     }
 
-  }, [academicYearFilter, semesterFilter, mapelFilter, userProfile, studentsMap, toast]);
-  
+  }, [authIsLoading, academicYearFilter, semesterFilter, mapelFilter, userProfile, studentsMap, toast]);
+
   useEffect(() => {
-    setCurrentPage(1); 
+    setCurrentPage(1);
   }, [academicYearFilter, semesterFilter, mapelFilter, sortConfig]);
 
   const requestSort = (key: SortConfig['key']) => {
@@ -242,7 +265,7 @@ export default function RekapNilaiPage() {
 
   const filteredAndSortedGrades = useMemo(() => {
     let items = [...allGradesData];
-    
+
     if (sortConfig.key !== null) {
       items.sort((a, b) => {
         const aValue = a[sortConfig.key as keyof GuruGradeSummaryView];
@@ -251,9 +274,9 @@ export default function RekapNilaiPage() {
         const bIsNull = bValue === undefined || bValue === null;
 
         if (aIsNull && bIsNull) return 0;
-        if (aIsNull) return 1; 
-        if (bIsNull) return -1; 
-        
+        if (aIsNull) return 1;
+        if (bIsNull) return -1;
+
         let comparison = 0;
         if (['nilai_akhir', 'rataRataTugas', 'tes', 'pts', 'pas', 'kehadiran', 'eskul', 'osis'].includes(sortConfig.key as string)) {
             const numA = Number(aValue);
@@ -266,8 +289,8 @@ export default function RekapNilaiPage() {
       });
     }
     return items;
-  }, [allGradesData, sortConfig]); 
-  
+  }, [allGradesData, sortConfig]);
+
   const totalPages = Math.ceil(filteredAndSortedGrades.length / ITEMS_PER_PAGE);
 
   const paginatedGrades = useMemo(() => {
@@ -328,7 +351,7 @@ export default function RekapNilaiPage() {
         'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
         'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
       };
-      
+
       (grade.tugas || []).forEach((tScore, index) => {
         excelRow[`Tugas ${index + 1}`] = parseFloat((tScore || 0).toFixed(2));
       });
@@ -346,13 +369,13 @@ export default function RekapNilaiPage() {
       excelRow['Nilai Akhir'] = parseFloat((grade.nilai_akhir || 0).toFixed(2));
       excelRow['Status Tuntas'] = grade.isTuntas ? 'Tuntas' : 'Belum Tuntas';
       excelRow['Keterangan'] = keterangan;
-      
+
       return excelRow;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
-    
+
     const safeTa = academicYearFilter.replace('/', '-');
     const safeSmt = semesterFilter;
     const safeMapel = (mapelFilter === "all" ? "SemuaMapelYgDiampu" : mapelFilter.replace(/[^a-z0-9]/gi, '_'));
@@ -360,10 +383,10 @@ export default function RekapNilaiPage() {
     let desiredSheetName = `Rekap ${safeTa} S${safeSmt} ${safeMapel}`;
     let sheetName = desiredSheetName.substring(0, 31);
 
-    if (sheetName.trim().length < 1) sheetName = "RekapNilai"; 
-    
+    if (sheetName.trim().length < 1) sheetName = "RekapNilai";
+
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    
+
     const baseWscols = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, {wch: 10}
     ];
@@ -375,8 +398,8 @@ export default function RekapNilaiPage() {
     const tugasWscols = Array(maxTugasCountInExport).fill({ wch: 8 });
 
     const remainingWscols = [
-      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, 
-      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15}, { wch: 40 } 
+      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 },
+      { wch: 8 }, { wch: 8 }, { wch: 12 }, {wch: 15}, { wch: 40 }
     ];
     worksheet['!cols'] = [...baseWscols, ...tugasWscols, ...remainingWscols];
 
@@ -391,7 +414,7 @@ export default function RekapNilaiPage() {
       academicYear: grade.tahun_ajaran,
       semester: String(grade.semester),
       mapel: grade.mapel,
-      class: student?.kelas || '', 
+      class: student?.kelas || '',
     });
     router.push(`/guru/grades?${queryParams.toString()}`);
   };
@@ -411,51 +434,89 @@ export default function RekapNilaiPage() {
       await deleteGradeById(gradeToDelete.id);
       toast({ title: "Sukses", description: `Nilai untuk ${gradeToDelete.namaSiswa} (${gradeToDelete.mapel}) berhasil dihapus.` });
       setGradeToDelete(null);
+
       // Refetch data for the current filters
-      if(userProfile?.uid && academicYearFilter && semesterFilter && mapelFilter) {
+      if(!authIsLoading && userProfile?.uid && academicYearFilter && semesterFilter && mapelFilter) {
+         setPageIsLoading(true); // Indicate loading for refetch
          const currentMapel = mapelFilter;
          const currentTA = academicYearFilter;
          const currentSmt = semesterFilter;
+         const mapelListToQuery = currentMapel === "all" ? (userProfile.assignedMapel || []) : (userProfile.assignedMapel?.includes(currentMapel) ? [currentMapel] : []);
 
-         // Clear data to force visual update before refetch
-         setAllGradesData([]); 
-         setIsLoading(true); 
+         if (mapelListToQuery.length === 0 && currentMapel !== "all") {
+           setAllGradesData([]);
+           setPageIsLoading(false);
+           return;
+         }
+         const grades = await getGradesForTeacherDisplay(userProfile.uid, mapelListToQuery, currentTA, parseInt(currentSmt, 10));
 
-         // Trigger refetch by temporarily changing a filter then reverting,
-         // or directly calling fetchGradesAndKkm if parameters are stable.
-         // Using a more direct refetch pattern for clarity:
-          const mapelListToQuery = currentMapel === "all" ? (userProfile.assignedMapel || []) : (userProfile.assignedMapel?.includes(currentMapel) ? [currentMapel] : []);
-          if (mapelListToQuery.length === 0 && currentMapel !== "all") {
-            setIsLoading(false);
-            return;
-          }
-          const grades = await getGradesForTeacherDisplay(userProfile.uid, mapelListToQuery, currentTA, parseInt(currentSmt, 10));
-          
-          const enrichedGrades = grades.map(g => {
-            const student = studentsMap.get(g.id_siswa);
-            const kkmKey = `${g.mapel}__${g.tahun_ajaran}`;
-            const kkm = kkmSettingsMap.get(kkmKey) || 70;
-            let allTasksTuntas = true;
-            if (g.tugas && g.tugas.length > 0) allTasksTuntas = (g.tugas || []).every(score => (score || 0) >= kkm);
-            const allCoreComponentsTuntas = allTasksTuntas && (g.tes || 0) >= kkm && (g.pts || 0) >= kkm && (g.pas || 0) >= kkm;
-            const finalGradeTuntas = (g.nilai_akhir || 0) >= kkm;
+         const enrichedGrades = grades.map(g => {
+           const student = studentsMap.get(g.id_siswa);
+           const kkmKey = `${g.mapel}__${g.tahun_ajaran}`;
+           const kkm = kkmSettingsMap.get(kkmKey) || 70;
+           let allTasksTuntas = true;
+           if (g.tugas && g.tugas.length > 0) allTasksTuntas = (g.tugas || []).every(score => (score || 0) >= kkm);
+           const allCoreComponentsTuntas = allTasksTuntas && (g.tes || 0) >= kkm && (g.pts || 0) >= kkm && (g.pas || 0) >= kkm;
+           const finalGradeTuntas = (g.nilai_akhir || 0) >= kkm;
 
-            return {
-              ...g,
-              namaSiswa: student?.nama || 'N/A', nisSiswa: student?.nis || 'N/A', kelasSiswa: student?.kelas || 'N/A',
-              rataRataTugas: calculateAverage(g.tugas || []), kkmValue: kkm, isTuntas: finalGradeTuntas && allCoreComponentsTuntas,
-            };
-          });
-          setAllGradesData(enrichedGrades);
-          setIsLoading(false);
+           return {
+             ...g,
+             namaSiswa: student?.nama || 'N/A', nisSiswa: student?.nis || 'N/A', kelasSiswa: student?.kelas || 'N/A',
+             rataRataTugas: calculateAverage(g.tugas || []), kkmValue: kkm, isTuntas: finalGradeTuntas && allCoreComponentsTuntas,
+           };
+         });
+         setAllGradesData(enrichedGrades);
+         setPageIsLoading(false);
       }
     } catch (error: any) {
       console.error("Error deleting grade:", error);
       toast({ variant: "destructive", title: "Error Hapus Nilai", description: "Gagal menghapus data nilai." });
-      setIsLoading(false); // Ensure loading is false on error
+      setPageIsLoading(false);
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const retryFetchInitialData = () => {
+     // This will re-trigger the main useEffect for initial data
+     // by temporarily changing authIsLoading or userProfile, then reverting.
+     // A cleaner way is to encapsulate the fetch logic into a function called by button.
+     // For now, this just ensures the deps for the main useEffect change.
+     // This is a bit of a hack, a dedicated function would be better.
+     // Let's just call the original logic, now that userProfile might be ready.
+     const reFetch = async () => {
+        if (authIsLoading) return; // Should not happen if button is clicked
+        if (!userProfile || !userProfile.uid) {
+            setError("Sesi guru tidak ditemukan atau tidak valid.");
+            setPageIsLoading(false); return;
+        }
+        if (!userProfile.assignedMapel || userProfile.assignedMapel.length === 0) {
+            setError("Anda tidak memiliki mata pelajaran yang ditugaskan. Silakan hubungi Admin.");
+            setPageIsLoading(false); return;
+        }
+        setPageIsLoading(true); setError(null);
+        try {
+            const [studentList, activeYears, uniqueMapelListFromGrades] = await Promise.all([
+                getStudents(), getActiveAcademicYears(),
+                getUniqueMapelNamesFromGrades(userProfile.assignedMapel, userProfile.uid)
+            ]);
+            setSelectableYears(activeYears);
+            const relevantMapelForFilter = uniqueMapelListFromGrades.filter(mapel => userProfile.assignedMapel?.includes(mapel));
+            setAssignedMapelForFilter(relevantMapelForFilter);
+            if (activeYears.includes(CURRENT_ACADEMIC_YEAR) && !academicYearFilter) setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
+            else if (activeYears.length > 0 && !academicYearFilter) setAcademicYearFilter(activeYears[0]);
+            else if (activeYears.length === 0 && !academicYearFilter) setAcademicYearFilter("");
+
+            if (relevantMapelForFilter.length > 0 && !mapelFilter) setMapelFilter(relevantMapelForFilter[0]);
+            else if (relevantMapelForFilter.length === 0 && userProfile.assignedMapel.length > 0 && !mapelFilter) setMapelFilter(userProfile.assignedMapel[0]);
+
+            if (!Array.isArray(studentList)) throw new Error("Gagal memuat data siswa.");
+            const studentMap = new Map(studentList.map(s => [s.id_siswa, s]));
+            setStudentsMap(studentMap);
+        } catch (err:any) { setError(err.message); }
+        finally { setPageIsLoading(false); }
+     };
+     reFetch();
   };
 
 
@@ -484,7 +545,7 @@ export default function RekapNilaiPage() {
                 Pilih filter untuk melihat rekap nilai. Klik header kolom untuk mengurutkan.
               </CardDescription>
             </div>
-             {mapelFilter && mapelFilter !== "all" && filteredAndSortedGrades.length > 0 && !isLoading && (
+             {mapelFilter && mapelFilter !== "all" && filteredAndSortedGrades.length > 0 && !pageIsLoading && (
               <Button onClick={handleDownloadExcel} variant="outline">
                 <Download className="mr-2 h-4 w-4" />
                 Unduh Excel
@@ -493,7 +554,7 @@ export default function RekapNilaiPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {(!userProfile || !userProfile.assignedMapel || userProfile.assignedMapel.length === 0) && !isLoading && (
+          {(!userProfile || !userProfile.assignedMapel || userProfile.assignedMapel.length === 0) && !pageIsLoading && !error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Tidak Ada Mapel Ditugaskan</AlertTitle>
@@ -534,10 +595,10 @@ export default function RekapNilaiPage() {
               </div>
               <div>
                 <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
-                <Select 
-                  value={mapelFilter || ""} 
-                  onValueChange={setMapelFilter} 
-                  disabled={assignedMapelForFilter.length === 0 && (!userProfile?.assignedMapel || userProfile.assignedMapel.length ===0 ) && !isLoading}
+                <Select
+                  value={mapelFilter || ""}
+                  onValueChange={setMapelFilter}
+                  disabled={(assignedMapelForFilter.length === 0 && (!userProfile?.assignedMapel || userProfile.assignedMapel.length ===0 )) && !pageIsLoading}
                 >
                   <SelectTrigger id="mapelFilter" className="w-full mt-1">
                     <SelectValue placeholder="Pilih mapel Anda..." />
@@ -545,11 +606,11 @@ export default function RekapNilaiPage() {
                   <SelectContent>
                      {(!userProfile?.assignedMapel || userProfile.assignedMapel.length === 0) ? (
                        <SelectItem value="-" disabled>Tidak ada mapel ditugaskan</SelectItem>
-                     ) : assignedMapelForFilter.length === 0 && !isLoading ? (
+                     ) : assignedMapelForFilter.length === 0 && !pageIsLoading && !error ? (
                        <SelectItem value="-" disabled>Belum ada nilai untuk mapel Anda</SelectItem>
                      ) : (
                        <>
-                         <SelectItem value="all">Semua Mapel (Yg Diampu &amp; Ada Nilai)</SelectItem>
+                         <SelectItem value="all">Semua Mapel (Yg Diampu & Ada Nilai)</SelectItem>
                          {assignedMapelForFilter.map(mapel => (
                            <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
                          ))}
@@ -561,15 +622,15 @@ export default function RekapNilaiPage() {
             </div>
           )}
 
-          {isLoading ? (
+          {pageIsLoading ? (
             <div className="space-y-4"><div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>{[...Array(5)].map((_, i) => (<Skeleton key={i} className="h-10 w-full rounded-md" />))}</div>
           ) : error ? (
-            <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Gagal Memuat Data</AlertTitle><AlertDescription>{error}</AlertDescription><Button onClick={fetchInitialFilterData} variant="outline" className="mt-4">Coba Lagi</Button></Alert>
+            <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Gagal Memuat Data</AlertTitle><AlertDescription>{error}</AlertDescription><Button onClick={retryFetchInitialData} variant="outline" className="mt-4">Coba Lagi</Button></Alert>
           ) : (!userProfile || !userProfile.assignedMapel || userProfile.assignedMapel.length === 0) ? (
-            null 
+            null
           ) : !academicYearFilter ? (
              <Alert variant="default"><Info className="h-4 w-4" /><AlertTitle>Pilih Tahun Ajaran</AlertTitle><AlertDescription>Silakan pilih tahun ajaran untuk menampilkan rekap nilai.</AlertDescription></Alert>
-          ) : !mapelFilter  ? ( 
+          ) : !mapelFilter  ? (
              <Alert variant="default"><Info className="h-4 w-4" /><AlertTitle>Pilih Mata Pelajaran</AlertTitle><AlertDescription>Silakan pilih mata pelajaran yang Anda ampu (atau "Semua Mapel") untuk menampilkan rekap nilai.</AlertDescription></Alert>
           ) : filteredAndSortedGrades.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
@@ -639,15 +700,15 @@ export default function RekapNilaiPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Anda Yakin Ingin Menghapus Data Nilai Ini?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tindakan ini akan menghapus data nilai mata pelajaran <span className="font-semibold">{gradeToDelete.mapel}</span> untuk siswa <span className="font-semibold">{gradeToDelete.namaSiswa}</span> 
-                pada tahun ajaran {gradeToDelete.tahun_ajaran} semester {gradeToDelete.semester === 1 ? "Ganjil" : "Genap"}. 
+                Tindakan ini akan menghapus data nilai mata pelajaran <span className="font-semibold">{gradeToDelete.mapel}</span> untuk siswa <span className="font-semibold">{gradeToDelete.namaSiswa}</span>
+                pada tahun ajaran {gradeToDelete.tahun_ajaran} semester {gradeToDelete.semester === 1 ? "Ganjil" : "Genap"}.
                 Tindakan ini tidak dapat diurungkan.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setGradeToDelete(null)} disabled={isDeleting}>Batal</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleActualDelete} 
+              <AlertDialogAction
+                onClick={handleActualDelete}
                 disabled={isDeleting}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
@@ -661,3 +722,4 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
+

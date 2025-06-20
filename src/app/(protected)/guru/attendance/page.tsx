@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,7 @@ export default function GuruDailyAttendancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentAttendance, setCurrentAttendance] = useState<TeacherDailyAttendance | null>(null);
+  const isFetchingRef = useRef(false);
 
   const form = useForm<DailyAttendanceFormData>({
     resolver: zodResolver(dailyAttendanceSchema),
@@ -57,48 +58,64 @@ export default function GuruDailyAttendancePage() {
   const watchedStatus = form.watch("status");
 
   const fetchAttendanceForDate = useCallback(async (dateToFetch: Date) => {
-    if (!userProfile?.uid || !dateToFetch) return;
+    if (!userProfile?.uid || !dateToFetch) {
+      setIsLoadingData(false); 
+      isFetchingRef.current = false;
+      return;
+    }
     
-    // console.log(`Fetching attendance for date: ${dateToFetch.toISOString()} by UID: ${userProfile.uid}`);
+    // isFetchingRef.current is already true, set by useEffect
+    // setIsLoadingData(true) will be set here
+    
     setIsLoadingData(true);
     setFetchError(null);
     setCurrentAttendance(null); 
     try {
       const attendanceRecord = await getTeacherDailyAttendanceForDate(userProfile.uid, dateToFetch);
       if (attendanceRecord) {
-        // console.log("Attendance record found:", attendanceRecord);
         setCurrentAttendance(attendanceRecord);
         form.reset({
-          date: attendanceRecord.date.toDate(), // Convert Firestore Timestamp back to JS Date
+          date: attendanceRecord.date.toDate(), 
           status: attendanceRecord.status,
           notes: attendanceRecord.notes || "",
         });
       } else {
-        // console.log("No attendance record found, resetting form to defaults for new date.");
         form.reset({
-          date: dateToFetch, // Use the newly selected date
-          status: "Hadir", // Default status for a new entry
+          date: dateToFetch, 
+          status: "Hadir", 
           notes: "",
         });
       }
     } catch (error: any) {
-      // console.error("Error fetching attendance data:", error);
       setFetchError("Gagal memuat data kehadiran untuk tanggal ini.");
       toast({ variant: "destructive", title: "Error", description: error.message || "Gagal memuat data." });
     } finally {
       setIsLoadingData(false);
+      isFetchingRef.current = false; // Reset fetching flag
     }
-  }, [userProfile?.uid, form, toast]); // `form` and `toast` are generally stable or memoized by their respective hooks
+  }, [userProfile?.uid, form, toast]);
 
   useEffect(() => {
-    if (watchedDate && userProfile?.uid && !authLoading) {
-      // console.log("Watched date changed or user profile became available. Calling fetchAttendanceForDate.");
+    const canFetch = watchedDate && userProfile?.uid && !authLoading;
+
+    if (canFetch) {
+      if (isFetchingRef.current) {
+        return; // Already fetching, do nothing
+      }
+      isFetchingRef.current = true; // Set flag before starting async operation
       fetchAttendanceForDate(watchedDate);
+    } else {
+      // Conditions to fetch are not met (e.g., user logged out, date cleared)
+      // Ensure loading state is false if it was somehow left true.
+      if (isLoadingData) {
+        setIsLoadingData(false);
+      }
+      isFetchingRef.current = false; // Ensure flag is clear
     }
-  }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate]);
+  }, [watchedDate, userProfile?.uid, authLoading, fetchAttendanceForDate, isLoadingData]);
+
 
   const onSubmit = async (data: DailyAttendanceFormData) => {
-    // console.log("Form submitted with data:", data);
     if (!userProfile?.uid || !userProfile.displayName) {
       toast({ variant: "destructive", title: "Error", description: "Sesi guru tidak valid." });
       return;
@@ -108,14 +125,13 @@ export default function GuruDailyAttendancePage() {
       const attendancePayload: Omit<TeacherDailyAttendance, 'id' | 'recordedAt'> = {
         teacherUid: userProfile.uid,
         teacherName: userProfile.displayName,
-        date: Timestamp.fromDate(data.date), // Convert JS Date to Firestore Timestamp
+        date: Timestamp.fromDate(data.date), 
         status: data.status,
         notes: data.notes || "",
       };
       
       const savedRecord = await addOrUpdateTeacherDailyAttendance(attendancePayload);
       setCurrentAttendance(savedRecord); 
-      // console.log("Attendance saved/updated successfully:", savedRecord);
       
       toast({ title: "Sukses", description: `Kehadiran untuk tanggal ${format(data.date, "PPP", { locale: indonesiaLocale })} berhasil dicatat sebagai ${data.status}.` });
       
@@ -127,7 +143,6 @@ export default function GuruDailyAttendancePage() {
       );
       
     } catch (error: any) {
-      // console.error("Error saving attendance:", error);
       toast({ variant: "destructive", title: "Error Simpan", description: error.message || `Gagal mencatat kehadiran.` });
     } finally {
       setIsSubmitting(false);
@@ -241,7 +256,7 @@ export default function GuruDailyAttendancePage() {
                             Status: <span className="font-semibold">{currentAttendance.status}</span>.
                             {currentAttendance.notes && <> Catatan: {currentAttendance.notes}</>}
                             <br />
-                            Dicatat pada: {currentAttendance.recordedAt ? format(currentAttendance.recordedAt.toDate(), "PPP, HH:mm", { locale: indonesiaLocale }) : 'N/A'}.
+                            Dicatat pada: {currentAttendance.recordedAt instanceof Timestamp ? format(currentAttendance.recordedAt.toDate(), "PPP, HH:mm", { locale: indonesiaLocale }) : 'N/A'}.
                             <br />
                             <span className="text-xs italic">Anda dapat memperbarui jika ada perubahan.</span>
                         </AlertDescription>
@@ -310,5 +325,6 @@ export default function GuruDailyAttendancePage() {
     </div>
   );
 }
+    
 
     

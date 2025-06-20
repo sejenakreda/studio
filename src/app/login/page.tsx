@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -11,14 +11,33 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, LogIn, Loader2 } from 'lucide-react';
-// UserPlus and KeyRound icons are no longer needed
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
 export default function LoginPage() {
-  // Removed emailForReset, loadingReset states as "Forgot Password" is removed
   const router = useRouter();
-  const { toast } = useToast();
+  const { user, userProfile, loading: authContextLoading } = useAuth();
 
-  // handleForgotPassword function removed
+  useEffect(() => {
+    // This effect handles redirection:
+    // 1. If the user is already logged in when they land on /login.
+    // 2. After a successful login attempt updates the AuthContext.
+    if (!authContextLoading && user && userProfile) {
+      if (userProfile.role === 'admin') {
+        router.replace('/admin');
+      } else if (userProfile.role === 'guru') {
+        router.replace('/guru');
+      } else {
+        // Should not happen if AuthContext handles invalid roles by logging out
+        console.warn("LoginPage: User has profile but unexpected role:", userProfile.role);
+        // Stay on login or redirect to a generic error page if you have one.
+        // For now, let AuthContext's logout handle it if role is truly invalid.
+      }
+    }
+    // If !authContextLoading and !user (meaning truly logged out or initial unauthed state),
+    // they stay on the login page, which is correct.
+    // If authContextLoading is true, this effect does nothing, waiting for context to settle.
+  }, [user, userProfile, authContextLoading, router]);
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary to-accent flex flex-col items-center justify-center p-4">
@@ -47,8 +66,14 @@ export default function LoginPage() {
             Sistem Informasi Akademik & Penilaian Smapna.
           </p>
         </div>
-        <LoginForm />
-        {/* "Forgot Password" and "Create New Account" links removed */}
+        { authContextLoading && !userProfile ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Memeriksa sesi Anda...</p>
+          </div>
+        ) : (
+          <LoginForm />
+        )}
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
         © {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.
@@ -62,7 +87,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [errorLoginForm, setErrorLoginForm] = useState<string | null>(null);
   const [loadingLoginForm, setLoadingLoginForm] = useState(false);
-  const router = useRouter();
+  // Removed router from LoginForm as LoginPage now handles redirection
   const { toast } = useToast();
 
   const handleSubmit = async (event: FormEvent) => {
@@ -74,9 +99,9 @@ function LoginForm() {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Login Berhasil",
-        description: "Anda akan diarahkan ke dasbor.",
+        description: "Mengarahkan ke dasbor...", // Updated message
       });
-      router.push('/'); 
+      // DO NOT router.push('/') here. LoginPage's useEffect will handle redirection.
     } catch (e: any) {
       let friendlyMessage = 'Gagal melakukan login. Periksa kembali email dan password Anda.';
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
@@ -155,3 +180,4 @@ function LoginForm() {
     </form>
   );
 }
+

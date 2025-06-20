@@ -16,6 +16,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
   SidebarMenuBadge,
+  SidebarSeparator, // Ditambahkan untuk memisahkan grup
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
@@ -29,32 +30,82 @@ import { getAllPengumuman } from "@/lib/firestoreService";
 import type { Pengumuman } from "@/types";
 import { Timestamp } from "firebase/firestore";
 
-interface NavItem {
+// Definisikan tipe baru untuk item menu dan grup
+interface NavMenuItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  roles: Array<'admin' | 'guru'>;
-  isExact?: boolean; 
+  isExact?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { href: "/admin", label: "Dasbor Admin", icon: Home, roles: ['admin'], isExact: true },
-  { href: "/admin/teachers", label: "Kelola Guru", icon: Users, roles: ['admin'] },
-  { href: "/admin/students", label: "Kelola Siswa", icon: BookUser, roles: ['admin'] },
-  { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks, roles: ['admin'] },
-  { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone, roles: ['admin'] },
-  { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck, roles: ['admin'] },
-  { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings, roles: ['admin'] },
-  { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog, roles: ['admin'] },
-  { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
-  { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
-  
-  { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'], isExact: true },
-  { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
-  { href: "/guru/students", label: "Daftar Siswa", icon: BookUser, roles: ['guru'] }, 
-  { href: "/guru/grades", label: "Input Nilai", icon: Edit3, roles: ['guru'] },
-  { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig, roles: ['guru'] },
+interface NavGroup {
+  groupLabel?: string; // Label untuk grup, opsional
+  items: NavMenuItem[];
+  roles: Array<'admin' | 'guru'>; // Peran yang dapat melihat grup ini
+}
+
+// Struktur navigasi baru yang dikelompokkan
+const navigationStructure: NavGroup[] = [
+  // --- Admin Items ---
+  { // Dasbor Admin (tanpa label grup eksplisit, akan muncul pertama)
+    roles: ['admin'],
+    items: [{ href: "/admin", label: "Dasbor Admin", icon: Home, isExact: true }],
+  },
+  {
+    groupLabel: "Akademik & Penilaian",
+    roles: ['admin'],
+    items: [
+      { href: "/admin/students", label: "Kelola Siswa", icon: BookUser },
+      { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks },
+      { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
+      { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
+      { href: "/admin/grades", label: "Semua Nilai", icon: FileText },
+    ],
+  },
+  {
+    groupLabel: "Manajemen Pengguna",
+    roles: ['admin'],
+    items: [
+       { href: "/admin/teachers", label: "Kelola Guru", icon: Users },
+    ],
+  },
+   {
+    groupLabel: "Kehadiran",
+    roles: ['admin'],
+    items: [
+       { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+    ]
+  },
+  {
+    groupLabel: "Komunikasi & Laporan",
+    roles: ['admin'],
+    items: [
+      { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
+      { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
+    ],
+  },
+
+  // --- Guru Items ---
+  { // Dasbor Guru (tanpa label grup eksplisit)
+    roles: ['guru'],
+    items: [{ href: "/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
+  },
+  {
+    groupLabel: "Informasi",
+    roles: ['guru'],
+    items: [{ href: "/guru/announcements", label: "Pengumuman", icon: Megaphone }],
+  },
+  {
+    groupLabel: "Akademik Guru",
+    roles: ['guru'],
+    items: [
+      { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
+      { href: "/guru/grades", label: "Input Nilai", icon: Edit3 },
+      { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
+    ],
+  },
 ];
+
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -117,9 +168,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
-  const filteredNavItems = React.useMemo(() => {
+  const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    return navItems.filter(item => item.roles.includes(userProfile.role));
+    return navigationStructure.filter(group => group.roles.includes(userProfile.role));
   }, [userProfile, loading]);
 
   const currentPageLabel = React.useMemo(() => {
@@ -127,13 +178,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
     
-    const exactMatch = filteredNavItems.find(item => item.href === pathname);
+    const allNavItemsFlat = filteredNavGroups.flatMap(group => group.items);
+
+    const exactMatch = allNavItemsFlat.find(item => item.href === pathname);
     if (exactMatch) {
       return exactMatch.label;
     }
 
-    let bestMatch = null;
-    for (const item of filteredNavItems) {
+    let bestMatch: NavMenuItem | null = null;
+    for (const item of allNavItemsFlat) {
       if (item.isExact) continue; 
       if (pathname.startsWith(item.href)) {
         if (!bestMatch || item.href.length > bestMatch.href.length) {
@@ -143,7 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     
     return bestMatch ? bestMatch.label : defaultDashboardLabel;
-  }, [pathname, filteredNavItems, userProfile, loading]);
+  }, [pathname, filteredNavGroups, userProfile, loading]);
 
 
   return (
@@ -158,26 +211,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarContent className="flex-1 p-2">
           <ScrollArea className="h-full">
             <SidebarMenu>
-              {filteredNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
-                    tooltip={{ children: item.label, side: "right", align: "center" }}
-                  >
-                    <Link href={item.href} className="relative">
-                      <item.icon className="h-5 w-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                      {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
-                        <SidebarMenuBadge 
-                           className="absolute top-1 right-1 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-[16px] group-data-[collapsible=icon]:px-1 bg-destructive text-destructive-foreground"
-                        >
-                          {announcementBadgeCount}
-                        </SidebarMenuBadge>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              {filteredNavGroups.map((group, groupIndex) => (
+                <React.Fragment key={`group-${group.groupLabel || 'main'}-${groupIndex}`}>
+                  {group.groupLabel && (
+                    <>
+                      {/* Tambahkan separator hanya jika ini bukan grup pertama DAN grup ini memiliki label */}
+                      {groupIndex > 0 && <SidebarSeparator className="my-2" />}
+                      <div className="px-3 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+                        {group.groupLabel}
+                      </div>
+                    </>
+                  )}
+                  {group.items.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
+                        tooltip={{ children: item.label, side: "right", align: "center" }}
+                      >
+                        <Link href={item.href} className="relative">
+                          <item.icon className="h-5 w-5" />
+                          <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                          {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
+                            <SidebarMenuBadge 
+                               className="absolute top-1 right-1 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-[16px] group-data-[collapsible=icon]:px-1 bg-destructive text-destructive-foreground"
+                            >
+                              {announcementBadgeCount}
+                            </SidebarMenuBadge>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </React.Fragment>
               ))}
             </SidebarMenu>
           </ScrollArea>

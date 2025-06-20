@@ -76,14 +76,18 @@ export default function GuruDailyAttendancePage() {
         form.setValue('status', attendanceRecord.status);
         form.setValue('notes', attendanceRecord.notes || "");
         
+        // Only update the date in the form if it's TRULY different, to avoid re-triggering useEffect
         if (attendanceRecord.date.toDate().getTime() !== dateToFetch.getTime()) {
-            form.setValue('date', attendanceRecord.date.toDate());
+            form.setValue('date', attendanceRecord.date.toDate()); // This might re-trigger useEffect if not handled carefully
         }
       } else {
         setIsFormDisabled(false); // Enable form if no record
+        // Only reset if the logical date actually changed (e.g. user picked a new date)
+        // This check helps prevent resetting status/notes if useEffect re-runs for other reasons
         if (form.getValues('date').getTime() !== dateToFetch.getTime()){
-             form.setValue('date', dateToFetch, { shouldDirty: true, shouldValidate: true });
+             form.setValue('date', dateToFetch, { shouldDirty: true, shouldValidate: true }); // Set new date first
         }
+        // Then reset status and notes, or set to default
         form.setValue('status', "Hadir", { shouldDirty: true, shouldValidate: true });
         form.setValue('notes', "", { shouldDirty: true, shouldValidate: true });
       }
@@ -95,11 +99,11 @@ export default function GuruDailyAttendancePage() {
       setIsLoadingData(false);
       isFetchingRef.current = false; 
     }
-  }, [userProfile?.uid, form, toast]);
+  }, [userProfile?.uid, form, toast]); // form and toast are stable references
 
   useEffect(() => {
     if (authLoading) {
-      isFetchingRef.current = false;
+      isFetchingRef.current = false; // Ensure flag is reset if auth is still loading
       return;
     }
 
@@ -107,28 +111,30 @@ export default function GuruDailyAttendancePage() {
       setFetchError("Sesi guru tidak ditemukan atau profil tidak valid. Silakan login ulang.");
       setCurrentAttendance(null);
       setIsFormDisabled(true);
-      form.reset({ date: watchedDate || new Date(), status: "Hadir", notes: "" }); 
-      setIsLoadingData(false); 
-      isFetchingRef.current = false; 
+      form.reset({ date: watchedDate || new Date(), status: "Hadir", notes: "" }); // Reset form to a sensible default or current date
+      setIsLoadingData(false); // Ensure loading is false
+      isFetchingRef.current = false; // Reset fetch flag
       return;
     }
 
-    if (!watchedDate) {
-      setCurrentAttendance(null);
+    if (!watchedDate) { // If date is somehow null/undefined
+      setCurrentAttendance(null); // Clear any existing attendance data
       setIsLoadingData(false);
-      setIsFormDisabled(false);
+      setIsFormDisabled(false); // Form should be enabled to pick a date
       isFetchingRef.current = false;
       return;
     }
     
-    if (isFetchingRef.current) { 
+    // Core fetching logic
+    if (isFetchingRef.current) { // If a fetch is already in progress, don't start another
       return;
     }
     
-    isFetchingRef.current = true;
-    setIsLoadingData(true); 
+    isFetchingRef.current = true; // Set flag before starting fetch
+    setIsLoadingData(true); // Set loading state for UI
     fetchAttendanceForDate(watchedDate);
 
+    // Cleanup function for the effect is not strictly necessary here as isFetchingRef handles re-entry
   }, [watchedDate, userProfile?.uid, userProfile, authLoading, fetchAttendanceForDate, form]);
 
 

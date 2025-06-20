@@ -24,7 +24,10 @@ const MONTHS = [
   { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
 ];
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const startYearRange = currentYear - 10; // 10 tahun ke belakang
+const endYearRange = currentYear + 5;   // 5 tahun ke depan
+const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
+
 
 interface AttendanceSummary {
   Hadir: number;
@@ -189,7 +192,7 @@ export default function GuruMyAttendanceRekapPage() {
                                 {record.status}
                             </span>
                           </TableCell>
-                          <TableCell className="max-w-xs truncate" title={record.notes}>{record.notes || '-'}</TableCell>
+                          <TableCell className="max-w-xs truncate" title={record.notes || undefined}>{record.notes || '-'}</TableCell>
                           <TableCell>{record.recordedAt ? format(record.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell>
                         </TableRow>
                       ))}
@@ -204,3 +207,4 @@ export default function GuruMyAttendanceRekapPage() {
     </div>
   );
 }
+

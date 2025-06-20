@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"; // FormLabel here for RHF
+import { Label } from "@/components/ui/label"; // Standard Label for non-RHF parts
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, CalendarCheck, User, CalendarDays, Search, Trash2, Edit, Filter } from "lucide-react";
@@ -374,32 +375,31 @@ export default function ManageTeacherAttendancePage() {
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
-                 <FormItem>
-                    <FormLabel>Filter Guru</FormLabel>
+                 <div> {/* Removed FormItem as it's not part of RHF form here */}
+                    <Label htmlFor="filter-teacher">Filter Guru</Label> {/* Used standard Label */}
                     <Select onValueChange={setFilterTeacherUid} value={filterTeacherUid} disabled={isLoadingTeachers}>
-                        <SelectTrigger><SelectValue placeholder={isLoadingTeachers ? "Memuat guru..." : "Pilih guru..."} /></SelectTrigger>
+                        <SelectTrigger id="filter-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat guru..." : "Pilih guru..."} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Semua Guru</SelectItem>
                             {isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) :
                              teachers.map(teacher => (<SelectItem key={teacher.uid} value={teacher.uid}>{teacher.displayName}</SelectItem>))}
                         </SelectContent>
                     </Select>
-                 </FormItem>
-                 <FormItem>
-                    <FormLabel>Filter Tahun</FormLabel>
+                 </div>
+                 <div> {/* Removed FormItem */}
+                    <Label htmlFor="filter-year">Filter Tahun</Label> {/* Used standard Label */}
                     <Select onValueChange={(v) => setFilterYear(parseInt(v))} value={String(filterYear)}>
-                        <SelectTrigger><SelectValue placeholder="Pilih tahun..." /></SelectTrigger>
+                        <SelectTrigger id="filter-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger>
                         <SelectContent>{YEARS.map(year => (<SelectItem key={year} value={String(year)}>{year}</SelectItem>))}</SelectContent>
                     </Select>
-                 </FormItem>
-                 <FormItem>
-                    <FormLabel>Filter Bulan</FormLabel>
+                 </div>
+                 <div> {/* Removed FormItem */}
+                    <Label htmlFor="filter-month">Filter Bulan</Label> {/* Used standard Label */}
                     <Select onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(filterMonth)}>
-                        <SelectTrigger><SelectValue placeholder="Pilih bulan..." /></SelectTrigger>
+                        <SelectTrigger id="filter-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger>
                         <SelectContent><SelectItem value="all">Semua Bulan</SelectItem>{MONTHS.map(month => (<SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>))}</SelectContent>
                     </Select>
-                 </FormItem>
-                 {/* Button fetchAttendanceRecords() already triggered by useEffect on filter changes */}
+                 </div>
             </div>
 
           {fetchError && !isLoadingRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error Memuat Data</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
@@ -477,3 +477,4 @@ export default function ManageTeacherAttendancePage() {
     </div>
   );
 }
+

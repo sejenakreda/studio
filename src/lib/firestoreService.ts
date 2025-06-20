@@ -24,7 +24,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman } from '@/types';
-import { User } from 'firebase/auth'; 
+import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
 
@@ -32,7 +32,7 @@ import { getCurrentAcademicYear } from './utils';
 const bobotConverter: FirestoreDataConverter<Bobot> = {
   toFirestore: (bobot: Bobot): DocumentData => {
     const data: any = { ...bobot };
-    delete data.id; 
+    delete data.id;
     return data;
   },
   fromFirestore: (
@@ -79,11 +79,11 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Nilai): DocumentData => {
     const data: any = { ...nilai };
-    delete data.id; 
-    if (!data.createdAt) { 
+    delete data.id;
+    if (!data.createdAt) {
         data.createdAt = serverTimestamp();
     }
-    data.updatedAt = serverTimestamp(); 
+    data.updatedAt = serverTimestamp();
     return data;
   },
   fromFirestore: (
@@ -94,7 +94,7 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
     return {
       id: snapshot.id,
       id_siswa: data.id_siswa,
-      mapel: data.mapel, 
+      mapel: data.mapel,
       semester: data.semester,
       tahun_ajaran: data.tahun_ajaran,
       tugas: data.tugas || [],
@@ -105,22 +105,22 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
       eskul: data.eskul,
       osis: data.osis,
       nilai_akhir: data.nilai_akhir,
-      createdAt: data.createdAt, 
-      updatedAt: data.updatedAt, 
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   }
 };
 
 const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   toFirestore: (profile: UserProfile): DocumentData => {
-    const { uid, ...dataToStore } = profile; 
+    const { uid, ...dataToStore } = profile;
     return {
         ...dataToStore,
         email: profile.email,
         displayName: profile.displayName,
         role: profile.role,
-        assignedMapel: profile.assignedMapel || [], 
-        createdAt: profile.createdAt || serverTimestamp(), 
+        assignedMapel: profile.assignedMapel || [],
+        createdAt: profile.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
   },
@@ -130,11 +130,11 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   ): UserProfile => {
     const data = snapshot.data(options)!;
     return {
-      uid: snapshot.id, 
+      uid: snapshot.id,
       email: data.email,
       displayName: data.displayName,
       role: data.role,
-      assignedMapel: data.assignedMapel || [], 
+      assignedMapel: data.assignedMapel || [],
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -144,7 +144,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
 const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
   toFirestore: (log: Omit<ActivityLog, 'id'>): DocumentData => {
     return {
-      timestamp: log.timestamp, 
+      timestamp: log.timestamp,
       action: log.action,
       details: log.details,
       userId: log.userId,
@@ -158,7 +158,7 @@ const activityLogConverter: FirestoreDataConverter<ActivityLog> = {
     const data = snapshot.data(options)!;
     return {
       id: snapshot.id,
-      timestamp: data.timestamp, 
+      timestamp: data.timestamp,
       action: data.action,
       details: data.details,
       userId: data.userId,
@@ -180,8 +180,8 @@ const academicYearSettingConverter: FirestoreDataConverter<AcademicYearSetting> 
   ): AcademicYearSetting => {
     const data = snapshot.data(options)!;
     return {
-      id: snapshot.id, 
-      year: data.year, 
+      id: snapshot.id,
+      year: data.year,
       isActive: data.isActive,
     };
   }
@@ -271,18 +271,18 @@ export const getWeights = async (): Promise<Bobot | null> => {
   if (docSnap.exists()) {
     return docSnap.data();
   }
-  return { 
-    tugas: 20, tes: 20, pts: 20, pas: 25, 
+  return {
+    tugas: 20, tes: 20, pts: 20, pas: 25,
     kehadiran: 15, // total 100
     eskul: 5, // Max bonus points
     osis: 5,  // Max bonus points
-    totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90 
-  }; 
+    totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90
+  };
 };
 
 export const updateWeights = async (bobotData: Partial<Bobot>): Promise<void> => {
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
-  await setDoc(docRef, bobotData as Bobot, { merge: true }); 
+  await setDoc(docRef, bobotData as Bobot, { merge: true });
 };
 
 
@@ -295,7 +295,7 @@ export const addStudent = async (siswa: Omit<Siswa, 'id'>): Promise<Siswa> => {
 
 export const getStudents = async (): Promise<Siswa[]> => {
   const collRef = collection(db, 'siswa').withConverter(siswaConverter);
-  const q = query(collRef, orderBy("nama", "asc")); 
+  const q = query(collRef, orderBy("nama", "asc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -317,12 +317,12 @@ export const deleteStudent = async (id: string): Promise<void> => {
   const studentSnapshot = await getDoc(doc(db, 'siswa', id).withConverter(siswaConverter));
   if (!studentSnapshot.exists()) {
     console.warn("Siswa dengan ID (dokumen) " + id + " tidak ditemukan untuk dihapus.");
-    return; 
+    return;
   }
   const studentData = studentSnapshot.data();
-  const studentSpecificId = studentData.id_siswa; 
+  const studentSpecificId = studentData.id_siswa;
 
-  await deleteDoc(docRef); 
+  await deleteDoc(docRef);
 
   const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', '==', studentSpecificId));
   const gradesSnapshot = await getDocs(gradesQuery);
@@ -335,7 +335,7 @@ export const deleteStudent = async (id: string): Promise<void> => {
 // --- Nilai (Grade) Service ---
 export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(gradesCollRef, 
+  const q = query(gradesCollRef,
     where('id_siswa', '==', nilai.id_siswa),
     where('mapel', '==', nilai.mapel),
     where('semester', '==', nilai.semester),
@@ -344,31 +344,31 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>): Promise<Nilai>
   const querySnapshot = await getDocs(q);
 
   let docId: string;
-  let newCreatedAt = nilai.createdAt; 
+  let newCreatedAt = nilai.createdAt;
 
   if (!querySnapshot.empty) {
     const existingDoc = querySnapshot.docs[0];
     docId = existingDoc.id;
-    if (existingDoc.data().createdAt) { 
+    if (existingDoc.data().createdAt) {
         newCreatedAt = existingDoc.data().createdAt;
     }
     await updateDoc(existingDoc.ref, { ...nilai, createdAt: newCreatedAt, updatedAt: serverTimestamp() });
   } else {
     const docRef = await addDoc(gradesCollRef, { ...nilai, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     docId = docRef.id;
-    newCreatedAt = Timestamp.now(); 
+    newCreatedAt = Timestamp.now();
   }
-  const savedNilai = { ...nilai, id: docId, createdAt: newCreatedAt } as Nilai; 
+  const savedNilai = { ...nilai, id: docId, createdAt: newCreatedAt } as Nilai;
   return savedNilai;
 };
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, 
-                  where('id_siswa', '==', id_siswa), 
-                  orderBy("tahun_ajaran", "desc"), 
+  const q = query(collRef,
+                  where('id_siswa', '==', id_siswa),
+                  orderBy("tahun_ajaran", "desc"),
                   orderBy("semester", "asc"),
-                  orderBy("mapel", "asc") 
+                  orderBy("mapel", "asc")
               );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
@@ -376,12 +376,12 @@ export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => 
 
 export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran: string, mapel: string): Promise<Nilai | null> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(gradesCollRef, 
+  const q = query(gradesCollRef,
     where('id_siswa', '==', id_siswa),
     where('mapel', '==', mapel),
     where('semester', '==', semester),
     where('tahun_ajaran', '==', tahun_ajaran),
-    limit(1) 
+    limit(1)
   );
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
@@ -392,7 +392,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, orderBy("updatedAt", "desc")); 
+  const q = query(collRef, orderBy("updatedAt", "desc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -400,11 +400,14 @@ export const getAllGrades = async (): Promise<Nilai[]> => {
 export const getGradesForTeacherDisplay = async (assignedMapel: string[], tahunAjaran: string, semester: number): Promise<Nilai[]> => {
   if (assignedMapel.length === 0) return [];
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, 
-                  where('mapel', 'in', assignedMapel), 
+  // Adjusted query to align with typical Firestore indexing for 'in' with other filters and orders
+  const q = query(collRef,
+                  where('mapel', 'in', assignedMapel),
                   where('tahun_ajaran', '==', tahunAjaran),
                   where('semester', '==', semester),
                   orderBy("mapel", "asc"),
+                  orderBy("semester", "asc"),       // Added to align with potential index structure
+                  orderBy("tahun_ajaran", "asc"),   // Added to align with potential index structure
                   orderBy("updatedAt", "desc")
                 );
   const querySnapshot = await getDocs(q);
@@ -412,27 +415,22 @@ export const getGradesForTeacherDisplay = async (assignedMapel: string[], tahunA
 };
 
 
-export const getUniqueMapelNamesFromGrades = async (assignedMapel?: string[]): Promise<string[]> => {
-  const gradesCollRef = collection(db, 'nilai'); 
-  let q = query(gradesCollRef);
-
-  // If assignedMapel is provided and not empty, filter by those mapel
-  // This is not directly supported by Firestore for 'mapel in assignedMapel' in a way that efficiently gets unique mapel.
-  // So, we fetch all relevant grades and then derive unique mapel names.
-  // For Admin (no assignedMapel), it fetches all grades.
-  // For Guru, if we filter here, it would be multiple 'OR' queries or fetch and filter.
-  // A more efficient way for Guru would be to use their assignedMapel list directly if that's the goal for the dropdown.
+export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[]): Promise<string[]> => {
+  const gradesCollRef = collection(db, 'nilai');
+  const q = query(gradesCollRef); // Fetch all grades initially
 
   const querySnapshot = await getDocs(q);
   const mapelSet = new Set<string>();
+
   querySnapshot.docs.forEach(doc => {
     const data = doc.data();
     if (data.mapel && typeof data.mapel === 'string') {
-      if (assignedMapel && assignedMapel.length > 0) {
-        if (assignedMapel.includes(data.mapel)) {
+      if (assignedMapelList && assignedMapelList.length > 0) {
+        if (assignedMapelList.includes(data.mapel)) {
           mapelSet.add(data.mapel);
         }
       } else {
+        // If no assignedMapelList (e.g., for Admin), add all unique mapel
         mapelSet.add(data.mapel);
       }
     }
@@ -452,10 +450,10 @@ export const deleteGradeById = async (gradeId: string): Promise<void> => {
 
 // --- User Profile Service ---
 export const createUserProfile = async (
-  firebaseUser: User, 
-  role: Role, 
+  firebaseUser: User,
+  role: Role,
   displayName?: string,
-  assignedMapel?: string[] 
+  assignedMapel?: string[]
 ): Promise<void> => {
   const userDocRef = doc(db, 'users', firebaseUser.uid).withConverter(userProfileConverter);
   const profile: UserProfile = {
@@ -463,7 +461,7 @@ export const createUserProfile = async (
     email: firebaseUser.email,
     displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pengguna Baru',
     role: role,
-    assignedMapel: assignedMapel || [], 
+    assignedMapel: assignedMapel || [],
     createdAt: serverTimestamp() as Timestamp,
     updatedAt: serverTimestamp() as Timestamp,
   };
@@ -472,7 +470,7 @@ export const createUserProfile = async (
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef); 
+  const docSnap = await getDoc(userDocRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 
@@ -485,21 +483,16 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  
-  // Prepare update data, ensuring assignedMapel is handled correctly
+
   const updateData: any = { ...data, updatedAt: serverTimestamp() };
 
-  // Handle assignedMapel specifically:
-  // If it's present in 'data', use it.
-  // If 'data.assignedMapel' is explicitly null or undefined, it might mean to clear it (arrayRemove all)
-  // or simply not update it if not provided.
-  // For simplicity, if 'assignedMapel' is in data, we use it. Otherwise, it's not touched.
-  // If you want to remove all mapel, 'data.assignedMapel' should be an empty array [].
   if (data.hasOwnProperty('assignedMapel')) {
-    updateData.assignedMapel = data.assignedMapel || [];
+    updateData.assignedMapel = Array.isArray(data.assignedMapel) ? data.assignedMapel : [];
   }
-  // Remove uid from updateData if it accidentally got in
+
   delete updateData.uid;
+  delete updateData.email; // Email usually not changed here
+  delete updateData.role;  // Role changes might need more logic, separate function?
 
   await updateDoc(userDocRef, updateData);
 };
@@ -512,14 +505,14 @@ export const deleteUserRecord = async (uid: string): Promise<void> => {
 
 // --- Activity Log Service ---
 export const addActivityLog = async (
-  action: string, 
-  details?: string, 
-  userId?: string, 
+  action: string,
+  details?: string,
+  userId?: string,
   userName?: string
 ): Promise<void> => {
   const collRef = collection(db, 'activity_logs').withConverter(activityLogConverter);
   const logEntry: Omit<ActivityLog, 'id'> = {
-    timestamp: serverTimestamp() as Timestamp, 
+    timestamp: serverTimestamp() as Timestamp,
     action,
     details,
     userId,
@@ -546,7 +539,7 @@ export const getAcademicYearSettings = async (): Promise<AcademicYearSetting[]> 
 };
 
 export const setAcademicYearActiveStatus = async (year: string, isActive: boolean): Promise<void> => {
-  const docId = year.replace(/\//g, '_'); 
+  const docId = year.replace(/\//g, '_');
   const docRef = doc(db, ACADEMIC_YEAR_CONFIGS_COLLECTION, docId).withConverter(academicYearSettingConverter);
   await setDoc(docRef, { year, isActive }, { merge: true });
 };
@@ -556,10 +549,10 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
   const activeYears = settings
     .filter(setting => setting.isActive)
     .map(setting => setting.year)
-    .sort((a, b) => b.localeCompare(a)); 
+    .sort((a, b) => b.localeCompare(a));
 
   if (activeYears.length === 0) {
-    return [getCurrentAcademicYear()]; 
+    return [getCurrentAcademicYear()];
   }
   return activeYears;
 };
@@ -585,7 +578,7 @@ export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'
   }
   const docId = generateKkmDocId(kkmData.mapel, kkmData.tahun_ajaran);
   const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
-  await setDoc(docRef, kkmData, { merge: true }); 
+  await setDoc(docRef, kkmData, { merge: true });
 };
 
 // --- Mata Pelajaran Master Service ---

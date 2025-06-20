@@ -3,29 +3,25 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
-// Removed useForm, zodResolver, z as monthly form is gone
-// Removed MonthlyAttendanceFormData type
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// Removed Input, Textarea, Form related components for monthly form
-import { Label } from "@/components/ui/label"; 
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit } from "lucide-react";
-import { 
-  getAllUsersByRole, 
-  getAllTeachersDailyAttendanceForPeriod, 
-  deleteTeacherDailyAttendance, 
-  addActivityLog 
+import {
+  getAllUsersByRole,
+  getAllTeachersDailyAttendanceForPeriod,
+  deleteTeacherDailyAttendance,
+  addActivityLog
 } from '@/lib/firestoreService';
-import type { UserProfile, TeacherDailyAttendance } from '@/types'; // Removed TeacherAttendance
+import type { UserProfile, TeacherDailyAttendance } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
-// Removed Timestamp as it was mainly for monthly form's serverTimestamp
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,25 +43,11 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-// Removed monthlyAttendanceSchema and MonthlyAttendanceFormData
-
 export default function ManageTeacherAttendancePage() {
   const { toast } = useToast();
   const { userProfile: adminProfile } = useAuth();
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
-  
-  // Removed states for Manual Monthly Rekap
-  // const [monthlyRecords, setMonthlyRecords] = useState<TeacherAttendance[]>([]);
-  // const [isLoadingMonthlyRecords, setIsLoadingMonthlyRecords] = useState(false);
-  // const [isSubmittingMonthly, setIsSubmittingMonthly] = useState(false);
-  // const [isEditingMonthly, setIsEditingMonthly] = useState<string | null>(null); 
-  // const [monthlyRecordToDelete, setMonthlyRecordToDelete] = useState<TeacherAttendance | null>(null);
-  // const [isDeletingMonthly, setIsDeletingMonthly] = useState(false);
-  // const [monthlyFilterYear, setMonthlyFilterYear] = useState<number>(currentYear);
-  // const [monthlyFilterMonth, setMonthlyFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
-  // const [monthlyFilterTeacherUid, setMonthlyFilterTeacherUid] = useState<string | "all">("all");
 
-  // States for Daily Attendance by Guru
   const [dailyRecords, setDailyRecords] = useState<TeacherDailyAttendance[]>([]);
   const [isLoadingDailyRecords, setIsLoadingDailyRecords] = useState(false);
   const [dailyRecordToDelete, setDailyRecordToDelete] = useState<TeacherDailyAttendance | null>(null);
@@ -73,12 +55,10 @@ export default function ManageTeacherAttendancePage() {
   const [dailyFilterYear, setDailyFilterYear] = useState<number>(currentYear);
   const [dailyFilterMonth, setDailyFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
   const [dailyFilterTeacherUid, setDailyFilterTeacherUid] = useState<string | "all">("all");
-  
+
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Removed monthlyForm and its related useEffects
-  
   const fetchTeachersList = useCallback(async () => {
     setIsLoadingTeachers(true);
     try {
@@ -90,42 +70,36 @@ export default function ManageTeacherAttendancePage() {
     } finally { setIsLoadingTeachers(false); }
   }, [toast]);
 
-  // Removed fetchMonthlyAttendanceRecords
-
   const fetchDailyAttendanceRecords = useCallback(async () => {
     setIsLoadingDailyRecords(true);
-    setFetchError(null); // Clear previous fetch errors for daily records specifically
+    setFetchError(null);
     try {
       let records: TeacherDailyAttendance[] = [];
-      // Ensure month is valid before fetching
-      const monthToFetch = dailyFilterMonth === "all" ? (new Date().getMonth() +1) : dailyFilterMonth;
+      const monthQueryValue = dailyFilterMonth === "all" ? null : dailyFilterMonth;
 
+      // Fetch records based on year and month (or whole year if monthQueryValue is null)
+      const allRecordsForPeriod = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthQueryValue);
+
+      // Filter by teacher UID if a specific teacher is selected
       if (dailyFilterTeacherUid === "all") {
-        records = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthToFetch);
-      } else if (dailyFilterTeacherUid) { 
-        // Assuming getTeacherDailyAttendanceForMonth exists and works for specific teacher
-        // This part might need a specific function if `getAllTeachersDailyAttendanceForPeriod` doesn't filter by teacher
-        // For now, let's assume admin wants to see all records for a month and then filter visually,
-        // or we need a new service function: getTeacherDailyAttendanceForPeriodAndTeacher(teacherUid, year, month)
-        // For simplicity, we'll fetch all for the period and let admin use the client-side filter for teacher name
-        const allRecordsForPeriod = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthToFetch);
+        records = allRecordsForPeriod;
+      } else if (dailyFilterTeacherUid) {
         records = allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
       }
       setDailyRecords(records);
-    } catch (error) {
-      setFetchError("Gagal memuat data kehadiran harian guru.");
-      toast({ variant: "destructive", title: "Error", description: "Gagal memuat data kehadiran harian." });
+    } catch (error: any) {
+      console.error("Admin - Error in fetchDailyAttendanceRecords:", error);
+      setFetchError("Gagal memuat data kehadiran harian guru. Cek konsol browser untuk detail.");
+      toast({ variant: "destructive", title: "Error Memuat Data", description: "Gagal memuat data kehadiran harian. Kemungkinan ada masalah dengan query atau indeks Firestore. Coba periksa konsol browser untuk pesan error yang lebih spesifik dari Firebase." });
       setDailyRecords([]);
     } finally {
       setIsLoadingDailyRecords(false);
     }
   }, [toast, dailyFilterYear, dailyFilterMonth, dailyFilterTeacherUid]);
 
+
   useEffect(() => { fetchTeachersList(); }, [fetchTeachersList]);
-  // Removed useEffect for monthly records
   useEffect(() => { fetchDailyAttendanceRecords(); }, [fetchDailyAttendanceRecords]);
-  
-  // Removed onMonthlySubmit, handleEditMonthlyRecord, handleDeleteMonthlyConfirmation, handleActualMonthlyDelete, handleResetMonthlyForm
 
   const handleDeleteDailyConfirmation = (record: TeacherDailyAttendance) => { setDailyRecordToDelete(record); };
   const handleActualDailyDelete = async () => {
@@ -135,7 +109,7 @@ export default function ManageTeacherAttendancePage() {
       await deleteTeacherDailyAttendance(dailyRecordToDelete.id);
       await addActivityLog("Data Kehadiran Harian Guru Dihapus (Admin)", `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "yyyy-MM-dd")} dihapus oleh Admin: ${adminProfile.displayName}`, adminProfile.uid, adminProfile.displayName || "Admin");
       toast({ title: "Sukses", description: "Data kehadiran harian berhasil dihapus." });
-      setDailyRecordToDelete(null); fetchDailyAttendanceRecords(); 
+      setDailyRecordToDelete(null); fetchDailyAttendanceRecords();
     } catch (error: any) { toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
     } finally { setIsDeletingDaily(false); }
   };
@@ -154,8 +128,6 @@ export default function ManageTeacherAttendancePage() {
           <p className="text-muted-foreground">Lihat dan kelola data kehadiran harian yang dicatat oleh guru.</p>
         </div>
       </div>
-
-      {/* Removed Manual Monthly Rekap Card */}
 
       <Card>
         <CardHeader>
@@ -176,9 +148,7 @@ export default function ManageTeacherAttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Removed Monthly Record Delete Dialog */}
       {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
     </div>
   );
 }
-

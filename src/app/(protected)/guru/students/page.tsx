@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, Users, BookUser, Filter, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, BookUser, Filter, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { getStudents } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -222,5 +221,3 @@ export default function ViewStudentsPage() {
     </div>
   );
 }
-
-    

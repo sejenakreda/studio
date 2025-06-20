@@ -206,34 +206,27 @@ export default function InputGradesPage() {
 
   useEffect(() => {
     const initPage = async () => {
-      // console.log("InputGrades: initPage triggered. authIsLoading:", authIsLoading, "userProfile?.uid:", userProfile?.uid);
+      setPageIsLoading(true);
+      setFetchError(null);
+
       if (authIsLoading) {
-        // console.log("InputGrades: Auth is still loading, initPage will wait.");
-        // No need to set pageIsLoading here, rely on the initial state or the LoadingSkeletonComponent condition
         return; 
       }
 
-      // Primary check for valid session and profile UID
       if (!userProfile || typeof userProfile.uid !== 'string' || userProfile.uid.trim() === '') {
         console.error("InputGrades: Invalid userProfile or userProfile.uid after auth. Profile:", userProfile);
         setFetchError("Sesi guru tidak ditemukan atau profil tidak valid. Silakan login ulang.");
         resetAllLocalStates(); 
-        setPageIsLoading(false); // Explicitly set loading to false as we've hit a terminal error for this load attempt
+        setPageIsLoading(false);
         return; 
       }
       
-      // If reached here, userProfile and userProfile.uid are valid.
-      setPageIsLoading(true); // Start loading page-specific data
-      setFetchError(null);    // Clear any previous fetch errors
-
       const validAssignedMapel = userProfile.assignedMapel && Array.isArray(userProfile.assignedMapel)
         ? userProfile.assignedMapel.filter(mapel => typeof mapel === 'string' && mapel.trim() !== '')
         : [];
 
       if (validAssignedMapel.length === 0) {
-        // console.log("InputGrades: No valid mapel assigned to user:", userProfile.uid);
-        setFetchError("Anda belum memiliki mata pelajaran yang ditugaskan atau mapel tidak valid. Silakan hubungi Admin.");
-        // Attempt to load non-mapel specific data like academic years for UI consistency
+        setFetchError("Anda belum memiliki mata pelajaran yang ditugaskan oleh Admin. Silakan hubungi Admin.");
         try {
           const activeYearsData = await getActiveAcademicYears();
           setSelectableYears(activeYearsData);
@@ -260,7 +253,6 @@ export default function InputGradesPage() {
       setAssignedMapelList(validAssignedMapel);
 
       try {
-        // console.log("InputGrades: Profile and mapel are valid, fetching page data for mapel:", validAssignedMapel);
         const [studentList, weightData, activeYearsData] = await Promise.all([
           getStudents(),
           getWeights(),
@@ -287,9 +279,7 @@ export default function InputGradesPage() {
     };
 
     initPage();
-  // IMPORTANT: Ensure `resetAllLocalStates` and `setDefaultsBasedOnDataAndParams` are memoized with `useCallback`
-  // to prevent infinite loops. `userProfile?.uid` ensures effect runs if uid changes.
-  }, [authIsLoading, userProfile?.uid, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams, toast]);
+  }, [authIsLoading, userProfile, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams, toast]);
 
 
   useEffect(() => {
@@ -477,7 +467,22 @@ export default function InputGradesPage() {
   const retryInitialDataLoad = () => setRetryCounter(prev => prev + 1);
   const isFormEffectivelyDisabled = pageIsLoading || authIsLoading || fetchError !== null;
 
-  if (authIsLoading || (pageIsLoading && !fetchError)) {
+  const totalDaysForCurrentSemester = useMemo(() => {
+    if (!weights || !selectedSemester) return null;
+    return selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
+  }, [weights, selectedSemester]);
+
+  const filteredStudentsForDropdown = useMemo(() => {
+    if (selectedClass === "all") {
+      return allStudents.sort((a, b) => a.nama.localeCompare(b.nama));
+    }
+    return allStudents
+      .filter(student => student.kelas === selectedClass)
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+  }, [allStudents, selectedClass]);
+
+
+  if (authIsLoading || (pageIsLoading && fetchError === null)) {
     return <LoadingSkeletonComponent />;
   }
 
@@ -502,7 +507,23 @@ export default function InputGradesPage() {
         </Card>
       )}
 
-      {!fetchError && (
+      {!fetchError && !userProfile?.assignedMapel?.length && (
+         <Card>
+            <CardHeader><CardTitle>Belum Ada Mapel Ditugaskan</CardTitle></CardHeader>
+            <CardContent>
+                <Alert variant="default">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Informasi</AlertTitle>
+                    <AlertDescription>
+                        Anda belum memiliki mata pelajaran yang ditugaskan oleh Admin. Silakan hubungi Admin untuk menugaskan mapel agar Anda dapat menginput nilai.
+                    </AlertDescription>
+                </Alert>
+            </CardContent>
+        </Card>
+      )}
+
+
+      {!fetchError && userProfile?.assignedMapel && userProfile.assignedMapel.length > 0 && (
         <>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -552,4 +573,3 @@ export default function InputGradesPage() {
   );
 }
 
-    

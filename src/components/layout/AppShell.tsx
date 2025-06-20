@@ -31,6 +31,7 @@ import { getAllPengumuman } from "@/lib/firestoreService";
 import type { Pengumuman } from "@/types";
 import { Timestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "@/components/ui/sidebar"; // Import useSidebar
 
 
 interface NavMenuItem {
@@ -131,6 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number>(0);
   const [isLoadingBadge, setIsLoadingBadge] = React.useState(false);
+  const { isMobile, setOpenMobile } = useSidebar(); // Get mobile state and setter
 
   React.useEffect(() => {
     if (userProfile?.role === 'guru' && userProfile.uid) {
@@ -219,12 +221,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return bestMatch ? bestMatch.label : defaultDashboardLabel;
   }, [pathname, filteredNavGroups, userProfile, loading]);
 
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
         <SidebarHeader className="p-4 border-b">
-          <Link href={userProfile?.role === 'admin' ? '/admin' : '/guru'} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+          <Link 
+            href={userProfile?.role === 'admin' ? '/admin' : '/guru'} 
+            className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"
+            onClick={handleLinkClick} // Close on header click for mobile
+          >
             <BookCopy className="h-8 w-8 text-primary transition-transform duration-300 group-hover/sidebar:rotate-[10deg]" />
             <span id="sidebar-mobile-title" className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SiAP Smapna</span>
           </Link>
@@ -244,7 +255,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
                           tooltip={{ children: item.label, side: "right", align: "center" }}
                         >
-                          <Link href={item.href} className="relative">
+                          <Link href={item.href} className="relative" onClick={handleLinkClick}>
                             <item.icon className="h-5 w-5" />
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                           </Link>
@@ -261,7 +272,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       >
                         {group.groupIcon && <group.groupIcon className="h-5 w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5" />}
                         <span className="flex-1 group-data-[collapsible=icon]:hidden">{group.groupLabel}</span>
-                        {/* Removed explicit ChevronDown here, AccordionTrigger handles its own */}
                       </AccordionTrigger>
                       <AccordionContent className="pb-0">
                         <SidebarMenu className="ml-4 mt-1 border-l border-sidebar-border pl-3 group-data-[collapsible=icon]:hidden">
@@ -270,10 +280,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               <SidebarMenuButton
                                 asChild
                                 isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
-                                size="sm" // Smaller size for sub-items
+                                size="sm" 
                                 className="h-7"
                               >
-                                <Link href={item.href} className="relative">
+                                <Link href={item.href} className="relative" onClick={handleLinkClick}>
                                   <item.icon className="h-4 w-4" />
                                   <span>{item.label}</span>
                                   {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
@@ -298,7 +308,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter className="p-2 border-t">
           <SidebarMenuButton
-              onClick={handleLogout}
+              onClick={() => {
+                if (isMobile) setOpenMobile(false); // Close sidebar before logout action
+                handleLogout();
+              }}
               tooltip={{ children: "Keluar", side: "right", align: "center" }}
               className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
             >

@@ -115,15 +115,17 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
 
 const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   toFirestore: (profile: UserProfile): DocumentData => {
+    // UID is the document ID, so it's not stored within the document itself.
+    // Firestore automatically manages document IDs.
     const { uid, ...dataToStore } = profile;
     return {
-        ...dataToStore,
-        email: profile.email,
+        ...dataToStore, // This will include email, displayName, role, assignedMapel
+        email: profile.email, // Ensure email is explicitly included
         displayName: profile.displayName,
         role: profile.role,
         assignedMapel: profile.assignedMapel || [],
-        createdAt: profile.createdAt || serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: profile.createdAt || serverTimestamp(), // Set createdAt if not present
+        updatedAt: serverTimestamp(), // Always update updatedAt
     };
   },
   fromFirestore: (
@@ -131,15 +133,17 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
     options: SnapshotOptions
   ): UserProfile => {
     const data = snapshot.data(options)!;
-    return {
+    // The UID comes from snapshot.id
+    const profile: UserProfile = {
       uid: snapshot.id,
-      email: data.email,
-      displayName: data.displayName,
-      role: data.role,
-      assignedMapel: data.assignedMapel || [],
+      email: data.email || null,
+      displayName: data.displayName || null,
+      role: data.role as Role, // Assume role is always present and valid per AuthContext logic
+      assignedMapel: Array.isArray(data.assignedMapel) ? data.assignedMapel : [],
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
+    return profile;
   }
 };
 
@@ -267,7 +271,7 @@ const pengumumanConverter: FirestoreDataConverter<Pengumuman> = {
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
 
-export const getWeights = async (): Promise<Bobot | null> => {
+export const getWeights = async (): Promise<Bobot> => { // Always returns Bobot, defaults if not found
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -275,11 +279,11 @@ export const getWeights = async (): Promise<Bobot | null> => {
   }
   // Return default if not found
   return {
-    id: WEIGHTS_DOC_ID, // Include id for consistency, though not stored in Firestore as id
+    id: WEIGHTS_DOC_ID,
     tugas: 20, tes: 20, pts: 20, pas: 25,
-    kehadiran: 15, 
-    eskul: 5, 
-    osis: 5,  
+    kehadiran: 15,
+    eskul: 5,
+    osis: 5,
     totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90
   };
 };
@@ -389,11 +393,13 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
+  // This query matches the index suggested by Firebase in the user's error message.
   const q = query(collRef,
                   where('id_siswa', '==', id_siswa),
                   orderBy("tahun_ajaran", "desc"),
                   orderBy("semester", "asc"),
                   orderBy("mapel", "asc")
+                  // Firestore will implicitly order by __name__ ASC if needed for tie-breaking with this index.
               );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
@@ -408,21 +414,19 @@ export const getAllGrades = async (): Promise<Nilai[]> => {
 
 export const getGradesForTeacherDisplay = async (
   teacherUid: string,
-  mapelList: string[], // This should be the list of mapel the teacher is assigned to
+  mapelList: string[], 
   tahunAjaran: string,
   semester: number
 ): Promise<Nilai[]> => {
   if (mapelList.length === 0) return [];
   
-  // Firestore 'in' query limit is 30, though practically 10 is safer for complex queries.
-  // For this specific case, we only filter by one mapel at a time from the UI for now,
-  // but if 'all' is selected, this will be used.
   const mapelChunks: string[][] = [];
-  for (let i = 0; i < mapelList.length; i += 10) {
-      mapelChunks.push(mapelList.slice(i, i + 10));
+  const CHUNK_SIZE = 10; // Firestore 'in' query optimal limit
+  for (let i = 0; i < mapelList.length; i += CHUNK_SIZE) {
+      mapelChunks.push(mapelList.slice(i, i + CHUNK_SIZE));
   }
 
-  const allGrades: Nilai[] = [];
+  const allGradesPromises: Promise<QuerySnapshot<Nilai>>[] = [];
 
   for (const chunk of mapelChunks) {
       const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
@@ -430,15 +434,34 @@ export const getGradesForTeacherDisplay = async (
                       where('teacherUid', '==', teacherUid),
                       where('tahun_ajaran', '==', tahunAjaran),
                       where('semester', '==', semester),
-                      where('mapel', 'in', chunk),
-                      orderBy("mapel", "asc"), // Order by mapel first for consistency with IN
-                      orderBy("updatedAt", "desc") // Then by updatedAt or another field
+                      where('mapel', 'in', chunk)
+                      // orderBy clauses here might require additional complex indexes
+                      // depending on the mapelList size and how Firestore handles 'in' with 'orderBy'.
+                      // For simplicity and performance, sorting can be done client-side if complex.
+                      // However, if consistent sorting from DB is needed:
+                      // orderBy("mapel", "asc"), 
+                      // orderBy("updatedAt", "desc") // Or by student name, etc.
                     );
-      const querySnapshot = await getDocs(q);
-      querySnapshot.docs.forEach(doc => allGrades.push(doc.data()));
+      allGradesPromises.push(getDocs(q));
   }
-  // Client-side sort if needed after combining chunks, e.g., by student name if not handled by Firestore
-  return allGrades.sort((a,b) => (a.mapel.localeCompare(b.mapel) || (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0) ));
+  
+  const allGradesSnapshots = await Promise.all(allGradesPromises);
+  const combinedGrades: Nilai[] = [];
+  allGradesSnapshots.forEach(snapshot => {
+    snapshot.docs.forEach(doc => combinedGrades.push(doc.data()));
+  });
+
+  // Client-side sort if not handled by Firestore consistently across chunks
+  return combinedGrades.sort((a, b) => {
+    if (a.mapel.localeCompare(b.mapel) !== 0) {
+      return a.mapel.localeCompare(b.mapel);
+    }
+    // Then by student name if available, otherwise by student ID
+    // Assuming student details are enriched later or sorting by ID is acceptable fallback
+    const studentAId = a.id_siswa;
+    const studentBId = b.id_siswa;
+    return studentAId.localeCompare(studentBId);
+  });
 };
 
 export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[], teacherUid?: string): Promise<string[]> => {
@@ -461,10 +484,8 @@ export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[]
           mapelSet.add(data.mapel);
         }
       } else if (!teacherUid) { 
-        // If no assignedMapelList (e.g., for Admin without teacherUid filter), add all unique mapel
         mapelSet.add(data.mapel);
       } else if (teacherUid && (!assignedMapelList || assignedMapelList.length === 0)) {
-        // If teacherUid is provided but no assignedMapelList, this means get all mapel taught by this teacher
         mapelSet.add(data.mapel);
       }
     }
@@ -524,18 +545,16 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
     updateData.assignedMapel = Array.isArray(data.assignedMapel) ? data.assignedMapel : [];
   }
 
-  delete updateData.uid; // Cannot update uid
-  delete updateData.email; // Email managed by Firebase Auth, not directly in profile doc here
-  delete updateData.role;  // Role changes should be handled carefully, not a typical user update
-  delete updateData.createdAt; // Should not be updated
+  delete updateData.uid; 
+  delete updateData.email; 
+  delete updateData.role;  
+  delete updateData.createdAt; 
 
   await updateDoc(userDocRef, updateData);
 };
 
 
 export const deleteUserRecord = async (uid: string): Promise<void> => {
-  // This only deletes the Firestore profile document.
-  // Actual Firebase Auth user deletion needs to happen via Admin SDK or Firebase console.
   const userDocRef = doc(db, 'users', uid);
   await deleteDoc(userDocRef);
 };
@@ -576,7 +595,7 @@ export const getAcademicYearSettings = async (): Promise<AcademicYearSetting[]> 
 };
 
 export const setAcademicYearActiveStatus = async (year: string, isActive: boolean): Promise<void> => {
-  const docId = year.replace(/\//g, '_'); // Use year string as doc ID for simplicity
+  const docId = year.replace(/\//g, '_'); 
   const docRef = doc(db, ACADEMIC_YEAR_CONFIGS_COLLECTION, docId).withConverter(academicYearSettingConverter);
   await setDoc(docRef, { year, isActive }, { merge: true });
 };
@@ -586,9 +605,8 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
   const activeYears = settings
     .filter(setting => setting.isActive)
     .map(setting => setting.year)
-    .sort((a, b) => b.localeCompare(a)); // Newest first
+    .sort((a, b) => b.localeCompare(a)); 
 
-  // If no years are explicitly set as active, fall back to the current academic year
   if (activeYears.length === 0) {
     return [getCurrentAcademicYear()];
   }
@@ -598,9 +616,7 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
 // --- KKM Settings Service ---
 const KKM_SETTINGS_COLLECTION = 'kkm_settings';
 
-// Generates a consistent document ID for KKM settings.
 const generateKkmDocId = (mapel: string, tahun_ajaran: string): string => {
-  // Normalize mapel name and tahun_ajaran for ID consistency
   return "" + mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_') + "_" + tahun_ajaran.replace('/', '-');
 };
 
@@ -618,7 +634,7 @@ export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'
   }
   const docId = generateKkmDocId(kkmData.mapel, kkmData.tahun_ajaran);
   const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
-  await setDoc(docRef, kkmData, { merge: true }); // Use merge to create or update
+  await setDoc(docRef, kkmData, { merge: true }); 
 };
 
 // --- Mata Pelajaran Master Service ---
@@ -626,14 +642,13 @@ const MATA_PELAJARAN_MASTER_COLLECTION = 'mataPelajaranMaster';
 
 export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPelajaranMaster> => {
   const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
-  // Check if mapel already exists (case-insensitive for robustness, though Firestore query is case-sensitive)
   const q = query(collRef, where("namaMapel", "==", namaMapel));
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
     throw new Error("Mata pelajaran \"" + namaMapel + "\" sudah ada.");
   }
   const docRef = await addDoc(collRef, { namaMapel, createdAt: serverTimestamp() } as Omit<MataPelajaranMaster, 'id' | 'createdAt'> & { createdAt: Timestamp });
-  return { id: docRef.id, namaMapel, createdAt: Timestamp.now() }; // Approximate createdAt for return
+  return { id: docRef.id, namaMapel, createdAt: Timestamp.now() }; 
 };
 
 export const getMataPelajaranMaster = async (): Promise<MataPelajaranMaster[]> => {
@@ -657,11 +672,9 @@ export const addPengumuman = async (
   const collRef = collection(db, PENGUMUMAN_COLLECTION).withConverter(pengumumanConverter);
   const dataToSave = {
     ...data,
-    createdAt: serverTimestamp() as Timestamp, // Ensure server timestamp is used
+    createdAt: serverTimestamp() as Timestamp, 
   };
   const docRef = await addDoc(collRef, dataToSave);
-  // For immediate UI update, we can approximate createdAt, or re-fetch.
-  // Here, returning an approximated object.
   return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() }; 
 };
 

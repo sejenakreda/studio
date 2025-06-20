@@ -3,20 +3,26 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange } from "lucide-react";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange, Save } from "lucide-react";
 import {
   getAllUsersByRole,
   getAllTeachersDailyAttendanceForPeriod,
   deleteTeacherDailyAttendance,
-  addActivityLog
+  addActivityLog,
+  addOrUpdateTeacherDailyAttendance, 
 } from '@/lib/firestoreService';
 import type { UserProfile, TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -33,6 +39,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Timestamp } from 'firebase/firestore';
 
 const MONTHS = [
   { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
@@ -54,6 +70,14 @@ interface MonthlySummary {
   "Total Tercatat": number;
 }
 
+const dailyAttendanceStatusOptions: TeacherDailyAttendanceStatus[] = ['Hadir', 'Izin', 'Sakit', 'Alpa'];
+
+const editAttendanceSchema = z.object({
+  status: z.enum(dailyAttendanceStatusOptions, { required_error: "Status kehadiran harus dipilih" }),
+  notes: z.string().max(300, "Catatan maksimal 300 karakter").optional(),
+});
+type EditAttendanceFormData = z.infer<typeof editAttendanceSchema>;
+
 
 export default function ManageTeacherAttendancePage() {
   const { toast } = useToast();
@@ -64,12 +88,25 @@ export default function ManageTeacherAttendancePage() {
   const [isLoadingDailyRecords, setIsLoadingDailyRecords] = useState(false);
   const [dailyRecordToDelete, setDailyRecordToDelete] = useState<TeacherDailyAttendance | null>(null);
   const [isDeletingDaily, setIsDeletingDaily] = useState(false);
+
+  const [editingRecord, setEditingRecord] = useState<TeacherDailyAttendance | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
   const [dailyFilterYear, setDailyFilterYear] = useState<number>(currentYear);
   const [dailyFilterMonth, setDailyFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
   const [dailyFilterTeacherUid, setDailyFilterTeacherUid] = useState<string | "all">("all");
 
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const editForm = useForm<EditAttendanceFormData>({
+    resolver: zodResolver(editAttendanceSchema),
+    defaultValues: {
+      status: "Hadir",
+      notes: "",
+    },
+  });
 
   const fetchTeachersList = useCallback(async () => {
     setIsLoadingTeachers(true);
@@ -96,7 +133,12 @@ export default function ManageTeacherAttendancePage() {
       } else if (dailyFilterTeacherUid) {
         records = allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
       }
-      setDailyRecords(records.sort((a, b) => b.date.toMillis() - a.date.toMillis())); // Sort newest first for display
+      // Sort by date descending, then by teacher name ascending for consistent display
+      setDailyRecords(records.sort((a, b) => {
+        const dateComparison = b.date.toMillis() - a.date.toMillis();
+        if (dateComparison !== 0) return dateComparison;
+        return (a.teacherName || "").localeCompare(b.teacherName || "");
+      }));
     } catch (error: any) {
       console.error("Admin - Error in fetchDailyAttendanceRecords:", error);
       setFetchError("Gagal memuat data kehadiran harian guru. Pastikan indeks Firestore sudah dibuat. Cek konsol browser untuk detail.");
@@ -117,16 +159,66 @@ export default function ManageTeacherAttendancePage() {
     setIsDeletingDaily(true);
     try {
       await deleteTeacherDailyAttendance(dailyRecordToDelete.id);
-      await addActivityLog("Data Kehadiran Harian Guru Dihapus (Admin)", `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "EEEE, yyyy-MM-dd", {locale: indonesiaLocale})} dihapus oleh Admin: ${adminProfile.displayName}`, adminProfile.uid, adminProfile.displayName || "Admin");
+      await addActivityLog(
+        "Data Kehadiran Harian Guru Dihapus (Admin)", 
+        `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "EEEE, yyyy-MM-dd", {locale: indonesiaLocale})} dihapus oleh Admin: ${adminProfile.displayName || adminProfile.email}`, 
+        adminProfile.uid, 
+        adminProfile.displayName || adminProfile.email || "Admin"
+      );
       toast({ title: "Sukses", description: "Data kehadiran harian berhasil dihapus." });
-      setDailyRecordToDelete(null); fetchDailyAttendanceRecords();
-    } catch (error: any) { toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
+      setDailyRecordToDelete(null); 
+      fetchDailyAttendanceRecords();
+    } catch (error: any) { 
+      toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
     } finally { setIsDeletingDaily(false); }
   };
-
-  const handleEditDailyRecord = (record: TeacherDailyAttendance) => {
-      toast({ title: "Info", description: "Fitur edit kehadiran harian oleh Admin akan segera tersedia. Gunakan Hapus jika ada kesalahan."});
+  
+  const handleEditDailyRecordClick = (record: TeacherDailyAttendance) => {
+    setEditingRecord(record);
+    editForm.reset({
+      status: record.status,
+      notes: record.notes || "",
+    });
+    setIsEditModalOpen(true);
   };
+
+  const onSaveEditedAttendance = async (data: EditAttendanceFormData) => {
+    if (!editingRecord || !adminProfile?.uid) {
+      toast({ variant: "destructive", title: "Error", description: "Data tidak lengkap untuk pembaruan." });
+      return;
+    }
+    setIsSubmittingEdit(true);
+    try {
+      const payloadForUpdate: Omit<TeacherDailyAttendance, 'id' | 'updatedAt'> & {lastUpdatedByUid: string} = {
+        teacherUid: editingRecord.teacherUid,
+        teacherName: editingRecord.teacherName,
+        date: editingRecord.date, // Original date, should be a Timestamp
+        status: data.status,
+        notes: data.notes || "",
+        recordedAt: editingRecord.recordedAt, // Preserve original recordedAt
+        lastUpdatedByUid: adminProfile.uid,
+      };
+
+      await addOrUpdateTeacherDailyAttendance(payloadForUpdate);
+
+      await addActivityLog(
+        "Kehadiran Harian Guru Diedit (Admin)",
+        `Data Guru: ${editingRecord.teacherName}, Tgl: ${format(editingRecord.date.toDate(), "yyyy-MM-dd")} diubah menjadi Status: ${data.status}${data.notes ? ', Ket: ' + data.notes : ''} oleh Admin: ${adminProfile.displayName || adminProfile.email}`,
+        adminProfile.uid,
+        adminProfile.displayName || adminProfile.email || "Admin"
+      );
+
+      toast({ title: "Sukses", description: "Data kehadiran harian berhasil diperbarui." });
+      setIsEditModalOpen(false);
+      setEditingRecord(null);
+      fetchDailyAttendanceRecords();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error Simpan Edit", description: error.message || "Gagal memperbarui kehadiran." });
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
 
   const handleDownloadDailyExcel = () => {
     if (dailyRecords.length === 0) {
@@ -145,7 +237,7 @@ export default function ManageTeacherAttendancePage() {
       'Catatan': rec.notes || '-',
       'Dicatat Pada': rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
       'Diperbarui Pada': rec.updatedAt ? format(rec.updatedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
-      'Pencatat Terakhir': rec.lastUpdatedByUid || '-', 
+      'Pencatat/Pengedit Terakhir': rec.lastUpdatedByUid || '-', 
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -153,7 +245,7 @@ export default function ManageTeacherAttendancePage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Kehadiran Harian");
 
     const wscols = [
-      { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }
+      { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 25 }
     ];
     worksheet['!cols'] = wscols;
 
@@ -171,7 +263,6 @@ export default function ManageTeacherAttendancePage() {
       return;
     }
 
-    // Fetch all records for the specific month and year, ignoring teacher filter for summary
     let recordsForMonth: TeacherDailyAttendance[];
     try {
         recordsForMonth = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, dailyFilterMonth);
@@ -186,7 +277,6 @@ export default function ManageTeacherAttendancePage() {
     }
 
     const summaryMap = new Map<string, MonthlySummary>();
-
     recordsForMonth.forEach(rec => {
       if (!summaryMap.has(rec.teacherUid)) {
         summaryMap.set(rec.teacherUid, {
@@ -196,7 +286,7 @@ export default function ManageTeacherAttendancePage() {
         });
       }
       const teacherSummary = summaryMap.get(rec.teacherUid)!;
-      teacherSummary[rec.status]++;
+      if(teacherSummary[rec.status] !== undefined) teacherSummary[rec.status]++; else teacherSummary.Alpa++; // Default to Alpa if status is unexpected
       teacherSummary['Total Tercatat']++;
     });
 
@@ -212,7 +302,6 @@ export default function ManageTeacherAttendancePage() {
     }));
     
     dataForExcel.sort((a,b) => a['Nama Guru'].localeCompare(b['Nama Guru']));
-
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
@@ -278,12 +367,77 @@ export default function ManageTeacherAttendancePage() {
           {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
           {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
            : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
-           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecord(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
+           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecordClick(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
           }
         </CardContent>
       </Card>
 
       {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "EEEE, PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
+    
+      {editingRecord && (
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="sm:max-w-[480px]">
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onSaveEditedAttendance)}>
+                <DialogHeader>
+                  <DialogTitle>Edit Kehadiran Harian Guru</DialogTitle>
+                  <DialogDescription>
+                    Ubah status atau catatan kehadiran untuk guru <span className="font-semibold">{editingRecord.teacherName}</span> pada tanggal <span className="font-semibold">{format(editingRecord.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</span>.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status Kehadiran</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih status..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {dailyAttendanceStatusOptions.map(option => (
+                              <SelectItem key={option} value={option}>{option}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Catatan (Opsional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Alasan izin, sakit, atau keterangan tambahan..." {...field} rows={3} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline" disabled={isSubmittingEdit}>
+                      Batal
+                    </Button>
+                  </DialogClose>
+                  <Button type="submit" disabled={isSubmittingEdit}>
+                    {isSubmittingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Simpan Perubahan
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

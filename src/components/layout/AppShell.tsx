@@ -21,7 +21,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock } from "lucide-react"; 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, ChevronDown } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -29,6 +30,7 @@ import { useRouter } from "next/navigation";
 import { getAllPengumuman } from "@/lib/firestoreService"; 
 import type { Pengumuman } from "@/types";
 import { Timestamp } from "firebase/firestore";
+import { cn } from "@/lib/utils";
 
 
 interface NavMenuItem {
@@ -40,6 +42,7 @@ interface NavMenuItem {
 
 interface NavGroup {
   groupLabel?: string; 
+  groupIcon?: React.ElementType;
   items: NavMenuItem[];
   roles: Array<'admin' | 'guru'>; 
 }
@@ -53,6 +56,7 @@ const navigationStructure: NavGroup[] = [
   },
   {
     groupLabel: "Akademik & Penilaian",
+    groupIcon: BookCopy,
     roles: ['admin'],
     items: [
       { href: "/admin/students", label: "Kelola Siswa", icon: BookUser },
@@ -64,6 +68,7 @@ const navigationStructure: NavGroup[] = [
   },
   {
     groupLabel: "Manajemen Pengguna",
+    groupIcon: Users,
     roles: ['admin'],
     items: [
        { href: "/admin/teachers", label: "Kelola Guru", icon: Users },
@@ -71,6 +76,7 @@ const navigationStructure: NavGroup[] = [
   },
    {
     groupLabel: "Kehadiran Guru",
+    groupIcon: CalendarCheck,
     roles: ['admin'],
     items: [
        { href: "/admin/teacher-attendance", label: "Kelola Rekap Kehadiran", icon: CalendarCheck },
@@ -78,6 +84,7 @@ const navigationStructure: NavGroup[] = [
   },
   {
     groupLabel: "Komunikasi & Laporan",
+    groupIcon: Megaphone,
     roles: ['admin'],
     items: [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
@@ -92,11 +99,13 @@ const navigationStructure: NavGroup[] = [
   },
   {
     groupLabel: "Informasi",
+    groupIcon: Megaphone,
     roles: ['guru'],
     items: [{ href: "/guru/announcements", label: "Pengumuman", icon: Megaphone }],
   },
   {
     groupLabel: "Akademik",
+    groupIcon: Edit3,
     roles: ['guru'],
     items: [
       { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
@@ -106,6 +115,7 @@ const navigationStructure: NavGroup[] = [
   },
   {
     groupLabel: "Kehadiran Saya",
+    groupIcon: UserCheck,
     roles: ['guru'],
     items: [
       { href: "/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
@@ -181,18 +191,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return navigationStructure.filter(group => group.roles.includes(userProfile.role));
   }, [userProfile, loading]);
 
+  const defaultOpenAccordionItems = React.useMemo(() => {
+    if (loading || !userProfile) return [];
+    return filteredNavGroups
+      .filter(group => group.groupLabel && group.items.some(item =>
+        item.isExact ? pathname === item.href : pathname.startsWith(item.href)
+      ))
+      .map(group => group.groupLabel!);
+  }, [pathname, filteredNavGroups, loading, userProfile]);
+
+
   const currentPageLabel = React.useMemo(() => {
     if (loading || !userProfile) return "Memuat...";
-
     const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
-    
     const allNavItemsFlat = filteredNavGroups.flatMap(group => group.items);
-
     const exactMatch = allNavItemsFlat.find(item => item.href === pathname);
-    if (exactMatch) {
-      return exactMatch.label;
-    }
-
+    if (exactMatch) return exactMatch.label;
     let bestMatch: NavMenuItem | null = null;
     for (const item of allNavItemsFlat) {
       if (item.isExact) continue; 
@@ -202,7 +216,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    
     return bestMatch ? bestMatch.label : defaultDashboardLabel;
   }, [pathname, filteredNavGroups, userProfile, loading]);
 
@@ -218,41 +231,73 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent className="flex-1 p-2">
           <ScrollArea className="h-full">
-            <SidebarMenu>
+            <Accordion type="multiple" className="w-full" defaultValue={defaultOpenAccordionItems}>
               {filteredNavGroups.map((group, groupIndex) => (
-                <React.Fragment key={`group-${group.groupLabel || 'main'}-${groupIndex}`}>
-                  {group.groupLabel && (
-                    <>
-                      {groupIndex > 0 && <SidebarSeparator className="my-2" />}
-                      <div className="px-3 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
-                        {group.groupLabel}
-                      </div>
-                    </>
-                  )}
-                  {group.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
-                        tooltip={{ children: item.label, side: "right", align: "center" }}
+                <React.Fragment key={`navgroup-${group.groupLabel || group.items[0]?.href || groupIndex}`}>
+                  {groupIndex > 0 && (!group.groupLabel || !filteredNavGroups[groupIndex-1].groupLabel) && <SidebarSeparator className="my-1"/>}
+                  
+                  {!group.groupLabel ? ( // Direct items (like Dashboard)
+                    group.items.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
+                          tooltip={{ children: item.label, side: "right", align: "center" }}
+                        >
+                          <Link href={item.href} className="relative">
+                            <item.icon className="h-5 w-5" />
+                            <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))
+                  ) : ( // Collapsible group
+                    <AccordionItem value={group.groupLabel!} className="border-b-0">
+                      <AccordionTrigger 
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                          "group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+                        )}
+                        // Override default AccordionTrigger chevron for consistency, or hide it if group-data icon
+                        // The default chevron is part of AccordionTrigger's children
+                        // The SidebarMenuButton already handles icons.
+                        // So, we pass the chevron as part of the children to SidebarMenuButton for consistent styling.
                       >
-                        <Link href={item.href} className="relative">
-                          <item.icon className="h-5 w-5" />
-                          <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                          {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
-                            <SidebarMenuBadge 
-                               className="absolute top-1 right-1 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-[16px] group-data-[collapsible=icon]:px-1 bg-destructive text-destructive-foreground"
-                            >
-                              {announcementBadgeCount}
-                            </SidebarMenuBadge>
-                          )}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                        {group.groupIcon && <group.groupIcon className="h-5 w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5" />}
+                        <span className="flex-1 group-data-[collapsible=icon]:hidden">{group.groupLabel}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden" />
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-0">
+                        <SidebarMenu className="ml-4 mt-1 border-l border-sidebar-border pl-3 group-data-[collapsible=icon]:hidden">
+                          {group.items.map((item) => (
+                            <SidebarMenuItem key={item.href}>
+                              <SidebarMenuButton
+                                asChild
+                                isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
+                                size="sm" // Smaller size for sub-items
+                                className="h-7"
+                              >
+                                <Link href={item.href} className="relative">
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.label}</span>
+                                  {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
+                                    <SidebarMenuBadge 
+                                      className="absolute top-1 right-1 h-4 min-w-[16px] px-1 flex items-center justify-center text-xs"
+                                    >
+                                      {announcementBadgeCount}
+                                    </SidebarMenuBadge>
+                                  )}
+                                </Link>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))}
+                        </SidebarMenu>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
                 </React.Fragment>
               ))}
-            </SidebarMenu>
+            </Accordion>
           </ScrollArea>
         </SidebarContent>
         <SidebarFooter className="p-2 border-t">

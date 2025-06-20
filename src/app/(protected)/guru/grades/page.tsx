@@ -42,9 +42,30 @@ const gradeSchema = z.object({
 
 type GradeFormData = z.infer<typeof gradeSchema>;
 
-// GradeImportDataRow (jika ada) harusnya sama seperti sebelumnya
-
 const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
+
+const LoadingSkeletonComponent = () => (
+  <div className="space-y-6">
+     <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div className="w-full"><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
+     <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
+       <CardContent className="space-y-4">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+           <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
+           <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
+           <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
+         </div>
+       </CardContent>
+     </Card>
+     <Card className="mt-6">
+         <CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
+         <CardContent className="space-y-6"><div><Skeleton className="h-6 w-32 mb-2 rounded-md" /><div className="space-y-3 mt-2"><Skeleton className="h-10 w-full rounded-md" /></div><Skeleton className="h-9 w-40 mt-3 rounded-md" /></div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => (<div key={i} className="space-y-1.5"><Skeleton className="h-5 w-24 rounded-md" /><Skeleton className="h-10 w-full rounded-md" /></div>))}</div>
+             <Skeleton className="h-28 w-full mt-6 rounded-md" />
+         </CardContent><CardFooter><Skeleton className="h-10 w-32 rounded-md" /></CardFooter>
+     </Card>
+   </div>
+);
+
 
 export default function InputGradesPage() {
   const { toast } = useToast();
@@ -59,7 +80,7 @@ export default function InputGradesPage() {
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
   const [assignedMapelList, setAssignedMapelList] = useState<string[]>([]);
   
-  const [pageIsLoading, setPageIsLoading] = useState(true);
+  const [pageIsLoading, setPageIsLoading] = useState(true); 
   const [isLoadingGradeData, setIsLoadingGradeData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingKkm, setIsSavingKkm] = useState(false);
@@ -96,15 +117,6 @@ export default function InputGradesPage() {
     tugas, tes, pts, pas, jumlahHariHadir, eskul, osis
   } = watchedFormValues;
 
-  const filteredStudentsForDropdown = useMemo(() => {
-    if (!selectedClass || selectedClass === "all") return allStudents;
-    return allStudents.filter(student => student.kelas === selectedClass);
-  }, [allStudents, selectedClass]);
-
-  const totalDaysForCurrentSemester = useMemo(() => {
-    if (!weights || !selectedSemester) return undefined;
-    return selectedSemester === 1 ? weights.totalHariEfektifGanjil : weights.totalHariEfektifGenap;
-  }, [weights, selectedSemester]);
 
   const resetGradeFieldsToZero = useCallback(() => {
     form.setValue('tugas', [0], { shouldDirty: true });
@@ -139,7 +151,7 @@ export default function InputGradesPage() {
     (
       studentList: Siswa[],
       activeYearsData: string[],
-      guruAssignedMapel: string[], // Changed name for clarity
+      guruMapel: string[],
       uniqueStudentClasses: string[]
     ) => {
       const studentIdParam = searchParams.get('studentId');
@@ -179,10 +191,9 @@ export default function InputGradesPage() {
       form.setValue('selectedSemester', defaultSemesterVal);
 
       let defaultMapelVal = "";
-      // Ensure guruAssignedMapel is an array and has items before accessing
-      if (guruAssignedMapel && Array.isArray(guruAssignedMapel) && guruAssignedMapel.length > 0) {
-        if (mapelParam && guruAssignedMapel.includes(mapelParam)) defaultMapelVal = mapelParam;
-        else defaultMapelVal = guruAssignedMapel[0];
+      if (guruMapel && Array.isArray(guruMapel) && guruMapel.length > 0) {
+        if (mapelParam && guruMapel.includes(mapelParam)) defaultMapelVal = mapelParam;
+        else defaultMapelVal = guruMapel[0];
       }
       form.setValue('selectedMapel', defaultMapelVal);
       
@@ -190,67 +201,66 @@ export default function InputGradesPage() {
           resetGradeFieldsToZero();
       }
     },
-    [searchParams, form, resetGradeFieldsToZero]
+    [searchParams, form, resetGradeFieldsToZero] 
   );
 
   useEffect(() => {
     const initPage = async () => {
-      setPageIsLoading(true);
-      setFetchError(null);
-      // Clear previous data that depends on profile/mapel
-      setAssignedMapelList([]);
-      setAllStudents([]);
-      setAvailableClasses([]);
-      setStudentMap(new Map());
-      setWeights(null);
-      setSelectableYears([]);
-
+      // console.log("InputGrades: initPage triggered. authIsLoading:", authIsLoading, "userProfile?.uid:", userProfile?.uid);
       if (authIsLoading) {
-        console.log("InputGrades: Auth is loading, waiting...");
-        return;
+        // console.log("InputGrades: Auth is still loading, initPage will wait.");
+        // No need to set pageIsLoading here, rely on the initial state or the LoadingSkeletonComponent condition
+        return; 
       }
 
-      if (!userProfile || !userProfile.uid) {
-        console.error("InputGrades: User profile or UID is missing after auth.");
-        setFetchError("Sesi guru tidak ditemukan. Silakan login ulang.");
-        resetAllLocalStates();
-        setPageIsLoading(false);
-        return;
+      // Primary check for valid session and profile UID
+      if (!userProfile || typeof userProfile.uid !== 'string' || userProfile.uid.trim() === '') {
+        console.error("InputGrades: Invalid userProfile or userProfile.uid after auth. Profile:", userProfile);
+        setFetchError("Sesi guru tidak ditemukan atau profil tidak valid. Silakan login ulang.");
+        resetAllLocalStates(); 
+        setPageIsLoading(false); // Explicitly set loading to false as we've hit a terminal error for this load attempt
+        return; 
       }
       
-      // Crucial check for assignedMapel
-      if (!userProfile.assignedMapel || !Array.isArray(userProfile.assignedMapel) || userProfile.assignedMapel.length === 0) {
-        console.error("InputGrades: No mapel assigned to user:", userProfile.uid, "Profile assignedMapel:", userProfile.assignedMapel);
-        setFetchError("Anda belum memiliki mata pelajaran yang ditugaskan oleh Admin. Silakan hubungi Admin untuk menugaskan mapel agar Anda dapat menginput nilai.");
-        // Try to load non-mapel specific data for UI consistency for filters (like academic years)
-        try {
-            const activeYearsData = await getActiveAcademicYears();
-            setSelectableYears(activeYearsData);
-             if (activeYearsData.length > 0) {
-                form.setValue('selectedAcademicYear', activeYearsData.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : activeYearsData[0]);
-            } else {
-                form.setValue('selectedAcademicYear', ""); // No active years
-            }
-            form.setValue('selectedSemester', SEMESTERS[0]?.value || 1);
-        } catch (e) { 
-            console.warn("InputGrades: Failed to load academic years even when no mapel assigned:", e);
-        }
-        setPageIsLoading(false);
-        return;
-      }
-      
-      // Ensure assignedMapel from profile is a valid array of strings before setting to state
-      const validAssignedMapel = userProfile.assignedMapel.filter(mapel => typeof mapel === 'string' && mapel.trim() !== '');
+      // If reached here, userProfile and userProfile.uid are valid.
+      setPageIsLoading(true); // Start loading page-specific data
+      setFetchError(null);    // Clear any previous fetch errors
+
+      const validAssignedMapel = userProfile.assignedMapel && Array.isArray(userProfile.assignedMapel)
+        ? userProfile.assignedMapel.filter(mapel => typeof mapel === 'string' && mapel.trim() !== '')
+        : [];
+
       if (validAssignedMapel.length === 0) {
-        console.error("InputGrades: userProfile.assignedMapel is an empty array or contains invalid entries for user:", userProfile.uid);
-        setFetchError("Mata pelajaran yang ditugaskan tidak valid atau kosong. Silakan hubungi Admin.");
+        // console.log("InputGrades: No valid mapel assigned to user:", userProfile.uid);
+        setFetchError("Anda belum memiliki mata pelajaran yang ditugaskan atau mapel tidak valid. Silakan hubungi Admin.");
+        // Attempt to load non-mapel specific data like academic years for UI consistency
+        try {
+          const activeYearsData = await getActiveAcademicYears();
+          setSelectableYears(activeYearsData);
+           if (activeYearsData.length > 0 && !form.getValues('selectedAcademicYear')) {
+             form.setValue('selectedAcademicYear', activeYearsData.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : activeYearsData[0]);
+           } else if (activeYearsData.length === 0 && !form.getValues('selectedAcademicYear')) {
+            form.setValue('selectedAcademicYear', "");
+           }
+           if (!form.getValues('selectedSemester')) {
+            form.setValue('selectedSemester', SEMESTERS[0]?.value || 1);
+           }
+        } catch (e) {
+          console.warn("InputGrades: Failed to load academic years while handling no_mapel_error:", e);
+        }
+        setAssignedMapelList([]);
+        setAllStudents([]);
+        setAvailableClasses([]);
+        setStudentMap(new Map());
+        setWeights(null);
         setPageIsLoading(false);
         return;
       }
-      setAssignedMapelList(validAssignedMapel); 
+      
+      setAssignedMapelList(validAssignedMapel);
 
       try {
-        console.log("InputGrades: Profile and mapel are valid, fetching page data for mapel:", validAssignedMapel);
+        // console.log("InputGrades: Profile and mapel are valid, fetching page data for mapel:", validAssignedMapel);
         const [studentList, weightData, activeYearsData] = await Promise.all([
           getStudents(),
           getWeights(),
@@ -265,20 +275,21 @@ export default function InputGradesPage() {
         setWeights(weightData);
         setSelectableYears(activeYearsData);
         
-        // Set defaults for the form using the fetched data and VALID assigned mapel
         setDefaultsBasedOnDataAndParams(studentList || [], activeYearsData, validAssignedMapel, uniqueStudentClasses);
 
       } catch (error: any) {
         console.error("InputGrades: Error loading page data (students/weights/years):", error);
         setFetchError("Gagal memuat data pendukung (siswa/bobot/tahun ajaran). Error: " + error.message);
-        resetAllLocalStates(); // Ensure form is reset on error
+        resetAllLocalStates();
       } finally {
         setPageIsLoading(false);
       }
     };
 
     initPage();
-  }, [authIsLoading, userProfile, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams]); // Keep dependencies minimal and memoized
+  // IMPORTANT: Ensure `resetAllLocalStates` and `setDefaultsBasedOnDataAndParams` are memoized with `useCallback`
+  // to prevent infinite loops. `userProfile?.uid` ensures effect runs if uid changes.
+  }, [authIsLoading, userProfile?.uid, retryCounter, resetAllLocalStates, setDefaultsBasedOnDataAndParams, toast]);
 
 
   useEffect(() => {
@@ -466,28 +477,6 @@ export default function InputGradesPage() {
   const retryInitialDataLoad = () => setRetryCounter(prev => prev + 1);
   const isFormEffectivelyDisabled = pageIsLoading || authIsLoading || fetchError !== null;
 
-  const LoadingSkeletonComponent = () => (
-     <div className="space-y-6">
-        <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-md" /><div className="w-full"><Skeleton className="h-8 w-64 mb-2 rounded-md" /><Skeleton className="h-5 w-80 rounded-md" /></div></div>
-        <Card><CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-              <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
-              <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
-              <Skeleton className="h-10 w-full rounded-md" /> <Skeleton className="h-10 w-full rounded-md" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="mt-6">
-            <CardHeader><Skeleton className="h-7 w-48 mb-2 rounded-md" /><Skeleton className="h-4 w-72 rounded-md" /></CardHeader>
-            <CardContent className="space-y-6"><div><Skeleton className="h-6 w-32 mb-2 rounded-md" /><div className="space-y-3 mt-2"><Skeleton className="h-10 w-full rounded-md" /></div><Skeleton className="h-9 w-40 mt-3 rounded-md" /></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => (<div key={i} className="space-y-1.5"><Skeleton className="h-5 w-24 rounded-md" /><Skeleton className="h-10 w-full rounded-md" /></div>))}</div>
-                <Skeleton className="h-28 w-full mt-6 rounded-md" />
-            </CardContent><CardFooter><Skeleton className="h-10 w-32 rounded-md" /></CardFooter>
-        </Card>
-      </div>
-  );
-
   if (authIsLoading || (pageIsLoading && !fetchError)) {
     return <LoadingSkeletonComponent />;
   }
@@ -563,3 +552,4 @@ export default function InputGradesPage() {
   );
 }
 
+    

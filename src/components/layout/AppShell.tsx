@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -42,11 +42,13 @@ const navItems: NavItem[] = [
   { href: "/admin/teachers", label: "Kelola Guru", icon: Users, roles: ['admin'] },
   { href: "/admin/students", label: "Kelola Siswa", icon: BookUser, roles: ['admin'] },
   { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks, roles: ['admin'] },
-  { href: "/admin/announcements", label: "Pengumuman", icon: Megaphone, roles: ['admin'] },
-  { href: "/admin/weights", label: "Atur Bobot", icon: Settings, roles: ['admin'] },
+  { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone, roles: ['admin'] },
+  { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck, roles: ['admin'] },
+  { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings, roles: ['admin'] },
   { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog, roles: ['admin'] },
   { href: "/admin/grades", label: "Semua Nilai", icon: FileText, roles: ['admin'] },
   { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3, roles: ['admin'] },
+  
   { href: "/guru", label: "Dasbor Guru", icon: Home, roles: ['guru'], isExact: true },
   { href: "/guru/announcements", label: "Pengumuman", icon: Megaphone, roles: ['guru'] },
   { href: "/guru/students", label: "Daftar Siswa", icon: BookUser, roles: ['guru'] }, 

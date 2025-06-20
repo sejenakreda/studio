@@ -20,10 +20,11 @@ import {
   orderBy,
   limit,
   arrayRemove,
-  arrayUnion
+  arrayUnion,
+  QuerySnapshot // Added for type consistency
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -32,8 +33,18 @@ import { getCurrentAcademicYear } from './utils';
 const bobotConverter: FirestoreDataConverter<Bobot> = {
   toFirestore: (bobot: Bobot): DocumentData => {
     const data: any = { ...bobot };
-    delete data.id;
-    return data;
+    // delete data.id; // ID should not be part of the document data itself if it's the doc ID
+    return {
+        tugas: bobot.tugas || 0,
+        tes: bobot.tes || 0,
+        pts: bobot.pts || 0,
+        pas: bobot.pas || 0,
+        kehadiran: bobot.kehadiran || 0,
+        eskul: bobot.eskul || 0,
+        osis: bobot.osis || 0,
+        totalHariEfektifGanjil: bobot.totalHariEfektifGanjil || 90,
+        totalHariEfektifGenap: bobot.totalHariEfektifGenap || 90,
+    };
   },
   fromFirestore: (
     snapshot: QueryDocumentSnapshot,
@@ -115,17 +126,15 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
 
 const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   toFirestore: (profile: UserProfile): DocumentData => {
-    // UID is the document ID, so it's not stored within the document itself.
-    // Firestore automatically manages document IDs.
     const { uid, ...dataToStore } = profile;
     return {
-        ...dataToStore, // This will include email, displayName, role, assignedMapel
-        email: profile.email, // Ensure email is explicitly included
+        ...dataToStore, 
+        email: profile.email, 
         displayName: profile.displayName,
         role: profile.role,
         assignedMapel: profile.assignedMapel || [],
-        createdAt: profile.createdAt || serverTimestamp(), // Set createdAt if not present
-        updatedAt: serverTimestamp(), // Always update updatedAt
+        createdAt: profile.createdAt || serverTimestamp(), 
+        updatedAt: serverTimestamp(), 
     };
   },
   fromFirestore: (
@@ -133,12 +142,11 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
     options: SnapshotOptions
   ): UserProfile => {
     const data = snapshot.data(options)!;
-    // The UID comes from snapshot.id
     const profile: UserProfile = {
       uid: snapshot.id,
       email: data.email || null,
       displayName: data.displayName || null,
-      role: data.role as Role, // Assume role is always present and valid per AuthContext logic
+      role: data.role as Role, 
       assignedMapel: Array.isArray(data.assignedMapel) ? data.assignedMapel : [],
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
@@ -267,30 +275,59 @@ const pengumumanConverter: FirestoreDataConverter<Pengumuman> = {
   }
 };
 
+const teacherAttendanceConverter: FirestoreDataConverter<TeacherAttendance> = {
+  toFirestore: (attendance: Omit<TeacherAttendance, 'id'>): DocumentData => {
+    const data: any = { ...attendance };
+    if (!data.recordedAt) {
+      data.recordedAt = serverTimestamp();
+    }
+    data.updatedAt = serverTimestamp();
+    return data;
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): TeacherAttendance => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      teacherUid: data.teacherUid,
+      teacherName: data.teacherName,
+      month: data.month,
+      year: data.year,
+      daysPresent: data.daysPresent,
+      daysAbsentWithReason: data.daysAbsentWithReason,
+      daysAbsentWithoutReason: data.daysAbsentWithoutReason,
+      totalSchoolDaysInMonth: data.totalSchoolDaysInMonth,
+      notes: data.notes,
+      recordedByUid: data.recordedByUid,
+      recordedAt: data.recordedAt,
+      updatedAt: data.updatedAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
 
-export const getWeights = async (): Promise<Bobot> => { // Always returns Bobot, defaults if not found
+export const getWeights = async (): Promise<Bobot> => { 
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     return docSnap.data();
   }
-  // Return default if not found
   return {
-    id: WEIGHTS_DOC_ID,
+    id: WEIGHTS_DOC_ID, // Default ID
     tugas: 20, tes: 20, pts: 20, pas: 25,
-    kehadiran: 15,
-    eskul: 5,
-    osis: 5,
+    kehadiran: 15, eskul: 5, osis: 5,
     totalHariEfektifGanjil: 90, totalHariEfektifGenap: 90
   };
 };
 
 export const updateWeights = async (bobotData: Partial<Bobot>): Promise<void> => {
   const docRef = doc(db, 'bobot', WEIGHTS_DOC_ID).withConverter(bobotConverter);
-  await setDoc(docRef, bobotData as Bobot, { merge: true });
+  await setDoc(docRef, bobotData, { merge: true });
 };
 
 
@@ -328,6 +365,11 @@ export const deleteStudent = async (id: string): Promise<void> => {
     return;
   }
   const studentData = studentSnapshot.data();
+  if (!studentData) {
+      console.warn("Data siswa tidak valid untuk ID (dokumen) " + id);
+      await deleteDoc(docRef); // Attempt to delete the main doc anyway if data is malformed
+      return;
+  }
   const studentSpecificId = studentData.id_siswa;
 
   await deleteDoc(docRef);
@@ -393,13 +435,11 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  // This query matches the index suggested by Firebase in the user's error message.
   const q = query(collRef,
                   where('id_siswa', '==', id_siswa),
                   orderBy("tahun_ajaran", "desc"),
                   orderBy("semester", "asc"),
                   orderBy("mapel", "asc")
-                  // Firestore will implicitly order by __name__ ASC if needed for tie-breaking with this index.
               );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
@@ -407,7 +447,7 @@ export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => 
 
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, orderBy("updatedAt", "desc")); // Simple sort for admin view
+  const q = query(collRef, orderBy("updatedAt", "desc")); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -421,7 +461,7 @@ export const getGradesForTeacherDisplay = async (
   if (mapelList.length === 0) return [];
   
   const mapelChunks: string[][] = [];
-  const CHUNK_SIZE = 10; // Firestore 'in' query optimal limit
+  const CHUNK_SIZE = 30; // Firestore 'in' query optimal limit (max is 30)
   for (let i = 0; i < mapelList.length; i += CHUNK_SIZE) {
       mapelChunks.push(mapelList.slice(i, i + CHUNK_SIZE));
   }
@@ -434,13 +474,9 @@ export const getGradesForTeacherDisplay = async (
                       where('teacherUid', '==', teacherUid),
                       where('tahun_ajaran', '==', tahunAjaran),
                       where('semester', '==', semester),
-                      where('mapel', 'in', chunk)
-                      // orderBy clauses here might require additional complex indexes
-                      // depending on the mapelList size and how Firestore handles 'in' with 'orderBy'.
-                      // For simplicity and performance, sorting can be done client-side if complex.
-                      // However, if consistent sorting from DB is needed:
-                      // orderBy("mapel", "asc"), 
-                      // orderBy("updatedAt", "desc") // Or by student name, etc.
+                      where('mapel', 'in', chunk),
+                      orderBy("mapel", "asc"), 
+                      orderBy("updatedAt", "desc")
                     );
       allGradesPromises.push(getDocs(q));
   }
@@ -450,18 +486,7 @@ export const getGradesForTeacherDisplay = async (
   allGradesSnapshots.forEach(snapshot => {
     snapshot.docs.forEach(doc => combinedGrades.push(doc.data()));
   });
-
-  // Client-side sort if not handled by Firestore consistently across chunks
-  return combinedGrades.sort((a, b) => {
-    if (a.mapel.localeCompare(b.mapel) !== 0) {
-      return a.mapel.localeCompare(b.mapel);
-    }
-    // Then by student name if available, otherwise by student ID
-    // Assuming student details are enriched later or sorting by ID is acceptable fallback
-    const studentAId = a.id_siswa;
-    const studentBId = b.id_siswa;
-    return studentAId.localeCompare(studentBId);
-  });
+  return combinedGrades;
 };
 
 export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[], teacherUid?: string): Promise<string[]> => {
@@ -538,18 +563,14 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-
   const updateData: any = { ...data, updatedAt: serverTimestamp() };
-
   if (data.hasOwnProperty('assignedMapel')) {
     updateData.assignedMapel = Array.isArray(data.assignedMapel) ? data.assignedMapel : [];
   }
-
   delete updateData.uid; 
   delete updateData.email; 
   delete updateData.role;  
   delete updateData.createdAt; 
-
   await updateDoc(userDocRef, updateData);
 };
 
@@ -697,3 +718,94 @@ export const deletePengumuman = async (id: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
+// --- Teacher Attendance Service ---
+const TEACHER_ATTENDANCE_COLLECTION = 'teacherAttendance';
+
+export const addOrUpdateTeacherAttendance = async (
+  attendanceData: Omit<TeacherAttendance, 'id' | 'recordedAt' | 'updatedAt'>
+): Promise<TeacherAttendance> => {
+  const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
+  
+  const docId = `${attendanceData.teacherUid}_${attendanceData.year}_${attendanceData.month}`;
+  const docRef = doc(collRef, docId);
+  const docSnap = await getDoc(docRef);
+
+  let finalData: TeacherAttendance;
+
+  if (docSnap.exists()) {
+    // Update existing record
+    const existingData = docSnap.data();
+    finalData = {
+      ...existingData,
+      ...attendanceData, // Overwrite with new data
+      id: docId,
+      updatedAt: serverTimestamp() as Timestamp,
+    };
+    await updateDoc(docRef, { ...finalData, id: undefined }); // Don't store ID in document
+  } else {
+    // Add new record
+    finalData = {
+      ...attendanceData,
+      id: docId,
+      recordedAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp,
+    };
+    await setDoc(docRef, { ...finalData, id: undefined }); // Don't store ID in document
+  }
+  // For returning, simulate the server timestamp for immediate use
+  const now = Timestamp.now();
+  return {
+    ...finalData,
+    recordedAt: finalData.recordedAt instanceof Timestamp ? finalData.recordedAt : now,
+    updatedAt: now,
+  };
+};
+
+export const getTeacherAttendance = async (
+  teacherUid: string,
+  year: number,
+  month: number
+): Promise<TeacherAttendance | null> => {
+  const docId = `${teacherUid}_${year}_${month}`;
+  const docRef = doc(db, TEACHER_ATTENDANCE_COLLECTION, docId).withConverter(teacherAttendanceConverter);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : null;
+};
+
+export const getTeacherAttendanceForYear = async (
+  teacherUid: string,
+  year: number
+): Promise<TeacherAttendance[]> => {
+  const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
+  const q = query(
+    collRef,
+    where('teacherUid', '==', teacherUid),
+    where('year', '==', year),
+    orderBy('month', 'asc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const getAllTeacherAttendanceRecords = async (
+  filters?: { year?: number, month?: number, teacherUid?: string }
+): Promise<TeacherAttendance[]> => {
+  const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
+  const queryConstraints = [];
+  if (filters?.year) queryConstraints.push(where('year', '==', filters.year));
+  if (filters?.month) queryConstraints.push(where('month', '==', filters.month));
+  if (filters?.teacherUid) queryConstraints.push(where('teacherUid', '==', filters.teacherUid));
+  
+  // Add default ordering
+  if (filters?.year) queryConstraints.push(orderBy('month', 'asc'));
+  queryConstraints.push(orderBy('teacherName', 'asc')); // Fallback if no year
+  
+  const q = query(collRef, ...queryConstraints);
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const deleteTeacherAttendance = async (id: string): Promise<void> => {
+    const docRef = doc(db, TEACHER_ATTENDANCE_COLLECTION, id);
+    await deleteDoc(docRef);
+};

@@ -105,3 +105,19 @@ export interface Pengumuman {
   createdByUid?: string;
   createdByDisplayName?: string;
 }
+
+export interface TeacherAttendance {
+  id?: string; // Firestore document ID (e.g., teacherUid_year_month)
+  teacherUid: string;
+  teacherName?: string; // For display convenience
+  month: number; // 1-12
+  year: number;
+  daysPresent: number;
+  daysAbsentWithReason: number; // Izin, Sakit
+  daysAbsentWithoutReason: number; // Alpa
+  totalSchoolDaysInMonth: number; // Configurable total school days in that month
+  notes?: string;
+  recordedByUid: string;
+  recordedAt: Timestamp;
+  updatedAt?: Timestamp;
+}

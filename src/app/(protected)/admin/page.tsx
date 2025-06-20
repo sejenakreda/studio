@@ -4,7 +4,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, ListChecks, Megaphone, BookUser } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { 
+    BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, 
+    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck 
+} from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +16,21 @@ import type { ActivityLog } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+
+interface AdminDashboardGroup {
+  title: string;
+  icon: React.ElementType;
+  items: AdminDashboardItem[];
+  defaultOpen?: boolean;
+}
+
+interface AdminDashboardItem {
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ElementType;
+  color?: string;
+}
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
@@ -53,63 +72,41 @@ export default function AdminDashboardPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const stats = [
-    { 
-      title: "Total Guru", 
-      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (teacherCount !== null ? teacherCount.toString() : "N/A"), 
-      icon: Users, 
-      color: "text-blue-500", 
-      bgColor: "bg-blue-100 dark:bg-blue-900/30", 
-      href: "/admin/teachers" 
+  const dashboardGroups: AdminDashboardGroup[] = [
+    {
+      title: "Sistem Akademik & Penilaian",
+      icon: BookCopy,
+      defaultOpen: true,
+      items: [
+        { title: "Kelola Siswa", description: "Tambah, edit, atau impor data siswa.", href: "/admin/students", icon: BookUser, color: "text-sky-500" },
+        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran master.", href: "/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
+        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot komponen penilaian.", href: "/admin/weights", icon: Settings, color: "text-green-500" },
+        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran yang aktif.", href: "/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
+        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai siswa.", href: "/admin/grades", icon: FileText, color: "text-purple-500" },
+      ]
     },
-    { 
-      title: "Total Siswa", 
-      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
-      icon: BookUser, 
-      color: "text-emerald-500", 
-      bgColor: "bg-emerald-100 dark:bg-emerald-900/30", 
-      href: "/admin/students" 
+    {
+      title: "Manajemen Pengguna & Sistem",
+      icon: Users,
+      items: [
+        { title: "Kelola Guru", description: "Tambah atau edit data profil guru.", href: "/admin/teachers", icon: Users, color: "text-blue-500" },
+        { title: "Laporan Sistem", description: "Statistik dan laporan umum sistem.", href: "/admin/reports", icon: BarChart3, color: "text-rose-500" },
+      ]
     },
-    { 
-      title: "Kelola Mapel", 
-      value: "Master Data", 
-      icon: ListChecks, 
-      color: "text-indigo-500", 
-      bgColor: "bg-indigo-100 dark:bg-indigo-900/30", 
-      href: "/admin/mapel" 
+    {
+      title: "Kehadiran Guru",
+      icon: CalendarCheck,
+      items: [
+        { title: "Rekap Kehadiran Guru", description: "Kelola rekapitulasi kehadiran guru.", href: "/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" }
+      ]
     },
-     { 
-      title: "Pengumuman", 
-      value: "Untuk Guru", 
-      icon: Megaphone, 
-      color: "text-cyan-500", 
-      bgColor: "bg-cyan-100 dark:bg-cyan-900/30", 
-      href: "/admin/announcements" 
-    },
-    { 
-      title: "Bobot Penilaian", 
-      value: "Dikonfigurasi", 
-      icon: Settings, 
-      color: "text-green-500", 
-      bgColor: "bg-green-100 dark:bg-green-900/30", 
-      href: "/admin/weights" 
-    },
-    { 
-      title: "Semua Nilai Siswa", 
-      value: "Global View", 
-      icon: FileText, 
-      color: "text-purple-500", 
-      bgColor: "bg-purple-100 dark:bg-purple-900/30", 
-      href: "/admin/grades" 
-    },
-     { 
-      title: "Aktivitas Terbaru", 
-      value: isLoadingLogs ? <Loader2 className="h-5 w-5 animate-spin" /> : `${activityLogs.length} Log`,
-      icon: History, 
-      color: "text-yellow-500", 
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/30", 
-      href: "#activity-log" 
-    },
+    {
+      title: "Komunikasi & Informasi",
+      icon: Megaphone,
+      items: [
+        { title: "Pengumuman Guru", description: "Buat dan kelola pengumuman untuk guru.", href: "/admin/announcements", icon: Megaphone, color: "text-cyan-500" }
+      ]
+    }
   ];
 
   return (
@@ -125,39 +122,101 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <Link 
-            href={stat.href} 
-            key={stat.title} 
-            className="block hover:shadow-lg transition-shadow duration-300 rounded-lg"
-          >
-            <Card className="overflow-hidden h-full flex flex-col">
-              <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
-                <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-center">
-                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-                <p className="text-xs text-muted-foreground pt-1">
-                  Lihat Detail
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="md:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-primary/10">
+                <CardTitle className="text-sm font-medium text-primary">Total Guru Terdaftar</CardTitle>
+                <Users className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent className="pt-2">
+                <div className="text-2xl font-bold text-primary">
+                    {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : (teacherCount !== null ? teacherCount : "N/A")}
+                </div>
+            </CardContent>
+        </Card>
+        <Card className="md:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-accent/10">
+                <CardTitle className="text-sm font-medium text-accent">Total Siswa Terdaftar</CardTitle>
+                <BookUser className="h-5 w-5 text-accent" />
+            </CardHeader>
+            <CardContent className="pt-2">
+                <div className="text-2xl font-bold text-accent">
+                    {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : (studentCount !== null ? studentCount : "N/A")}
+                </div>
+            </CardContent>
+        </Card>
+         <Card className="md:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-muted">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Aktivitas Terkini</CardTitle>
+                <History className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="pt-2">
+                <div className="text-2xl font-bold text-muted-foreground">
+                    {isLoadingLogs ? <Loader2 className="h-6 w-6 animate-spin" /> : `${activityLogs.length} Log`}
+                </div>
+            </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card id="activity-log">
+        <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Aktivitas Terkini</CardTitle>
-            <CardDescription>Log perubahan penting dalam sistem (5 terbaru).</CardDescription>
+            <CardTitle>Menu Manajemen Sistem</CardTitle>
+            <CardDescription>Akses cepat ke berbagai fitur manajemen.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion 
+              type="multiple" 
+              className="w-full"
+              defaultValue={dashboardGroups.filter(g => g.defaultOpen).map(g => g.title)}
+            >
+              {dashboardGroups.map((group) => (
+                <AccordionItem value={group.title} key={group.title}>
+                  <AccordionTrigger className="text-lg hover:no-underline">
+                    <div className="flex items-center gap-3">
+                      <group.icon className="h-6 w-6 text-primary" />
+                      {group.title}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      {group.items.map((item) => (
+                        <Link href={item.href} key={item.title} className="block group">
+                          <Card className="h-full hover:shadow-md transition-shadow hover:border-primary/50">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center gap-3">
+                                <item.icon className={`h-6 w-6 ${item.color || 'text-muted-foreground'} group-hover:text-primary transition-colors`} />
+                                <CardTitle className={`text-base ${item.color || 'text-foreground'} group-hover:text-primary transition-colors`}>{item.title}</CardTitle>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <p className="text-sm text-muted-foreground">{item.description}</p>
+                            </CardContent>
+                            <CardFooter className="pt-2 pb-3">
+                                <Button variant="link" size="sm" className="p-0 h-auto text-primary group-hover:underline">
+                                    Buka Halaman <ArrowRight className="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-1"/>
+                                </Button>
+                            </CardFooter>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+        
+        <Card id="activity-log" className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Log Aktivitas Terbaru</CardTitle>
+            <CardDescription>Perubahan penting dalam sistem (5 terbaru).</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingLogs ? (
               <div className="space-y-3">
-                {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-10 w-full" />)}
+                {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
             ) : activityLogs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
@@ -179,54 +238,6 @@ export default function AdminDashboardPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Pintasan Cepat</CardTitle>
-            <CardDescription>Akses cepat ke fitur utama admin.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <Link href="/admin/teachers">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <Users className="h-5 w-5" /> Kelola Guru
-              </Button>
-            </Link>
-             <Link href="/admin/students">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <BookUser className="h-5 w-5" /> Kelola Siswa
-              </Button>
-            </Link>
-            <Link href="/admin/mapel">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <ListChecks className="h-5 w-5" /> Kelola Mapel
-              </Button>
-            </Link>
-            <Link href="/admin/announcements">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <Megaphone className="h-5 w-5" /> Pengumuman
-              </Button>
-            </Link>
-            <Link href="/admin/weights">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <Settings className="h-5 w-5" /> Atur Bobot
-              </Button>
-            </Link>
-            <Link href="/admin/grades">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <FileText className="h-5 w-5" /> Lihat Semua Nilai
-              </Button>
-            </Link>
-            <Link href="/admin/academic-years">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <CalendarCog className="h-5 w-5" /> Tahun Ajaran
-              </Button>
-            </Link>
-             <Link href="/admin/reports">
-              <Button variant="outline" className="w-full justify-start gap-2 hover:bg-accent hover:text-accent-foreground">
-                <BarChart3 className="h-5 w-5" /> Laporan Sistem
-              </Button>
-            </Link>
           </CardContent>
         </Card>
       </div>

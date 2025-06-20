@@ -18,7 +18,9 @@ import {
   SnapshotOptions,
   FirestoreDataConverter,
   orderBy,
-  limit
+  limit,
+  arrayRemove,
+  arrayUnion
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman } from '@/types';
@@ -395,18 +397,49 @@ export const getAllGrades = async (): Promise<Nilai[]> => {
   return querySnapshot.docs.map(doc => doc.data());
 };
 
-export const getUniqueMapelNamesFromGrades = async (): Promise<string[]> => {
+export const getGradesForTeacherDisplay = async (assignedMapel: string[], tahunAjaran: string, semester: number): Promise<Nilai[]> => {
+  if (assignedMapel.length === 0) return [];
+  const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
+  const q = query(collRef, 
+                  where('mapel', 'in', assignedMapel), 
+                  where('tahun_ajaran', '==', tahunAjaran),
+                  where('semester', '==', semester),
+                  orderBy("mapel", "asc"),
+                  orderBy("updatedAt", "desc")
+                );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+
+export const getUniqueMapelNamesFromGrades = async (assignedMapel?: string[]): Promise<string[]> => {
   const gradesCollRef = collection(db, 'nilai'); 
-  const querySnapshot = await getDocs(gradesCollRef);
+  let q = query(gradesCollRef);
+
+  // If assignedMapel is provided and not empty, filter by those mapel
+  // This is not directly supported by Firestore for 'mapel in assignedMapel' in a way that efficiently gets unique mapel.
+  // So, we fetch all relevant grades and then derive unique mapel names.
+  // For Admin (no assignedMapel), it fetches all grades.
+  // For Guru, if we filter here, it would be multiple 'OR' queries or fetch and filter.
+  // A more efficient way for Guru would be to use their assignedMapel list directly if that's the goal for the dropdown.
+
+  const querySnapshot = await getDocs(q);
   const mapelSet = new Set<string>();
   querySnapshot.docs.forEach(doc => {
     const data = doc.data();
     if (data.mapel && typeof data.mapel === 'string') {
-      mapelSet.add(data.mapel);
+      if (assignedMapel && assignedMapel.length > 0) {
+        if (assignedMapel.includes(data.mapel)) {
+          mapelSet.add(data.mapel);
+        }
+      } else {
+        mapelSet.add(data.mapel);
+      }
     }
   });
   return Array.from(mapelSet).sort();
 };
+
 
 export const deleteGradeById = async (gradeId: string): Promise<void> => {
   if (!gradeId) {
@@ -422,7 +455,7 @@ export const createUserProfile = async (
   firebaseUser: User, 
   role: Role, 
   displayName?: string,
-  assignedMapel?: string[] // New parameter
+  assignedMapel?: string[] 
 ): Promise<void> => {
   const userDocRef = doc(db, 'users', firebaseUser.uid).withConverter(userProfileConverter);
   const profile: UserProfile = {
@@ -430,7 +463,7 @@ export const createUserProfile = async (
     email: firebaseUser.email,
     displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pengguna Baru',
     role: role,
-    assignedMapel: assignedMapel || [], // Use provided or default to empty array
+    assignedMapel: assignedMapel || [], 
     createdAt: serverTimestamp() as Timestamp,
     updatedAt: serverTimestamp() as Timestamp,
   };
@@ -452,13 +485,25 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const updateData = {
-    ...data,
-    assignedMapel: data.assignedMapel || [], 
-    updatedAt: serverTimestamp()
-  };
+  
+  // Prepare update data, ensuring assignedMapel is handled correctly
+  const updateData: any = { ...data, updatedAt: serverTimestamp() };
+
+  // Handle assignedMapel specifically:
+  // If it's present in 'data', use it.
+  // If 'data.assignedMapel' is explicitly null or undefined, it might mean to clear it (arrayRemove all)
+  // or simply not update it if not provided.
+  // For simplicity, if 'assignedMapel' is in data, we use it. Otherwise, it's not touched.
+  // If you want to remove all mapel, 'data.assignedMapel' should be an empty array [].
+  if (data.hasOwnProperty('assignedMapel')) {
+    updateData.assignedMapel = data.assignedMapel || [];
+  }
+  // Remove uid from updateData if it accidentally got in
+  delete updateData.uid;
+
   await updateDoc(userDocRef, updateData);
 };
+
 
 export const deleteUserRecord = async (uid: string): Promise<void> => {
   const userDocRef = doc(db, 'users', uid);
@@ -603,3 +648,4 @@ export const deletePengumuman = async (id: string): Promise<void> => {
   const docRef = doc(db, PENGUMUMAN_COLLECTION, id);
   await deleteDoc(docRef);
 };
+

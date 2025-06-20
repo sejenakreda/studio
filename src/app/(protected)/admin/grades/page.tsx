@@ -58,7 +58,7 @@ export default function ManageAllGradesPage() {
         getAllGrades(),
         getStudents(),
         getActiveAcademicYears(),
-        getUniqueMapelNamesFromGrades()
+        getUniqueMapelNamesFromGrades() // Admin gets all unique mapel names
       ]);
 
       setSelectableYears(activeYears);
@@ -422,7 +422,7 @@ export default function ManageAllGradesPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Tidak ada data nilai yang cocok dengan kriteria filter yang Anda pilih. Coba ubah pilihan filter Anda.
               </p>
-               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter("all"); setSemesterFilter("all"); setMapelFilter("all"); }} variant="outline" className="mt-4">
+               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter(CURRENT_ACADEMIC_YEAR); setSemesterFilter("all"); setMapelFilter("all"); }} variant="outline" className="mt-4">
                 Reset Filter
               </Button>
             </div>
@@ -486,3 +486,4 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
+

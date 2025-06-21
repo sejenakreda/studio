@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, BarChartHorizontalBig, Edit, Trash2, CheckCircle2, XCircle } from "lucide-react";
-import { getStudents, getActiveAcademicYears, getKkmSetting, deleteGradeById, getGradesForTeacherDisplay, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { getStudents, getActiveAcademicYears, getKkmSetting, deleteGradeById, getGradesForTeacherDisplay } from '@/lib/firestoreService';
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +66,6 @@ export default function RekapNilaiPage() {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
 
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
-  const [assignedMapelForFilter, setAssignedMapelForFilter] = useState<string[]>([]);
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("");
   const [semesterFilter, setSemesterFilter] = useState<string>(String(SEMESTERS[0]?.value || "1"));
   const [mapelFilter, setMapelFilter] = useState<string>("");
@@ -91,7 +90,6 @@ export default function RekapNilaiPage() {
 
       if (!userProfile.assignedMapel || userProfile.assignedMapel.length === 0) {
         setError("Anda tidak memiliki mata pelajaran yang ditugaskan. Silakan hubungi Admin.");
-        setAssignedMapelForFilter([]); // Clear mapel filter options
          try { // Still try to load academic years for UI consistency
             const activeYears = await getActiveAcademicYears();
             setSelectableYears(activeYears);
@@ -106,17 +104,13 @@ export default function RekapNilaiPage() {
       }
 
       try {
-        const [studentList, activeYears, uniqueMapelListFromGrades] = await Promise.all([
+        const [studentList, activeYears] = await Promise.all([
           getStudents(),
           getActiveAcademicYears(),
-          getUniqueMapelNamesFromGrades(userProfile.assignedMapel, userProfile.uid)
         ]);
 
         setSelectableYears(activeYears);
         
-        const relevantMapelForFilter = uniqueMapelListFromGrades.filter(mapel => userProfile.assignedMapel?.includes(mapel));
-        setAssignedMapelForFilter(relevantMapelForFilter);
-
         // Set default filters only if not already set or when userProfile changes
         if (!academicYearFilter && activeYears.length > 0) {
              setAcademicYearFilter(activeYears.includes(CURRENT_ACADEMIC_YEAR) ? CURRENT_ACADEMIC_YEAR : activeYears[0]);
@@ -124,10 +118,8 @@ export default function RekapNilaiPage() {
              setAcademicYearFilter("");
         }
         
-        if (!mapelFilter && relevantMapelForFilter.length > 0) {
-          setMapelFilter(relevantMapelForFilter[0]);
-        } else if (!mapelFilter && userProfile.assignedMapel.length > 0) {
-           setMapelFilter(userProfile.assignedMapel[0]); // Fallback to first assigned if no grades yet
+        if (!mapelFilter && userProfile.assignedMapel.length > 0) {
+           setMapelFilter(userProfile.assignedMapel[0]);
         }
 
 
@@ -307,7 +299,7 @@ export default function RekapNilaiPage() {
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-3 w-3 text-primary" /> : <ArrowDown className="ml-2 h-3 w-3 text-primary" />;
   };
 
-  const tableHeaders: { key?: SortConfig['key'], label: string, className?: string }[] = [
+  const tableHeaders: { key?: SortableKeys['key'], label: string, className?: string }[] = [
     { key: 'namaSiswa', label: 'Nama Siswa' }, { key: 'nisSiswa', label: 'NIS' },
     { key: 'kelasSiswa', label: 'Kelas' }, { key: 'mapel', label: 'Mapel'},
     { key: 'rataRataTugas', label: 'Avg. Tugas' },
@@ -491,8 +483,8 @@ export default function RekapNilaiPage() {
                 Pilih filter untuk melihat rekap nilai. Klik header kolom untuk mengurutkan.
               </CardDescription>
             </div>
-             {mapelFilter && mapelFilter !== "all" && filteredAndSortedGrades.length > 0 && !pageIsLoading && !gradesAreLoading && (
-              <Button onClick={handleDownloadExcel} variant="outline">
+             {filteredAndSortedGrades.length > 0 && !pageIsLoading && !gradesAreLoading && (
+              <Button onClick={handleDownloadExcel} variant="outline" disabled={gradesAreLoading}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh Excel
               </Button>
@@ -554,20 +546,18 @@ export default function RekapNilaiPage() {
                 <Select
                   value={mapelFilter || ""}
                   onValueChange={setMapelFilter}
-                  disabled={assignedMapelForFilter.length === 0 && (!userProfile?.assignedMapel || userProfile.assignedMapel.length ===0 )}
+                  disabled={!userProfile?.assignedMapel || userProfile.assignedMapel.length === 0}
                 >
                   <SelectTrigger id="mapelFilter" className="w-full mt-1">
-                    <SelectValue placeholder={ assignedMapelForFilter.length === 0 && userProfile.assignedMapel.length > 0 ? "Belum ada nilai mapel Anda" : "Pilih mapel Anda..." } />
+                    <SelectValue placeholder={"Pilih mapel Anda..."} />
                   </SelectTrigger>
                   <SelectContent>
                      {(!userProfile?.assignedMapel || userProfile.assignedMapel.length === 0) ? (
                        <SelectItem value="-" disabled>Tidak ada mapel ditugaskan</SelectItem>
-                     ) : assignedMapelForFilter.length === 0 && !pageIsLoading && !error ? (
-                       <SelectItem value="-" disabled>Belum ada nilai untuk mapel Anda</SelectItem>
                      ) : (
                        <>
-                         <SelectItem value="all">Semua Mapel (Yg Diampu & Ada Nilai)</SelectItem>
-                         {assignedMapelForFilter.map(mapel => (
+                         <SelectItem value="all">Semua Mapel Saya</SelectItem>
+                         {userProfile.assignedMapel.map(mapel => (
                            <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
                          ))}
                        </>
@@ -672,5 +662,3 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
-
-    

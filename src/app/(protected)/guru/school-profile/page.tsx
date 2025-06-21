@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Loader2, AlertCircle, Users, School, GraduationCap, UserSquare, Briefcase, Users2 } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, School, GraduationCap, UserSquare, Briefcase, Users2, Info } from "lucide-react";
 import { getSchoolProfile } from '@/lib/firestoreService';
 import type { SchoolProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +61,7 @@ export default function GuruViewSchoolProfilePage() {
   }, [profile]);
 
   const sdmStats = profile ? [
+    { label: "Siswa Aktif", icon: Users, ril: totalSiswaRil, dapodik: totalSiswaDapodik },
     { label: "Alumni", icon: GraduationCap, ril: profile.stats.alumni.ril, dapodik: profile.stats.alumni.dapodik },
     { label: "Guru", icon: UserSquare, ril: profile.stats.guru.ril, dapodik: profile.stats.guru.dapodik },
     { label: "Staf/Tendik", icon: Briefcase, ril: profile.stats.tendik.ril, dapodik: profile.stats.tendik.dapodik },
@@ -70,7 +71,7 @@ export default function GuruViewSchoolProfilePage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4"><Skeleton className="h-10 w-10" /><div className="w-full"><Skeleton className="h-8 w-64" /><Skeleton className="h-5 w-80" /></div></div>
-        <Card><CardHeader><Skeleton className="h-7 w-48" /></CardHeader><CardContent className="grid md:grid-cols-3 gap-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}</CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-7 w-48" /></CardHeader><CardContent className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}</CardContent></Card>
         <Card><CardHeader><Skeleton className="h-7 w-56" /></CardHeader><CardContent><Skeleton className="h-40" /></CardContent></Card>
         <Card><CardHeader><Skeleton className="h-7 w-64" /></CardHeader><CardContent><Skeleton className="h-32" /></CardContent></Card>
       </div>
@@ -82,6 +83,18 @@ export default function GuruViewSchoolProfilePage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4"><Link href="/guru"><Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold">Error</h1></div></div>
         <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Gagal Memuat Data</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+       <div className="space-y-6">
+        <div className="flex items-center gap-4"><Link href="/guru"><Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold">Profil Tidak Ditemukan</h1></div></div>
+         <Alert variant="default">
+            <Info className="h-4 w-4" /><AlertTitle>Informasi</AlertTitle>
+            <AlertDescription>Tidak ada data profil sekolah yang dapat ditampilkan. Silakan hubungi admin.</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -98,11 +111,7 @@ export default function GuruViewSchoolProfilePage() {
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Users2 className="h-6 w-6 text-primary" /> Statistik Sumber Daya Manusia</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-              <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center justify-between text-primary">Siswa Aktif (Ril) <Users className="h-5 w-5" /></CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold text-primary">{totalSiswaRil}</p><p className="text-xs text-muted-foreground">(Berdasarkan data ril per kelas)</p></CardContent>
-          </Card>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {sdmStats.map(stat => (
             <Card key={stat.label}>
               <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center justify-between">{stat.label}<stat.icon className="h-5 w-5 text-muted-foreground" /></CardTitle></CardHeader>
@@ -126,12 +135,12 @@ export default function GuruViewSchoolProfilePage() {
             <Table>
               <TableHeader><TableRow><TableHead>Kelas</TableHead><TableHead className="text-center">Laki-laki (Ril)</TableHead><TableHead className="text-center">Perempuan (Ril)</TableHead><TableHead className="text-center font-bold text-primary">Total (Ril)</TableHead><TableHead className="text-center">Laki-laki (Dapodik)</TableHead><TableHead className="text-center">Perempuan (Dapodik)</TableHead><TableHead className="text-center font-semibold">Total (Dapodik)</TableHead></TableRow></TableHeader>
               <TableBody>
-                {(profile?.classDetails || []).map(cd => {
+                {(profile.classDetails || []).map(cd => {
                     const totalRil = (cd.male?.ril ?? 0) + (cd.female?.ril ?? 0);
                     const totalDapodik = (cd.male?.dapodik ?? 0) + (cd.female?.dapodik ?? 0);
                     return (<TableRow key={cd.className}><TableCell className="font-medium">{cd.className}</TableCell><TableCell className="text-center">{cd.male?.ril ?? 0}</TableCell><TableCell className="text-center">{cd.female?.ril ?? 0}</TableCell><TableCell className="text-center font-bold text-primary">{totalRil}</TableCell><TableCell className="text-center text-muted-foreground">{cd.male?.dapodik ?? 0}</TableCell><TableCell className="text-center text-muted-foreground">{cd.female?.dapodik ?? 0}</TableCell><TableCell className="text-center font-semibold text-muted-foreground">{totalDapodik}</TableCell></TableRow>);
                 })}
-                <TableRow className="bg-muted hover:bg-muted font-bold"><TableCell>TOTAL</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.ril ?? 0), 0)}</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.ril ?? 0), 0)}</TableCell><TableCell className="text-center text-primary text-lg">{totalSiswaRil}</TableCell><TableCell className="text-center text-muted-foreground">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground text-base">{totalSiswaDapodik}</TableCell></TableRow>
+                <TableRow className="bg-muted hover:bg-muted font-bold"><TableCell>TOTAL</TableCell><TableCell className="text-center">{(profile.classDetails || []).reduce((s, c) => s + (c.male?.ril ?? 0), 0)}</TableCell><TableCell className="text-center">{(profile.classDetails || []).reduce((s, c) => s + (c.female?.ril ?? 0), 0)}</TableCell><TableCell className="text-center text-primary text-lg">{totalSiswaRil}</TableCell><TableCell className="text-center text-muted-foreground">{(profile.classDetails || []).reduce((s, c) => s + (c.male?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground">{(profile.classDetails || []).reduce((s, c) => s + (c.female?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground text-base">{totalSiswaDapodik}</TableCell></TableRow>
               </TableBody>
             </Table>
           </div>
@@ -141,7 +150,7 @@ export default function GuruViewSchoolProfilePage() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><School className="h-6 w-6 text-primary" /> Sarana & Prasarana</CardTitle></CardHeader>
         <CardContent>
-            {profile?.sarana && profile.sarana.length > 0 ? (
+            {profile.sarana && profile.sarana.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {profile.sarana.map(item => (
                         <div key={item.name} className="p-4 rounded-lg bg-muted/50 text-center">

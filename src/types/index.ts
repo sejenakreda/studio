@@ -145,7 +145,6 @@ export interface ClassDetail {
 export interface SaranaDetail {
   name: string;
   quantity: number;
-  isCustom?: boolean; // To differentiate default from admin-added
 }
 
 export interface SchoolStats {

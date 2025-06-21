@@ -33,7 +33,6 @@ const classDetailSchema = z.object({
 const saranaDetailSchema = z.object({
   name: z.string().min(1, "Nama sarana tidak boleh kosong"),
   quantity: z.coerce.number().min(0, "Min 0").default(0),
-  isCustom: z.boolean().optional().default(false),
 });
 
 const schoolStatsSchema = z.object({
@@ -61,10 +60,10 @@ type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
 
 const PREDEFINED_CLASSES = ["X-1", "X-2", "X-3", "X-4", "XI-1", "XI-2", "XI-3", "XII-1", "XII-2", "XII-3"];
 const DEFAULT_SARANA: SaranaDetail[] = [
-    { name: "Ruang Kelas", quantity: 0, isCustom: false },
-    { name: "Laboratorium", quantity: 0, isCustom: false },
-    { name: "Perpustakaan", quantity: 0, isCustom: false },
-    { name: "Toilet", quantity: 0, isCustom: false },
+    { name: "Ruang Kelas", quantity: 0 },
+    { name: "Laboratorium", quantity: 0 },
+    { name: "Perpustakaan", quantity: 0 },
+    { name: "Toilet", quantity: 0 },
 ];
 
 const defaultStats: SchoolStats = {
@@ -281,13 +280,13 @@ export default function ManageSchoolProfilePage() {
                 <div className="space-y-4">
                   {saranaFields.map((field, index) => (
                     <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md">
-                      <FormField control={form.control} name={`sarana.${index}.name`} render={({ field: nameField }) => (<FormItem className="flex-grow"><FormLabel>Nama Sarana</FormLabel><FormControl><Input {...nameField} readOnly={!field.isCustom} className={!field.isCustom ? "bg-muted/50 cursor-not-allowed" : ""} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`sarana.${index}.name`} render={({ field: nameField }) => (<FormItem className="flex-grow"><FormLabel>Nama Sarana</FormLabel><FormControl><Input {...nameField} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name={`sarana.${index}.quantity`} render={({ field: quantityField }) => (<FormItem><FormLabel>Jumlah</FormLabel><FormControl><Input type="number" {...quantityField} /></FormControl><FormMessage /></FormItem>)} />
-                      {field.isCustom && <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeSarana(index)}><Trash2 className="h-4 w-4" /></Button>}
+                      <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeSarana(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendSarana({ name: '', quantity: 0, isCustom: true })} className="mt-4"><PlusCircle className="mr-2 h-4 w-4" />Tambah Jenis Sarana</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendSarana({ name: '', quantity: 0 })} className="mt-4"><PlusCircle className="mr-2 h-4 w-4" />Tambah Jenis Sarana</Button>
               </div>
 
             </CardContent>

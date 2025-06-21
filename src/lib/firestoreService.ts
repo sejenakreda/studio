@@ -410,8 +410,6 @@ const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
       pelanggaran: data.pelanggaran,
       catatan: data.catatan,
       poin: data.poin,
-      photoUrl: data.photoUrl,
-      photoPath: data.photoPath,
       recordedByUid: data.recordedByUid,
       recordedByName: data.recordedByName,
       createdAt: data.createdAt,
@@ -832,13 +830,6 @@ export const updateSchoolProfile = async (profileData: Partial<Omit<SchoolProfil
 // --- Pelanggaran Siswa (Student Violation) Service ---
 const PELANGGARAN_COLLECTION = 'pelanggaran_siswa';
 
-export const uploadFile = async (file: File, path: string): Promise<{ url: string; path: string }> => {
-  const storageRef = ref(storage, path);
-  const snapshot = await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(snapshot.ref);
-  return { url, path: snapshot.ref.fullPath };
-};
-
 export const addPelanggaran = async (data: Omit<PelanggaranSiswa, 'id' | 'createdAt'>): Promise<PelanggaranSiswa> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
   const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
@@ -855,21 +846,5 @@ export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
 
 export const deletePelanggaran = async (pelanggaranId: string): Promise<void> => {
   const docRef = doc(db, PELANGGARAN_COLLECTION, pelanggaranId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    if (data.photoPath) {
-      const photoRef = ref(storage, data.photoPath);
-      try {
-        await deleteObject(photoRef);
-      } catch (error: any) {
-        // Ignore "object-not-found" error which can happen if deletion fails or file never existed
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting photo from storage:", error);
-          // Optional: re-throw or handle more gracefully
-        }
-      }
-    }
-  }
   await deleteDoc(docRef);
 };

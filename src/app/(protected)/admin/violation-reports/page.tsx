@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Printer, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Printer } from "lucide-react";
 import { DateRange } from "react-day-picker"
 import { addDays } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -94,12 +94,11 @@ export default function ViolationReportsPage() {
       'Poin': v.poin,
       'Catatan': v.catatan || '-',
       'Dicatat Oleh': v.recordedByName,
-      'Link Bukti Foto': v.photoUrl || 'Tidak ada',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pelanggaran");
-    const wscols = [ {wch:12}, {wch:25}, {wch:10}, {wch:30}, {wch:8}, {wch:40}, {wch:20}, {wch:50} ];
+    const wscols = [ {wch:12}, {wch:25}, {wch:10}, {wch:30}, {wch:8}, {wch:40}, {wch:20} ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "laporan_pelanggaran_siswa.xlsx");
     toast({ title: "Unduhan Dimulai", description: "File Excel sedang disiapkan." });
@@ -154,7 +153,7 @@ export default function ViolationReportsPage() {
                 <p className="mt-1 text-sm text-muted-foreground">Tidak ada data yang cocok dengan filter yang Anda pilih.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto"><Table className="print:text-xs"><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Siswa</TableHead><TableHead>Kelas</TableHead><TableHead>Pelanggaran</TableHead><TableHead>Poin</TableHead><TableHead>Catatan</TableHead><TableHead>Foto</TableHead><TableHead>Oleh</TableHead></TableRow></TableHeader>
+            <div className="overflow-x-auto"><Table className="print:text-xs"><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Siswa</TableHead><TableHead>Kelas</TableHead><TableHead>Pelanggaran</TableHead><TableHead>Poin</TableHead><TableHead>Catatan</TableHead><TableHead>Oleh</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredViolations.map(v => (
                   <TableRow key={v.id}>
@@ -164,9 +163,6 @@ export default function ViolationReportsPage() {
                     <TableCell className="max-w-xs truncate" title={v.pelanggaran}>{v.pelanggaran}</TableCell>
                     <TableCell>{v.poin}</TableCell>
                     <TableCell className="max-w-xs truncate" title={v.catatan || ''}>{v.catatan || '-'}</TableCell>
-                    <TableCell>
-                      {v.photoUrl ? (<a href={v.photoUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="icon" className="print:hidden"><ExternalLink className="h-4 w-4"/></Button><span className="print:block hidden text-blue-600 underline">Lihat</span></a>) : '-'}
-                    </TableCell>
                     <TableCell>{v.recordedByName}</TableCell>
                   </TableRow>
                 ))}

@@ -187,8 +187,6 @@ export interface PelanggaranSiswa {
   pelanggaran: string;
   catatan?: string;
   poin: number;
-  photoUrl?: string;
-  photoPath?: string; // Path for deletion from storage
   recordedByUid: string;
   recordedByName: string;
   createdAt: Timestamp;

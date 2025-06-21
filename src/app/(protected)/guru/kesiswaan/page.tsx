@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Users2, Construction, PlusCircle, Loader2, AlertCircle, Trash2, Camera, ExternalLink, Filter } from "lucide-react";
+import { ArrowLeft, Users2, PlusCircle, Loader2, AlertCircle, Trash2, Filter } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
@@ -22,12 +22,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getStudents, addPelanggaran, getAllPelanggaran, deletePelanggaran, uploadFile, addActivityLog } from '@/lib/firestoreService';
+import { getStudents, addPelanggaran, getAllPelanggaran, deletePelanggaran, addActivityLog } from '@/lib/firestoreService';
 import type { Siswa, PelanggaranSiswa } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Timestamp } from 'firebase/firestore';
-import Image from 'next/image';
 
 const violationSchema = z.object({
   id_siswa: z.string().min(1, "Siswa harus dipilih"),
@@ -35,7 +34,6 @@ const violationSchema = z.object({
   pelanggaran: z.string().min(3, "Jenis pelanggaran minimal 3 karakter").max(150, "Maksimal 150 karakter"),
   catatan: z.string().max(500, "Catatan maksimal 500 karakter").optional(),
   poin: z.coerce.number().min(0, "Poin minimal 0").optional().default(0),
-  photo: z.instanceof(File).optional(),
 });
 
 type ViolationFormData = z.infer<typeof violationSchema>;
@@ -52,7 +50,6 @@ export default function KesiswaanDashboardPage() {
   const [violationToDelete, setViolationToDelete] = useState<PelanggaranSiswa | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [filterKelas, setFilterKelas] = useState("all");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ViolationFormData>({
     resolver: zodResolver(violationSchema),
@@ -62,7 +59,6 @@ export default function KesiswaanDashboardPage() {
       pelanggaran: "",
       catatan: "",
       poin: 0,
-      photo: undefined,
     },
   });
 
@@ -105,16 +101,6 @@ export default function KesiswaanDashboardPage() {
     }
     setIsSubmitting(true);
     try {
-      let photoUrl: string | undefined = undefined;
-      let photoPath: string | undefined = undefined;
-
-      if (data.photo) {
-        const path = `pelanggaran_bukti/${userProfile.uid}_${Date.now()}_${data.photo.name}`;
-        const result = await uploadFile(data.photo, path);
-        photoUrl = result.url;
-        photoPath = result.path;
-      }
-      
       const selectedStudent = students.find(s => s.id_siswa === data.id_siswa);
       if (!selectedStudent) throw new Error("Siswa tidak ditemukan.");
       
@@ -126,8 +112,6 @@ export default function KesiswaanDashboardPage() {
         pelanggaran: data.pelanggaran,
         catatan: data.catatan,
         poin: data.poin,
-        photoUrl,
-        photoPath,
         recordedByUid: userProfile.uid,
         recordedByName: userProfile.displayName || "Kesiswaan",
         createdAt: Timestamp.now(), // Placeholder, will be replaced by server
@@ -143,7 +127,6 @@ export default function KesiswaanDashboardPage() {
 
       toast({ title: "Sukses", description: "Catatan pelanggaran berhasil disimpan." });
       form.reset();
-      if(fileInputRef.current) fileInputRef.current.value = "";
       setIsFormOpen(false);
       fetchData();
     } catch (err: any) {
@@ -205,7 +188,6 @@ export default function KesiswaanDashboardPage() {
                       <FormField control={form.control} name="pelanggaran" render={({ field }) => (<FormItem><FormLabel>Jenis Pelanggaran</FormLabel><FormControl><Input placeholder="cth: Tidak mengerjakan tugas, terlambat" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="poin" render={({ field }) => (<FormItem><FormLabel>Poin Pelanggaran</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="catatan" render={({ field }) => (<FormItem><FormLabel>Catatan/Detail Kejadian</FormLabel><FormControl><Textarea placeholder="Detail kronologi atau tindakan yang diambil..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="photo" render={({ field: { onChange, value, ...rest } }) => (<FormItem><FormLabel>Foto Bukti (Opsional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files?.[0])} ref={fileInputRef} className="file:text-primary file:font-medium" /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan"}</Button></DialogFooter>
                   </form>
@@ -232,7 +214,7 @@ export default function KesiswaanDashboardPage() {
                 <p className="mt-1 text-sm text-muted-foreground">Belum ada data pelanggaran untuk filter yang dipilih.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Siswa</TableHead><TableHead>Kelas</TableHead><TableHead>Pelanggaran</TableHead><TableHead>Poin</TableHead><TableHead>Foto</TableHead><TableHead>Dicatat Oleh</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
+            <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Siswa</TableHead><TableHead>Kelas</TableHead><TableHead>Pelanggaran</TableHead><TableHead>Poin</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Oleh</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredViolations.map(v => (
                   <TableRow key={v.id}>
@@ -241,9 +223,7 @@ export default function KesiswaanDashboardPage() {
                     <TableCell>{v.kelasSiswa}</TableCell>
                     <TableCell className="max-w-xs truncate" title={v.pelanggaran}>{v.pelanggaran}</TableCell>
                     <TableCell>{v.poin}</TableCell>
-                    <TableCell>
-                      {v.photoUrl ? (<a href={v.photoUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="icon" title="Lihat Foto"><ExternalLink className="h-4 w-4"/></Button></a>) : '-'}
-                    </TableCell>
+                    <TableCell className="max-w-xs truncate" title={v.catatan || ''}>{v.catatan || '-'}</TableCell>
                     <TableCell>{v.recordedByName}</TableCell>
                     <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteConfirmation(v)} disabled={isDeleting && violationToDelete?.id === v.id}>

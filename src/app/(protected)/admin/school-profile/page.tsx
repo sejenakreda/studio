@@ -70,9 +70,16 @@ export default function ManageSchoolProfilePage() {
   });
   
   const watchedClassDetails = useWatch({ control: form.control, name: "classDetails" });
+  
   const totalSiswaAktif = React.useMemo(() => {
-    return (watchedClassDetails || []).reduce((sum, current) => sum + (current.male || 0) + (current.female || 0), 0);
+    if (!watchedClassDetails) return 0;
+    return watchedClassDetails.reduce((sum, current) => {
+      const maleCount = Number(current.male) || 0;
+      const femaleCount = Number(current.female) || 0;
+      return sum + maleCount + femaleCount;
+    }, 0);
   }, [watchedClassDetails]);
+
 
   useEffect(() => {
     async function fetchProfile() {
@@ -165,8 +172,8 @@ export default function ManageSchoolProfilePage() {
                 <div className="p-4 border rounded-lg bg-muted/30">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                     {PREDEFINED_CLASSES.map((className, index) => {
-                      const watchedMale = form.watch(`classDetails.${index}.male`) || 0;
-                      const watchedFemale = form.watch(`classDetails.${index}.female`) || 0;
+                      const watchedMale = form.watch(`classDetails.${index}.male`);
+                      const watchedFemale = form.watch(`classDetails.${index}.female`);
                       return (
                         <div key={className} className="p-3 border rounded-md bg-background">
                           <h5 className="font-semibold text-center mb-2">Kelas {className}</h5>
@@ -174,7 +181,7 @@ export default function ManageSchoolProfilePage() {
                               <FormField control={form.control} name={`classDetails.${index}.male`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Laki-laki</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                               <FormField control={form.control} name={`classDetails.${index}.female`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Perempuan</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           </div>
-                           <p className="text-center text-sm font-medium mt-2 text-primary">Total: {watchedMale + watchedFemale}</p>
+                           <p className="text-center text-sm font-medium mt-2 text-primary">Total: {(Number(watchedMale) || 0) + (Number(watchedFemale) || 0)}</p>
                         </div>
                       )
                     })}

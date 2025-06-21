@@ -2,13 +2,14 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // TEMPORARY HARDCODED CONFIG FOR TESTING - REMOVE AND USE .env.local FOR PRODUCTION/SECURITY
 const firebaseConfig = {
   apiKey: "AIzaSyAAuN0z5IUP7m7AZ2UkEmqJ8LoJHjcMT48", // process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: "device-streaming-923d7bd9.firebaseapp.com", // process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: "device-streaming-923d7bd9", // process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: "device-streaming-923d7bd9.firebasestorage.app", // process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  storageBucket: "device-streaming-923d7bd9.appspot.com", // process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: "96364387257", // process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: "1:96364387257:web:3c07beab20637de09d3468", // process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
@@ -52,16 +53,18 @@ if (!getApps().length) {
 
 let auth: Auth;
 let db: Firestore;
+let storage: FirebaseStorage;
 
 try {
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
 } catch (error: any) {
-  console.error("Error getting Firebase Auth or Firestore instance (hardcoded config):", error);
+  console.error("Error getting Firebase Auth, Firestore, or Storage instance (hardcoded config):", error);
   throw new Error(
-    `Failed to get Firebase Auth/Firestore services (hardcoded config): ${error.message}. ` +
+    `Failed to get Firebase Auth/Firestore/Storage services (hardcoded config): ${error.message}. ` +
     "Ensure these services are enabled in your Firebase project."
   );
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };

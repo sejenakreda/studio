@@ -22,8 +22,9 @@ import {
   arrayUnion,
   QuerySnapshot
 } from 'firebase/firestore';
-import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan } from '@/types';
+import { db, storage } from './firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -68,7 +69,10 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
   toFirestore: (siswa: Siswa): DocumentData => {
     const data: any = { ...siswa };
     delete data.id;
-    return data;
+    return {
+      ...data,
+      kegiatan: siswa.kegiatan || [],
+    };
   },
   fromFirestore: (
     snapshot: QueryDocumentSnapshot,
@@ -81,6 +85,7 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
       nama: data.nama,
       nis: data.nis,
       kelas: data.kelas,
+      kegiatan: data.kegiatan || [],
     };
   }
 };
@@ -386,6 +391,34 @@ const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
     };
   }
 };
+
+const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
+  toFirestore(pelanggaran: Omit<PelanggaranSiswa, 'id'>): DocumentData {
+    return {
+      ...pelanggaran,
+      createdAt: pelanggaran.createdAt || serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PelanggaranSiswa {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      id_siswa: data.id_siswa,
+      namaSiswa: data.namaSiswa,
+      kelasSiswa: data.kelasSiswa,
+      tanggal: data.tanggal,
+      pelanggaran: data.pelanggaran,
+      catatan: data.catatan,
+      poin: data.poin,
+      photoUrl: data.photoUrl,
+      photoPath: data.photoPath,
+      recordedByUid: data.recordedByUid,
+      recordedByName: data.recordedByName,
+      createdAt: data.createdAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -793,4 +826,50 @@ export const getSchoolProfile = async (): Promise<SchoolProfile> => {
 export const updateSchoolProfile = async (profileData: Partial<Omit<SchoolProfile, 'id'>>): Promise<void> => {
     const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, SCHOOL_PROFILE_DOC_ID).withConverter(schoolProfileConverter);
     await setDoc(docRef, profileData, { merge: true });
+};
+
+
+// --- Pelanggaran Siswa (Student Violation) Service ---
+const PELANGGARAN_COLLECTION = 'pelanggaran_siswa';
+
+export const uploadFile = async (file: File, path: string): Promise<{ url: string; path: string }> => {
+  const storageRef = ref(storage, path);
+  const snapshot = await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(snapshot.ref);
+  return { url, path: snapshot.ref.fullPath };
+};
+
+export const addPelanggaran = async (data: Omit<PelanggaranSiswa, 'id' | 'createdAt'>): Promise<PelanggaranSiswa> => {
+  const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
+  const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+  const docRef = await addDoc(collRef, dataToSave);
+  return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() };
+};
+
+export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
+  const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
+  const q = query(collRef, orderBy('tanggal', 'desc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const deletePelanggaran = async (pelanggaranId: string): Promise<void> => {
+  const docRef = doc(db, PELANGGARAN_COLLECTION, pelanggaranId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    if (data.photoPath) {
+      const photoRef = ref(storage, data.photoPath);
+      try {
+        await deleteObject(photoRef);
+      } catch (error: any) {
+        // Ignore "object-not-found" error which can happen if deletion fails or file never existed
+        if (error.code !== 'storage/object-not-found') {
+          console.error("Error deleting photo from storage:", error);
+          // Optional: re-throw or handle more gracefully
+        }
+      }
+    }
+  }
+  await deleteDoc(docRef);
 };

@@ -39,6 +39,7 @@ export interface Siswa {
   nama: string;
   nis: string;
   kelas: string;
+  kegiatan?: TugasTambahan[];
 }
 
 export interface Nilai {
@@ -82,11 +83,11 @@ export interface ActivityLog {
   userName?: string; // Display name of the admin
 }
 
-export type StudentTableEntry = Siswa & {
+export interface StudentTableEntry extends Siswa {
   [key: string]: any; // For dynamic grade columns if needed
   nilai_akhir_semester_1?: number;
   nilai_akhir_semester_2?: number;
-};
+}
 
 export interface AcademicYearSetting {
   id?: string; // Firestore document ID (e.g., "2023_2024")
@@ -175,4 +176,20 @@ export interface SchoolProfile {
   classDetails: ClassDetail[];
   sarana: SaranaDetail[];
   updatedAt?: Timestamp;
+}
+
+export interface PelanggaranSiswa {
+  id?: string;
+  id_siswa: string;
+  namaSiswa: string;
+  kelasSiswa: string;
+  tanggal: Timestamp;
+  pelanggaran: string;
+  catatan?: string;
+  poin: number;
+  photoUrl?: string;
+  photoPath?: string; // Path for deletion from storage
+  recordedByUid: string;
+  recordedByName: string;
+  createdAt: Timestamp;
 }

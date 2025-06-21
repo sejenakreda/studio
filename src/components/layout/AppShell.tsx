@@ -1,8 +1,7 @@
-
 "use client";
 
-import *
-as React from "react";
+import
+* as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -22,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, FileWarning } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -91,6 +90,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
+      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
     ],
   },
   {
@@ -149,6 +149,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
+      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
       { href: "/admin/teachers", label: "Semua Data Guru", icon: Users },
       { href: "/admin/students", label: "Semua Data Siswa", icon: BookUser },
     ],

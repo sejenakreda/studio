@@ -127,16 +127,23 @@ export default function EditTeacherPage() {
     }
     setIsSubmitting(true);
     try {
+      // Filter out the old generic 'pembina_eskul' value before saving.
+      const cleanedTugasTambahan = (data.tugasTambahan || []).filter(
+        tugas => tugas !== 'pembina_eskul'
+      );
+
       await updateUserProfile(teacherId, {
         displayName: data.displayName,
         assignedMapel: data.assignedMapel || [], 
-        tugasTambahan: data.tugasTambahan as TugasTambahan[] || [],
+        tugasTambahan: cleanedTugasTambahan as TugasTambahan[],
       });
 
       const oldMapel = teacherData.assignedMapel?.join(', ') || 'N/A';
       const newMapel = data.assignedMapel?.join(', ') || 'N/A';
-      const oldTugas = teacherData.tugasTambahan?.join(', ') || 'N/A';
-      const newTugas = data.tugasTambahan?.join(', ') || 'N/A';
+      
+      // Use the cleaned array for logging as well to avoid false positives.
+      const oldTugas = teacherData.tugasTambahan?.filter(t => t !== 'pembina_eskul').join(', ') || 'N/A';
+      const newTugas = cleanedTugasTambahan.join(', ') || 'N/A';
       
       let logDetails = `Profil Guru ${teacherData.email}: Nama -> ${data.displayName}.`;
       if (oldMapel !== newMapel) logDetails += ` Mapel: ${oldMapel} -> ${newMapel}.`;
@@ -409,3 +416,4 @@ export default function EditTeacherPage() {
     </div>
   );
 }
+

@@ -212,7 +212,7 @@ export default function ManageTeachersPage() {
       NamaTampilan: teacher.displayName,
       Email: teacher.email,
       MapelDitugaskan: teacher.assignedMapel?.join(', ') || '',
-      TugasTambahan: teacher.tugasTambahan?.join(', ') || '',
+      TugasTambahan: teacher.tugasTambahan?.filter(tugas => tugas !== 'pembina_eskul').join(', ') || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -564,43 +564,46 @@ export default function ManageTeachersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teachers.map((teacher) => (
-                    <TableRow key={teacher.uid}>
-                      <TableCell className="font-medium">{teacher.displayName || 'N/A'}</TableCell>
-                      <TableCell>{teacher.email || 'N/A'}</TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate" title={teacher.assignedMapel?.join(', ') || 'Belum ada'}>
-                        {teacher.assignedMapel && teacher.assignedMapel.length > 0 
-                          ? teacher.assignedMapel.join(', ') 
-                          : <span className="italic text-muted-foreground">Belum ada</span>
-                        }
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate" title={teacher.tugasTambahan?.join(', ') || 'Tidak ada'}>
-                        {teacher.tugasTambahan && teacher.tugasTambahan.length > 0
-                          ? teacher.tugasTambahan.join(', ').replace(/_/g, ' ')
-                          : <span className="italic text-muted-foreground">Tidak ada</span>
-                        }
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Link href={`/admin/teachers/edit/${teacher.uid}`} passHref>
-                          <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Edit Guru & Mapel">
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
+                  {teachers.map((teacher) => {
+                    const cleanedTugas = teacher.tugasTambahan?.filter(tugas => tugas !== 'pembina_eskul');
+                    return (
+                      <TableRow key={teacher.uid}>
+                        <TableCell className="font-medium">{teacher.displayName || 'N/A'}</TableCell>
+                        <TableCell>{teacher.email || 'N/A'}</TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate" title={teacher.assignedMapel?.join(', ') || 'Belum ada'}>
+                          {teacher.assignedMapel && teacher.assignedMapel.length > 0 
+                            ? teacher.assignedMapel.join(', ') 
+                            : <span className="italic text-muted-foreground">Belum ada</span>
+                          }
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate" title={cleanedTugas?.join(', ') || 'Tidak ada'}>
+                          {cleanedTugas && cleanedTugas.length > 0
+                            ? cleanedTugas.join(', ').replace(/_/g, ' ')
+                            : <span className="italic text-muted-foreground">Tidak ada</span>
+                          }
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Link href={`/admin/teachers/edit/${teacher.uid}`} passHref>
+                            <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Edit Guru & Mapel">
+                              <Edit className="h-4 w-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                          </Link>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteConfirmation(teacher)}
+                            disabled={isDeleting || teacherToDelete?.uid === teacher.uid}
+                            title="Hapus Guru"
+                          >
+                            {isDeleting && teacherToDelete?.uid === teacher.uid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            <span className="sr-only">Hapus</span>
                           </Button>
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteConfirmation(teacher)}
-                          disabled={isDeleting || teacherToDelete?.uid === teacher.uid}
-                          title="Hapus Guru"
-                        >
-                          {isDeleting && teacherToDelete?.uid === teacher.uid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                          <span className="sr-only">Hapus</span>
-                        </Button>
-                      </TableCell> 
-                    </TableRow>
-                  ))}
+                        </TableCell> 
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

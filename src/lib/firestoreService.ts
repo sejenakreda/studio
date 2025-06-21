@@ -24,7 +24,7 @@ import {
   QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -345,16 +345,17 @@ const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttend
 };
 
 const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
-  toFirestore: (profile: Omit<SchoolProfile, 'id'>): DocumentData => {
+  toFirestore: (profile: Partial<Omit<SchoolProfile, 'id'>>): DocumentData => {
     return {
-      totalSiswa: profile.totalSiswa || 0,
-      totalAlumni: profile.totalAlumni || 0,
-      totalGuru: profile.totalGuru || 0,
-      totalTendik: profile.totalTendik || 0,
-      ruangKelas: profile.ruangKelas || 0,
-      laboratorium: profile.laboratorium || 0,
-      perpustakaan: profile.perpustakaan || 0,
-      toilet: profile.toilet || 0,
+      // Manual inputs
+      totalAlumni: profile.totalAlumni ?? 0,
+      totalGuru: profile.totalGuru ?? 0,
+      totalTendik: profile.totalTendik ?? 0,
+      // Array-based data
+      classDetails: profile.classDetails || [],
+      sarana: profile.sarana || [],
+      // Auto-calculated, but good to store for quick reads
+      totalSiswa: profile.totalSiswa ?? 0,
       updatedAt: serverTimestamp(),
     };
   },
@@ -365,14 +366,12 @@ const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
     const data = snapshot.data(options)!;
     return {
       id: snapshot.id,
-      totalSiswa: data.totalSiswa || 0,
       totalAlumni: data.totalAlumni || 0,
       totalGuru: data.totalGuru || 0,
       totalTendik: data.totalTendik || 0,
-      ruangKelas: data.ruangKelas || 0,
-      laboratorium: data.laboratorium || 0,
-      perpustakaan: data.perpustakaan || 0,
-      toilet: data.toilet || 0,
+      totalSiswa: data.totalSiswa || 0,
+      classDetails: data.classDetails || [],
+      sarana: data.sarana || [],
       updatedAt: data.updatedAt,
     };
   }
@@ -1028,8 +1027,12 @@ export const getSchoolProfile = async (): Promise<SchoolProfile> => {
     // Return default empty profile if not found
     return {
         id: SCHOOL_PROFILE_DOC_ID,
-        totalSiswa: 0, totalAlumni: 0, totalGuru: 0, totalTendik: 0,
-        ruangKelas: 0, laboratorium: 0, perpustakaan: 0, toilet: 0,
+        totalAlumni: 0,
+        totalGuru: 0,
+        totalTendik: 0,
+        totalSiswa: 0,
+        classDetails: [],
+        sarana: [],
     };
 };
 

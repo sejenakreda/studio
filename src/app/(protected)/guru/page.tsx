@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, FlaskConical, Library, Bath, Building } from "lucide-react";
+import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents, getPengumumanUntukGuru, getSchoolProfile } from '@/lib/firestoreService';
@@ -52,18 +52,17 @@ export default function GuruDashboardPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  const totalSiswaAktif = React.useMemo(() => {
+      if (!schoolProfile || !schoolProfile.classDetails) return 0;
+      return schoolProfile.classDetails.reduce((sum, detail) => sum + (detail.male || 0) + (detail.female || 0), 0);
+  }, [schoolProfile]);
+
+
   const sdmStats = [
-    { label: "Siswa Aktif", value: schoolProfile?.totalSiswa, icon: Users },
+    { label: "Siswa Aktif", value: totalSiswaAktif, icon: Users },
     { label: "Alumni", value: schoolProfile?.totalAlumni, icon: GraduationCap },
     { label: "Guru", value: schoolProfile?.totalGuru, icon: UserSquare },
     { label: "Staf/Tendik", value: schoolProfile?.totalTendik, icon: Briefcase },
-  ];
-  
-  const sarprasStats = [
-    { label: "Ruang Kelas", value: schoolProfile?.ruangKelas, icon: School },
-    { label: "Laboratorium", value: schoolProfile?.laboratorium, icon: FlaskConical },
-    { label: "Perpustakaan", value: schoolProfile?.perpustakaan, icon: Library },
-    { label: "Toilet", value: schoolProfile?.toilet, icon: Bath },
   ];
 
   const getPrioritasColor = (prioritas: Pengumuman['prioritas']) => {
@@ -166,7 +165,7 @@ export default function GuruDashboardPage() {
 
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Building className="h-5 w-5 text-primary" /> Profil Sekolah</CardTitle>
+            <CardTitle className="flex items-center gap-2"><School className="h-5 w-5 text-primary" /> Profil Sekolah</CardTitle>
             <CardDescription>Data statistik umum sekolah.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -177,7 +176,7 @@ export default function GuruDashboardPage() {
                         <div key={stat.label} className="p-2 rounded-md bg-muted/50 flex items-center gap-2">
                             <stat.icon className="h-5 w-5 text-muted-foreground" />
                             <div>
-                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : stat.value}</p>
+                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : (stat.value ?? 0)}</p>
                                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                             </div>
                         </div>
@@ -186,17 +185,20 @@ export default function GuruDashboardPage() {
             </div>
             <div>
                 <h4 className="text-sm font-medium mb-2">Sarana & Prasarana</h4>
-                <div className="grid grid-cols-2 gap-2">
-                    {sarprasStats.map((stat) => (
-                         <div key={stat.label} className="p-2 rounded-md bg-muted/50 flex items-center gap-2">
-                            <stat.icon className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : stat.value}</p>
-                                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                {isLoading ? (
+                    <div className="grid grid-cols-2 gap-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full"/>)}</div>
+                ) : !schoolProfile || !schoolProfile.sarana || schoolProfile.sarana.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Data sarana belum diisi.</p>
+                ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                        {(schoolProfile.sarana || []).map((item) => (
+                             <div key={item.name} className="p-2 rounded-md bg-muted/50">
+                                <p className="text-sm font-semibold">{item.quantity}</p>
+                                <p className="text-xs text-muted-foreground">{item.name}</p>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
           </CardContent>
         </Card>

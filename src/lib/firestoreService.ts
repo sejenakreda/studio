@@ -953,7 +953,6 @@ export const getTeacherDailyAttendanceForMonth = async (
   month: number // 1-12
 ): Promise<TeacherDailyAttendance[]> => {
   const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-  // End of the month needs to be precise for correct range
   const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
 
 

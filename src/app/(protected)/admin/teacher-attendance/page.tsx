@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange, Save } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange, Save, UserCheck, Info as InfoIcon, PieChart } from "lucide-react";
 import {
   getAllUsersByRole,
   getAllTeachersDailyAttendanceForPeriod,
@@ -49,6 +49,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Timestamp } from 'firebase/firestore';
+import { getWorkdaysInMonth } from '@/lib/utils';
 
 const MONTHS = [
   { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
@@ -58,8 +59,8 @@ const MONTHS = [
 ];
 
 const currentYear = new Date().getFullYear();
-const startYearRange = currentYear - 10; // 10 tahun ke belakang
-const endYearRange = currentYear + 5;   // 5 tahun ke depan
+const startYearRange = currentYear - 10;
+const endYearRange = currentYear + 5;
 const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
 
 
@@ -70,7 +71,9 @@ interface MonthlySummary {
   Izin: number;
   Sakit: number;
   Alpa: number;
-  "Total Tercatat": number;
+  TotalTercatat: number;
+  PersentaseHadir: number;
+  TotalHariKerja: number;
 }
 
 const dailyAttendanceStatusOptions: TeacherDailyAttendanceStatus[] = ['Hadir', 'Izin', 'Sakit', 'Alpa'];
@@ -102,13 +105,12 @@ export default function ManageTeacherAttendancePage() {
 
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary[]>([]);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   const editForm = useForm<EditAttendanceFormData>({
     resolver: zodResolver(editAttendanceSchema),
-    defaultValues: {
-      status: "Hadir",
-      notes: "",
-    },
+    defaultValues: { status: "Hadir", notes: "" },
   });
 
   const fetchTeachersList = useCallback(async () => {
@@ -126,17 +128,9 @@ export default function ManageTeacherAttendancePage() {
     setIsLoadingDailyRecords(true);
     setFetchError(null);
     try {
-      let records: TeacherDailyAttendance[] = [];
       const monthQueryValue = dailyFilterMonth === "all" ? null : dailyFilterMonth;
-
       const allRecordsForPeriod = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthQueryValue);
-
-      if (dailyFilterTeacherUid === "all") {
-        records = allRecordsForPeriod;
-      } else if (dailyFilterTeacherUid) {
-        records = allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
-      }
-      // Sort by date descending, then by teacher name ascending for consistent display
+      let records = dailyFilterTeacherUid === "all" ? allRecordsForPeriod : allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
       setDailyRecords(records.sort((a, b) => {
         const dateComparison = b.date.toMillis() - a.date.toMillis();
         if (dateComparison !== 0) return dateComparison;
@@ -152,9 +146,40 @@ export default function ManageTeacherAttendancePage() {
     }
   }, [toast, dailyFilterYear, dailyFilterMonth, dailyFilterTeacherUid]);
 
-
   useEffect(() => { fetchTeachersList(); }, [fetchTeachersList]);
   useEffect(() => { fetchDailyAttendanceRecords(); }, [fetchDailyAttendanceRecords]);
+
+  useEffect(() => {
+    if (dailyFilterMonth !== "all" && !isLoadingDailyRecords && dailyRecords.length > 0) {
+      setIsLoadingSummary(true);
+      const workdaysInMonth = getWorkdaysInMonth(dailyFilterYear, dailyFilterMonth);
+      const summaryMap = new Map<string, Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja'>>();
+
+      dailyRecords.forEach(rec => {
+        if (!summaryMap.has(rec.teacherUid)) {
+          summaryMap.set(rec.teacherUid, { teacherUid: rec.teacherUid, teacherName: rec.teacherName || rec.teacherUid, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 });
+        }
+        const teacherSummary = summaryMap.get(rec.teacherUid)!;
+        if(teacherSummary[rec.status] !== undefined) teacherSummary[rec.status]++; else teacherSummary.Alpa++;
+        teacherSummary.TotalTercatat++;
+      });
+      
+      const fullSummary = Array.from(summaryMap.values()).map(summary => {
+        const percentage = workdaysInMonth > 0 ? (summary.Hadir / workdaysInMonth) * 100 : 0;
+        return {
+          ...summary,
+          PersentaseHadir: parseFloat(percentage.toFixed(1)),
+          TotalHariKerja: workdaysInMonth
+        };
+      }).sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+
+      setMonthlySummary(fullSummary);
+      setIsLoadingSummary(false);
+    } else {
+      setMonthlySummary([]);
+    }
+  }, [dailyRecords, dailyFilterMonth, dailyFilterYear, isLoadingDailyRecords]);
+
 
   const handleDeleteDailyConfirmation = (record: TeacherDailyAttendance) => { setDailyRecordToDelete(record); };
   const handleActualDailyDelete = async () => {
@@ -162,26 +187,16 @@ export default function ManageTeacherAttendancePage() {
     setIsDeletingDaily(true);
     try {
       await deleteTeacherDailyAttendance(dailyRecordToDelete.id);
-      await addActivityLog(
-        "Data Kehadiran Harian Guru Dihapus (Admin)", 
-        `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "EEEE, yyyy-MM-dd", {locale: indonesiaLocale})} dihapus oleh Admin: ${adminProfile.displayName || adminProfile.email}`, 
-        adminProfile.uid, 
-        adminProfile.displayName || adminProfile.email || "Admin"
-      );
+      await addActivityLog("Data Kehadiran Harian Guru Dihapus (Admin)", `Data harian Guru: ${dailyRecordToDelete.teacherName}, Tgl: ${format(dailyRecordToDelete.date.toDate(), "EEEE, yyyy-MM-dd", {locale: indonesiaLocale})} dihapus oleh Admin: ${adminProfile.displayName || adminProfile.email}`, adminProfile.uid, adminProfile.displayName || adminProfile.email || "Admin");
       toast({ title: "Sukses", description: "Data kehadiran harian berhasil dihapus." });
-      setDailyRecordToDelete(null); 
-      fetchDailyAttendanceRecords();
-    } catch (error: any) { 
-      toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
+      setDailyRecordToDelete(null); fetchDailyAttendanceRecords();
+    } catch (error: any) { toast({ variant: "destructive", title: "Error", description: "Gagal menghapus data kehadiran harian." });
     } finally { setIsDeletingDaily(false); }
   };
   
   const handleEditDailyRecordClick = (record: TeacherDailyAttendance) => {
     setEditingRecord(record);
-    editForm.reset({
-      status: record.status,
-      notes: record.notes || "",
-    });
+    editForm.reset({ status: record.status, notes: record.notes || "" });
     setIsEditModalOpen(true);
   };
 
@@ -192,29 +207,11 @@ export default function ManageTeacherAttendancePage() {
     }
     setIsSubmittingEdit(true);
     try {
-      const payloadForUpdate: Omit<TeacherDailyAttendance, 'id' | 'updatedAt'> & {lastUpdatedByUid: string} = {
-        teacherUid: editingRecord.teacherUid,
-        teacherName: editingRecord.teacherName,
-        date: editingRecord.date, // Original date, should be a Timestamp
-        status: data.status,
-        notes: data.notes || "",
-        recordedAt: editingRecord.recordedAt, // Preserve original recordedAt
-        lastUpdatedByUid: adminProfile.uid,
-      };
-
+      const payloadForUpdate = { teacherUid: editingRecord.teacherUid, teacherName: editingRecord.teacherName, date: editingRecord.date, status: data.status, notes: data.notes || "", recordedAt: editingRecord.recordedAt, lastUpdatedByUid: adminProfile.uid };
       await addOrUpdateTeacherDailyAttendance(payloadForUpdate);
-
-      await addActivityLog(
-        "Kehadiran Harian Guru Diedit (Admin)",
-        `Data Guru: ${editingRecord.teacherName}, Tgl: ${format(editingRecord.date.toDate(), "yyyy-MM-dd")} diubah menjadi Status: ${data.status}${data.notes ? ', Ket: ' + data.notes : ''} oleh Admin: ${adminProfile.displayName || adminProfile.email}`,
-        adminProfile.uid,
-        adminProfile.displayName || adminProfile.email || "Admin"
-      );
-
+      await addActivityLog("Kehadiran Harian Guru Diedit (Admin)", `Data Guru: ${editingRecord.teacherName}, Tgl: ${format(editingRecord.date.toDate(), "yyyy-MM-dd")} diubah menjadi Status: ${data.status}${data.notes ? ', Ket: ' + data.notes : ''} oleh Admin: ${adminProfile.displayName || adminProfile.email}`, adminProfile.uid, adminProfile.displayName || adminProfile.email || "Admin");
       toast({ title: "Sukses", description: "Data kehadiran harian berhasil diperbarui." });
-      setIsEditModalOpen(false);
-      setEditingRecord(null);
-      fetchDailyAttendanceRecords();
+      setIsEditModalOpen(false); setEditingRecord(null); fetchDailyAttendanceRecords();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error Simpan Edit", description: error.message || "Gagal memperbarui kehadiran." });
     } finally {
@@ -225,139 +222,48 @@ export default function ManageTeacherAttendancePage() {
 
   const handleDownloadDailyExcel = () => {
     if (dailyRecords.length === 0) {
-      toast({
-        variant: "default",
-        title: "Tidak Ada Data Harian",
-        description: "Tidak ada data kehadiran harian yang sesuai dengan filter untuk diunduh.",
-      });
+      toast({ variant: "default", title: "Tidak Ada Data Harian", description: "Tidak ada data kehadiran harian yang sesuai dengan filter untuk diunduh." });
       return;
     }
-
-    const dataForExcel = dailyRecords.map(rec => ({
-      'Nama Guru': rec.teacherName || rec.teacherUid,
-      'Hari, Tanggal': format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }),
-      'Status': rec.status,
-      'Catatan': rec.notes || '-',
-      'Dicatat Pada': rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
-      'Diperbarui Pada': rec.updatedAt ? format(rec.updatedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-',
-      'Pencatat/Pengedit Terakhir': rec.lastUpdatedByUid || '-', 
-    }));
-
+    const dataForExcel = dailyRecords.map(rec => ({ 'Nama Guru': rec.teacherName || rec.teacherUid, 'Hari, Tanggal': format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }), 'Status': rec.status, 'Catatan': rec.notes || '-', 'Dicatat Pada': rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-', 'Diperbarui Pada': rec.updatedAt ? format(rec.updatedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-', 'Pencatat/Pengedit Terakhir': rec.lastUpdatedByUid || '-', }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Kehadiran Harian");
-
-    const wscols = [
-      { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 25 }
-    ];
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 25 } ];
     worksheet['!cols'] = wscols;
-
     const monthLabel = dailyFilterMonth === "all" ? "SemuaBulan" : MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth);
     XLSX.writeFile(workbook, `rekap_harian_kehadiran_${dailyFilterYear}_${monthLabel}.xlsx`);
-    toast({
-      title: "Unduhan Dimulai",
-      description: "File Excel rekap kehadiran harian sedang disiapkan.",
-    });
+    toast({ title: "Unduhan Dimulai", description: "File Excel rekap kehadiran harian sedang disiapkan." });
   };
 
-  const handleDownloadMonthlySummaryExcel = async () => {
-    if (dailyFilterMonth === "all") {
-      toast({ variant: "default", title: "Pilih Bulan Spesifik", description: "Untuk rekap bulanan, silakan pilih bulan tertentu." });
+  const handleDownloadMonthlySummaryExcel = () => {
+    if (monthlySummary.length === 0) {
+      toast({ variant: "default", title: "Tidak Ada Data Bulanan", description: "Tidak ada data rekap bulanan yang sesuai dengan filter untuk diunduh." });
       return;
     }
-
-    let recordsForMonth: TeacherDailyAttendance[];
-    try {
-        recordsForMonth = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, dailyFilterMonth);
-    } catch (err) {
-        toast({ variant: "destructive", title: "Gagal Ambil Data Bulanan", description: "Tidak dapat mengambil data untuk rekap bulanan." });
-        return;
-    }
-    
-    if (recordsForMonth.length === 0) {
-      toast({ variant: "default", title: "Tidak Ada Data Bulanan", description: "Tidak ada data kehadiran untuk direkap pada bulan ini." });
-      return;
-    }
-
-    const summaryMap = new Map<string, MonthlySummary>();
-    recordsForMonth.forEach(rec => {
-      if (!summaryMap.has(rec.teacherUid)) {
-        summaryMap.set(rec.teacherUid, {
-          teacherUid: rec.teacherUid,
-          teacherName: rec.teacherName || rec.teacherUid,
-          Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, "Total Tercatat": 0
-        });
-      }
-      const teacherSummary = summaryMap.get(rec.teacherUid)!;
-      if(teacherSummary[rec.status] !== undefined) teacherSummary[rec.status]++; else teacherSummary.Alpa++; // Default to Alpa if status is unexpected
-      teacherSummary["Total Tercatat"]++;
-    });
-
-    const dataForExcel = Array.from(summaryMap.values()).map(summary => ({
-      'Nama Guru': summary.teacherName,
-      'Bulan': MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth),
-      'Tahun': dailyFilterYear,
-      'Total Hadir': summary.Hadir,
-      'Total Izin': summary.Izin,
-      'Total Sakit': summary.Sakit,
-      'Total Alpa': summary.Alpa,
-      'Total Hari Tercatat': summary["Total Tercatat"],
-    }));
-    
-    dataForExcel.sort((a,b) => a['Nama Guru'].localeCompare(b['Nama Guru']));
-
+    const dataForExcel = monthlySummary.map(summary => ({ 'Nama Guru': summary.teacherName, 'Bulan': MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth), 'Tahun': dailyFilterYear, 'Total Hadir': summary.Hadir, 'Total Izin': summary.Izin, 'Total Sakit': summary.Sakit, 'Total Alpa': summary.Alpa, 'Total Hari Tercatat': summary.TotalTercatat, 'Total Hari Kerja': summary.TotalHariKerja, 'Persentase Kehadiran (%)': summary.PersentaseHadir, }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Kehadiran Bulanan");
-
-    const wscols = [
-      { wch: 25 }, { wch: 15 }, { wch: 10 }, 
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }
-    ];
+    const wscols = [ { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 25 } ];
     worksheet['!cols'] = wscols;
-
     const monthLabel = MONTHS.find(m => m.value === dailyFilterMonth)?.label || String(dailyFilterMonth);
     XLSX.writeFile(workbook, `rekap_bulanan_kehadiran_${dailyFilterYear}_${monthLabel}.xlsx`);
-    toast({
-      title: "Unduhan Dimulai",
-      description: "File Excel rekap kehadiran bulanan sedang disiapkan.",
-    });
+    toast({ title: "Unduhan Dimulai", description: "File Excel rekap kehadiran bulanan sedang disiapkan." });
   };
 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
-        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1>
-          <p className="text-muted-foreground">Lihat dan kelola data kehadiran harian yang dicatat oleh guru.</p>
-        </div>
-      </div>
-
+      <div className="flex items-center gap-4"><Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div></div>
+      
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div>
-                <CardTitle>Daftar Kehadiran Harian (Dicatat Guru)</CardTitle>
-                <CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                {dailyRecords.length > 0 && !isLoadingDailyRecords && (
-                <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto">
-                    <Download className="mr-2 h-4 w-4" />
-                    Unduh Detail Harian
-                </Button>
-                )}
-                <Button 
-                  onClick={handleDownloadMonthlySummaryExcel} 
-                  variant="outline" 
-                  className="w-full sm:w-auto"
-                  disabled={dailyFilterMonth === "all" || !dailyFilterYear || isLoadingDailyRecords}
-                  title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}
-                >
-                    <CalendarRange className="mr-2 h-4 w-4" />
-                    Unduh Rekap Bulanan
-                </Button>
+            <div><CardTitle>Filter Data</CardTitle><CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription></div>
+             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
+                <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
             </div>
           </div>
         </CardHeader>
@@ -367,6 +273,36 @@ export default function ManageTeacherAttendancePage() {
             <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
             <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
           </div>
+        </CardContent>
+      </Card>
+
+      {dailyFilterMonth !== "all" && (
+        <Card>
+          <CardHeader><CardTitle>Rekapitulasi Kehadiran Bulanan</CardTitle><CardDescription>Ringkasan kehadiran untuk periode {MONTHS.find(m => m.value === dailyFilterMonth)?.label} {dailyFilterYear}. Persentase dihitung berdasarkan total hari kerja (Senin-Jumat) dalam sebulan.</CardDescription></CardHeader>
+          <CardContent>
+            {isLoadingSummary || isLoadingDailyRecords ? (<div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin" /></div>)
+            : monthlySummary.length === 0 ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><PieChart className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Tidak Ada Data Rekap</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada data kehadiran yang tercatat untuk direkap pada bulan ini.</p></div>)
+            : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead className="text-center">Hadir</TableHead><TableHead className="text-center">Izin</TableHead><TableHead className="text-center">Sakit</TableHead><TableHead className="text-center">Alpa</TableHead><TableHead className="text-center">Total Tercatat</TableHead><TableHead className="text-center">Total Hari Kerja</TableHead><TableHead className="text-center font-semibold text-primary">Persentase Hadir</TableHead></TableRow></TableHeader><TableBody>
+              {monthlySummary.map(s => (<TableRow key={s.teacherUid}>
+                <TableCell className="font-medium">{s.teacherName}</TableCell>
+                <TableCell className="text-center text-green-600 font-medium">{s.Hadir}</TableCell>
+                <TableCell className="text-center text-blue-600 font-medium">{s.Izin}</TableCell>
+                <TableCell className="text-center text-yellow-600 font-medium">{s.Sakit}</TableCell>
+                <TableCell className="text-center text-red-600 font-medium">{s.Alpa}</TableCell>
+                <TableCell className="text-center">{s.TotalTercatat}</TableCell>
+                <TableCell className="text-center">{s.TotalHariKerja}</TableCell>
+                <TableCell className="text-center font-bold text-primary">{s.PersentaseHadir}%</TableCell>
+              </TableRow>))}
+            </TableBody></Table></div>)
+            }
+          </CardContent>
+        </Card>
+      )}
+
+
+      <Card>
+        <CardHeader><CardTitle>Detail Kehadiran Harian (Sesuai Filter)</CardTitle><CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription></CardHeader>
+        <CardContent>
           {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
           {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
            : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
@@ -382,60 +318,12 @@ export default function ManageTeacherAttendancePage() {
           <DialogContent className="sm:max-w-[480px]">
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onSaveEditedAttendance)}>
-                <DialogHeader>
-                  <DialogTitle>Edit Kehadiran Harian Guru</DialogTitle>
-                  <DialogDescription>
-                    Ubah status atau catatan kehadiran untuk guru <span className="font-semibold">{editingRecord.teacherName}</span> pada tanggal <span className="font-semibold">{format(editingRecord.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</span>.
-                  </DialogDescription>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Edit Kehadiran Harian Guru</DialogTitle><DialogDescription>Ubah status atau catatan kehadiran untuk guru <span className="font-semibold">{editingRecord.teacherName}</span> pada tanggal <span className="font-semibold">{format(editingRecord.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</span>.</DialogDescription></DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <FormField
-                    control={editForm.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status Kehadiran</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih status..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {dailyAttendanceStatusOptions.map(option => (
-                              <SelectItem key={option} value={option}>{option}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Catatan (Opsional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Alasan izin, sakit, atau keterangan tambahan..." {...field} rows={3} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status Kehadiran</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih status..." /></SelectTrigger></FormControl><SelectContent>{dailyAttendanceStatusOptions.map(option => (<SelectItem key={option} value={option}>{option}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                  <FormField control={editForm.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Catatan (Opsional)</FormLabel><FormControl><Textarea placeholder="Alasan izin, sakit, atau keterangan tambahan..." {...field} rows={3} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button type="button" variant="outline" disabled={isSubmittingEdit}>
-                      Batal
-                    </Button>
-                  </DialogClose>
-                  <Button type="submit" disabled={isSubmittingEdit}>
-                    {isSubmittingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Simpan Perubahan
-                  </Button>
-                </DialogFooter>
+                <DialogFooter><DialogClose asChild><Button type="button" variant="outline" disabled={isSubmittingEdit}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmittingEdit}>{isSubmittingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Simpan Perubahan</Button></DialogFooter>
               </form>
             </Form>
           </DialogContent>

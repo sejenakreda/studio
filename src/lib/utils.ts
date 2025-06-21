@@ -70,3 +70,32 @@ export const SEMESTERS = [
   { value: 1, label: 'Ganjil' },
   { value: 2, label: 'Genap' },
 ];
+
+/**
+ * Calculates the number of working days (Monday-Friday) in a given month and year.
+ * @param year The full year (e.g., 2024).
+ * @param month The month, 1-indexed (1 for January, 12 for December).
+ * @returns The number of working days in that month.
+ */
+export function getWorkdaysInMonth(year: number, month: number): number {
+  if (month < 1 || month > 12) {
+    throw new Error("Month must be between 1 and 12.");
+  }
+  
+  // Get the number of days in the specified month.
+  // Using month - 1 because Date constructor months are 0-indexed.
+  // Using day 0 of the *next* month gives the last day of the current month.
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let workdays = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month - 1, day);
+    const dayOfWeek = currentDate.getDay(); // Sunday = 0, Saturday = 6
+
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      workdays++;
+    }
+  }
+
+  return workdays;
+}

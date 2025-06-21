@@ -81,7 +81,7 @@ export default function ManageSchoolProfilePage() {
       try {
         const currentProfile = await getSchoolProfile();
         if (currentProfile) {
-          const classDetailsMap = new Map(currentProfile.classDetails.map(cd => [cd.className, cd]));
+          const classDetailsMap = new Map((currentProfile.classDetails || []).map(cd => [cd.className, cd]));
           const mergedClassDetails = PREDEFINED_CLASSES.map(name =>
             classDetailsMap.get(name) || { className: name, male: 0, female: 0 }
           );

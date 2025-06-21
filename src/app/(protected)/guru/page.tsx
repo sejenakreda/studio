@@ -61,6 +61,15 @@ export default function GuruDashboardPage() {
       }, 0);
   }, [schoolProfile]);
 
+  const totalSiswaDapodik = React.useMemo(() => {
+      if (!schoolProfile || !schoolProfile.classDetails) return 0;
+      return schoolProfile.classDetails.reduce((sum, detail) => {
+          const maleCountDapodik = detail.male?.dapodik ?? 0;
+          const femaleCountDapodik = detail.female?.dapodik ?? 0;
+          return sum + maleCountDapodik + femaleCountDapodik;
+      }, 0);
+  }, [schoolProfile]);
+
 
   const getPrioritasColor = (prioritas: Pengumuman['prioritas']) => {
     switch (prioritas) {
@@ -169,14 +178,21 @@ export default function GuruDashboardPage() {
             <div>
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Users2 className="h-4 w-4 text-muted-foreground" /> Sumber Daya Manusia</h4>
                 <div className="grid grid-cols-1 gap-2 text-xs">
-                    <div className="flex justify-between items-center p-2 rounded bg-primary/10">
-                        <span className="font-semibold text-primary">Siswa Aktif (Ril)</span>
-                        <span className="font-bold text-lg text-primary">{isLoading ? <Skeleton className="h-5 w-8"/> : totalSiswaAktif}</span>
+                    <div className="p-2 rounded bg-primary/10 border border-primary/20">
+                        <div className="flex justify-between items-center">
+                            <span className="font-semibold text-primary">Siswa Aktif (Ril)</span> 
+                            <span className="font-bold text-lg text-primary">{isLoading ? <Skeleton className="h-5 w-8"/> : totalSiswaAktif}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-primary/80 text-[0.7rem] pt-1 mt-1 border-t border-dashed border-primary/30">
+                            <span>(Dapodik)</span>
+                            <span className="font-semibold">{isLoading ? <Skeleton className="h-3 w-5 inline-block"/> : totalSiswaDapodik}</span>
+                        </div>
                     </div>
+
                     <div className="p-2 rounded bg-muted/50">
                         <div className="flex justify-between items-center">
-                            <span>Alumni (Ril)</span> 
-                            <span className="font-bold text-foreground">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.alumni.ril ?? 0}</span>
+                            <span className="font-medium text-primary">Alumni (Ril)</span> 
+                            <span className="font-bold text-primary">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.alumni.ril ?? 0}</span>
                         </div>
                         <div className="flex justify-between items-center text-muted-foreground text-[0.7rem] pt-1 mt-1 border-t border-dashed">
                             <span>(Dapodik)</span>
@@ -185,8 +201,8 @@ export default function GuruDashboardPage() {
                     </div>
                      <div className="p-2 rounded bg-muted/50">
                         <div className="flex justify-between items-center">
-                            <span>Guru (Ril)</span> 
-                            <span className="font-bold text-foreground">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.guru.ril ?? 0}</span>
+                            <span className="font-medium text-primary">Guru (Ril)</span> 
+                            <span className="font-bold text-primary">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.guru.ril ?? 0}</span>
                         </div>
                         <div className="flex justify-between items-center text-muted-foreground text-[0.7rem] pt-1 mt-1 border-t border-dashed">
                             <span>(Dapodik)</span>
@@ -195,8 +211,8 @@ export default function GuruDashboardPage() {
                     </div>
                     <div className="p-2 rounded bg-muted/50">
                         <div className="flex justify-between items-center">
-                            <span>Staf/Tendik (Ril)</span>
-                            <span className="font-bold text-foreground">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.tendik.ril ?? 0}</span>
+                            <span className="font-medium text-primary">Staf/Tendik (Ril)</span>
+                            <span className="font-bold text-primary">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.tendik.ril ?? 0}</span>
                         </div>
                         <div className="flex justify-between items-center text-muted-foreground text-[0.7rem] pt-1 mt-1 border-t border-dashed">
                             <span>(Dapodik)</span>

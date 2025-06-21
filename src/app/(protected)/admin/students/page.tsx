@@ -149,7 +149,7 @@ export default function AdminManageStudentsPage() {
 
       await addStudent(data);
       await addActivityLog(
-        "Siswa Baru Ditambahkan (Admin)",
+        "Siswa Baru Ditambahkan (Manual)",
         `Siswa: ${data.nama} (NIS: ${data.nis}, Kelas: ${data.kelas}, ID: ${data.id_siswa}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
         currentAdminProfile.uid,
         currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
@@ -198,7 +198,7 @@ export default function AdminManageStudentsPage() {
   const handleDownloadStudentTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
       ["nama", "nis", "kelas", "id_siswa"],
-      ["Contoh Nama Siswa", "1234567890", "X IPA 1", "contoh_id_siswa_01"],
+      ["Contoh Nama Siswa", "1234567890", "X-1", "contoh_id_siswa_01"],
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Siswa");
@@ -274,50 +274,56 @@ export default function AdminManageStudentsPage() {
         let failCount = 0;
         const errorMessages: string[] = [];
         
-        for (const student of json) {
-          if (!student.nama || !student.nis || !student.kelas || !student.id_siswa) {
+        for (const [index, student] of json.entries()) {
+          const studentNis = String(student.nis || "").trim();
+          const studentIdSiswa = String(student.id_siswa || "").trim();
+          const studentNama = String(student.nama || "").trim();
+          const studentKelas = String(student.kelas || "").trim();
+          
+          if (!studentNama || !studentNis || !studentKelas || !studentIdSiswa) {
             failCount++;
-            errorMessages.push(`Baris tidak lengkap untuk NIS: ${student.nis || 'NIS tidak ada'}. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: Data tidak lengkap. Dilewati.`);
             continue;
           }
 
           const nisRegex = /^[0-9]+$/;
-          if (student.nis.length < 5 || !nisRegex.test(student.nis)) {
+          if (studentNis.length < 5 || !nisRegex.test(studentNis)) {
             failCount++;
-            errorMessages.push(`Format NIS salah atau kurang dari 5 karakter untuk: ${student.nis}. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: Format NIS salah untuk ${studentNis}. Dilewati.`);
             continue;
           }
 
           const idSiswaRegex = /^[a-zA-Z0-9_.-]+$/;
-          if (student.id_siswa.length < 3 || !idSiswaRegex.test(student.id_siswa)) {
+          if (studentIdSiswa.length < 3 || !idSiswaRegex.test(studentIdSiswa)) {
             failCount++;
-            errorMessages.push(`Format ID Siswa salah atau kurang dari 3 karakter untuk: ${student.id_siswa}. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: Format ID Siswa salah untuk ${studentIdSiswa}. Dilewati.`);
             continue;
           }
 
-          const existingStudentById = currentStudentList.find(s => s.id_siswa === student.id_siswa);
+          // Check against list that includes already-processed items from this file
+          const existingStudentById = currentStudentList.find(s => s.id_siswa === studentIdSiswa);
           if (existingStudentById) {
             failCount++;
-            errorMessages.push(`ID Siswa ${student.id_siswa} sudah digunakan. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: ID Siswa ${studentIdSiswa} sudah ada. Dilewati.`);
             continue;
           }
-          const existingStudentByNis = currentStudentList.find(s => s.nis === student.nis);
+          const existingStudentByNis = currentStudentList.find(s => s.nis === studentNis);
           if (existingStudentByNis) {
             failCount++;
-            errorMessages.push(`NIS ${student.nis} sudah digunakan. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: NIS ${studentNis} sudah ada. Dilewati.`);
             continue;
           }
 
           try {
-            const newStudent = {
-              nama: student.nama,
-              nis: student.nis,
-              kelas: student.kelas,
-              id_siswa: student.id_siswa,
+            const newStudent: Omit<Siswa, 'id'> = {
+              nama: studentNama,
+              nis: studentNis,
+              kelas: studentKelas,
+              id_siswa: studentIdSiswa,
             };
             await addStudent(newStudent);
              await addActivityLog(
-              "Siswa Baru Diimpor (Admin)",
+              "Siswa Baru Diimpor (Excel)",
               `Siswa: ${newStudent.nama} (NIS: ${newStudent.nis}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
               currentAdminProfile.uid,
               currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
@@ -326,7 +332,7 @@ export default function AdminManageStudentsPage() {
             currentStudentList.push({ ...newStudent, id: 'temp-id-' + successCount }); // Add to local list to prevent re-adding if file has duplicates
           } catch (error: any) {
             failCount++;
-            errorMessages.push(`Gagal impor ${student.nama} (NIS: ${student.nis}): ${error.message}. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: Gagal impor ${studentNama}: ${error.message}. Dilewati.`);
           }
         }
 
@@ -417,7 +423,7 @@ export default function AdminManageStudentsPage() {
                   <FormItem>
                     <FormLabel>Kelas</FormLabel>
                     <FormControl>
-                      <Input placeholder="cth: X IPA 1" {...field} />
+                      <Input placeholder="cth: X-1" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

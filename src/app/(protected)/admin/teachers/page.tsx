@@ -273,25 +273,28 @@ export default function ManageTeachersPage() {
         let anyInvalidMapelDetected = false;
 
 
-        for (const teacher of json) {
-          if (!teacher.displayName || !teacher.email || !teacher.password) {
+        for (const [index, teacher] of json.entries()) {
+          const teacherEmail = String(teacher.email || "").trim();
+          const teacherPassword = String(teacher.password || "");
+          const teacherDisplayName = String(teacher.displayName || "").trim();
+          
+          if (!teacherDisplayName || !teacherEmail || !teacherPassword) {
             failCount++;
-            errorMessages.push("Baris tidak lengkap untuk: " + (teacher.email || 'Email tidak ada') + ". Dilewati.");
+            errorMessages.push(`Baris ${index + 2}: Data tidak lengkap. Dilewati.`);
             continue;
           }
-          if (teacher.password.length < 6) {
+          if (teacherPassword.length < 6) {
             failCount++;
-            errorMessages.push("Password untuk " + teacher.email + " terlalu pendek. Dilewati.");
+            errorMessages.push(`Baris ${index + 2}: Password untuk ${teacherEmail} terlalu pendek. Dilewati.`);
             continue;
           }
 
-          const existingTeacherByEmail = currentTeacherList.find(t => t.email === teacher.email);
+          const existingTeacherByEmail = currentTeacherList.find(t => t.email === teacherEmail);
           if (existingTeacherByEmail) {
             failCount++;
-            errorMessages.push("Email " + teacher.email + " sudah terdaftar. Dilewati.");
+            errorMessages.push(`Baris ${index + 2}: Email ${teacherEmail} sudah terdaftar. Dilewati.`);
             continue;
           }
-
 
           let finalAssignedMapel: string[] = [];
           if (teacher.assignedMapel && typeof teacher.assignedMapel === 'string') {
@@ -309,18 +312,18 @@ export default function ManageTeachersPage() {
             }
             finalAssignedMapel = validMapelForTeacher;
             if (invalidMapelForTeacher.length > 0) {
-              errorMessages.push("Untuk guru " + teacher.email + ": Mapel tidak valid/tidak ditemukan di master: " + invalidMapelForTeacher.join(', ') + ". Mapel ini tidak akan ditugaskan.");
+              errorMessages.push(`Baris ${index + 2} (Guru ${teacherEmail}): Mapel tidak valid/tidak ditemukan di master: ${invalidMapelForTeacher.join(', ')}. Mapel ini tidak akan ditugaskan.`);
             }
           }
 
 
           try {
-            const userCredential = await createUserWithEmailAndPassword(auth, teacher.email, teacher.password);
-            await createUserProfileFirestore(userCredential.user, 'guru', teacher.displayName, finalAssignedMapel);
+            const userCredential = await createUserWithEmailAndPassword(auth, teacherEmail, teacherPassword);
+            await createUserProfileFirestore(userCredential.user, 'guru', teacherDisplayName, finalAssignedMapel);
             
             await addActivityLog(
-              "Guru Baru Diimpor dari Excel",
-              "Guru: " + teacher.displayName + " (" + teacher.email + ") Mapel: " + (finalAssignedMapel.join(', ') || 'Tidak ada') + " oleh Admin: " + (currentAdminProfile.displayName || currentAdminProfile.email),
+              "Guru Baru Diimpor (Excel)",
+              `Guru: ${teacherDisplayName} (${teacherEmail}) Mapel: ${finalAssignedMapel.join(', ') || 'Tidak ada'} oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
               currentAdminProfile.uid,
               currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
             );
@@ -332,22 +335,22 @@ export default function ManageTeachersPage() {
             // Optimistically add to local list to avoid re-adding if file has duplicates not caught by fresh fetch
             currentTeacherList.push({ 
                 uid: userCredential.user.uid, 
-                email: teacher.email, 
-                displayName: teacher.displayName, 
+                email: teacherEmail, 
+                displayName: teacherDisplayName, 
                 role: 'guru', 
                 assignedMapel: finalAssignedMapel 
             });
           } catch (error: any) {
             failCount++;
             if (error.code === 'auth/email-already-in-use') {
-              errorMessages.push("Email " + teacher.email + " sudah terdaftar (gagal saat pembuatan). Dilewati.");
+              errorMessages.push(`Baris ${index + 2}: Email ${teacherEmail} sudah terdaftar (gagal saat pembuatan). Dilewati.`);
             } else {
-              errorMessages.push("Gagal impor " + teacher.email + ": " + error.message + ". Dilewati.");
+              errorMessages.push(`Baris ${index + 2}: Gagal impor ${teacherEmail}: ${error.message}. Dilewati.`);
             }
           }
         }
         
-        let summaryMessage = successCount + " guru berhasil diimpor. " + failCount + " guru gagal diimpor.";
+        let summaryMessage = `${successCount} guru berhasil diimpor. ${failCount} guru gagal diimpor.`;
         if (anyInvalidMapelDetected) {
             summaryMessage += " Beberapa mapel yang diimpor tidak valid dan tidak ditugaskan.";
         }

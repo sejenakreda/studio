@@ -87,19 +87,17 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 };
 
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
-  toFirestore: (nilai: Nilai): DocumentData => {
-    const data: any = { ...nilai }; // Spread all properties first
-    delete data.id; // Remove client-side ID
+  toFirestore: (nilai: Omit<Nilai, 'id'>): DocumentData => {
+    const { ...dataToStore } = nilai;
+    const data: any = { ...dataToStore };
 
-    // Ensure createdAt is set if not provided (for new documents)
-    // If nilai.createdAt is already a Timestamp (e.g., from an existing doc being updated), it will be used.
-    // If nilai.createdAt is undefined (new doc), serverTimestamp() is used.
-    data.createdAt = nilai.createdAt instanceof Timestamp ? nilai.createdAt : serverTimestamp();
-    
-    // Always set/update updatedAt
+    // This ensures createdAt is only set on creation, and updatedAt is always set.
+    // It relies on the logic in addOrUpdateGrade to pass the existing createdAt for updates.
+    if (!data.createdAt) {
+      data.createdAt = serverTimestamp();
+    }
     data.updatedAt = serverTimestamp();
     
-    // teacherUid is part of Nilai type and should be passed, so it's already in `data` from the spread.
     return data;
   },
   fromFirestore: (
@@ -472,11 +470,10 @@ export const deleteStudent = async (id: string): Promise<void> => {
 // --- Nilai (Grade) Service ---
 export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: string): Promise<Nilai> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  // Ensure teacherUid from the authenticated session is part of the object to be saved/queried
   const nilaiToProcess = { ...nilai, teacherUid };
 
   const q = query(gradesCollRef,
-    where('teacherUid', '==', teacherUid), // Query with the authenticated teacher's UID
+    where('teacherUid', '==', teacherUid),
     where('id_siswa', '==', nilaiToProcess.id_siswa),
     where('mapel', '==', nilaiToProcess.mapel),
     where('semester', '==', nilaiToProcess.semester),
@@ -485,38 +482,17 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: str
   );
   const querySnapshot = await getDocs(q);
 
-  let docId: string;
-  let finalSavedNilai: Nilai;
-
   if (!querySnapshot.empty) {
     const existingDoc = querySnapshot.docs[0];
-    docId = existingDoc.id;
-    const existingData = existingDoc.data();
-    
-    // Prepare data for update, ensuring original createdAt is preserved.
-    // The converter will handle serverTimestamp for updatedAt.
-    // All other fields from nilaiToProcess (which includes latest teacherUid) will be used.
-    const dataForUpdate: Nilai = {
-        ...nilaiToProcess, // Includes latest values and teacherUid
-        id: docId, // Not used by toFirestore but good for local consistency
-        createdAt: existingData.createdAt, // Preserve original createdAt
-    };
-    await updateDoc(existingDoc.ref, dataForUpdate);
-    finalSavedNilai = { ...dataForUpdate, updatedAt: Timestamp.now() }; // Simulate updatedAt for return value
+    const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
+    delete updateData.createdAt; // Ensure createdAt is not overwritten on update
+    await updateDoc(existingDoc.ref, updateData);
+    return { ...existingDoc.data(), ...updateData, id: existingDoc.id };
   } else {
-    // For a new document, createdAt will be handled by the converter (sets serverTimestamp if not present).
-    // Spread nilaiToProcess to ensure all fields, including teacherUid, are passed.
-    const dataForAdd: Omit<Nilai, 'id'> = {
-        ...nilaiToProcess,
-        // `createdAt` can be omitted, converter will set serverTimestamp()
-        // `updatedAt` will be set by converter
-    };
-    const docRef = await addDoc(gradesCollRef, dataForAdd as Nilai); // Cast as Nilai for converter
-    docId = docRef.id;
-    // Simulate timestamps for immediate return
-    finalSavedNilai = { ...dataForAdd, id: docId, createdAt: Timestamp.now(), updatedAt: Timestamp.now() } as Nilai;
+    const dataForAdd = { ...nilaiToProcess, createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
+    const docRef = await addDoc(gradesCollRef, dataForAdd);
+    return { ...dataForAdd, id: docRef.id };
   }
-  return finalSavedNilai;
 };
 
 
@@ -608,20 +584,11 @@ export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[]
   querySnapshot.docs.forEach(doc => {
     const data = doc.data();
     if (data.mapel && typeof data.mapel === 'string') {
-      // If it's for a specific teacher (teacherUid provided)
-      if (teacherUid) {
-        // And if that teacher has an assignedMapelList, only include mapel from that list
-        if (assignedMapelList && assignedMapelList.length > 0) {
-          if (assignedMapelList.includes(data.mapel)) {
-            mapelSet.add(data.mapel);
-          }
-        } else {
-          // If teacherUid is provided but no assignedMapelList (or it's empty),
-          // include any mapel associated with their grades.
+      if (teacherUid && assignedMapelList && assignedMapelList.length > 0) {
+        if (assignedMapelList.includes(data.mapel)) {
           mapelSet.add(data.mapel);
         }
       } else {
-        // If no teacherUid (e.g., admin fetching all unique mapel), add all mapel.
         mapelSet.add(data.mapel);
       }
     }

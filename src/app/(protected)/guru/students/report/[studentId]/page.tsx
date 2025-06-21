@@ -324,7 +324,7 @@ export default function StudentReportPage() {
           .print\\:border-b { border-bottom-width: 1px !important; }
           .print\\:border-b-2 { border-bottom-width: 2px !important; }
           .print\\:bg-gray-100 { background-color: #F3F4F6 !important; }
-          .print\\:bg-gray-200 tr { background-color: #E5E7EB !important; } /* For table header row */
+          .print\\:bg-gray-200 { background-color: #E5E7EB !important; }
           .print\\:text-xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
           .print\\:text-lg { font-size: 1.125rem !important; line-height: 1.75rem !important; }
           .print\\:text-base { font-size: 1rem !important; line-height: 1.5rem !important; }
@@ -339,7 +339,7 @@ export default function StudentReportPage() {
           .print\\:pt-2 { padding-top: 0.5rem !important; }
           .print\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .print\\:gap-x-4 { column-gap: 1rem !important; }
-          .print\\:gap-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.5rem !important; } /* For flex gap */
+          .print\\:gap-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.5rem !important; }
           .print\\:items-center { align-items: center !important; }
           .print\\:font-medium { font-weight: 500 !important; }
           .print\\:font-semibold { font-weight: 600 !important; }
@@ -357,16 +357,20 @@ export default function StudentReportPage() {
           .print\\:break-after-page { break-after: page !important; }
           
           /* Ensure table borders are visible for print */
-          .print\\:text-\\[10px\\] th, .print\\:text-\\[10px\\] td {
-            border: 1px solid #ccc !important; /* Light gray border */
-            padding: 2px 4px !important;
-          }
           .print\\:text-\\[10px\\] table {
             border-collapse: collapse !important;
             width: 100% !important;
+          }
+          .print\\:text-\\[10px\\] thead > tr > th {
+            background-color: #E5E7EB !important;
+          }
+          .print\\:text-\\[10px\\] th, .print\\:text-\\[10px\\] td {
+            border: 1px solid #ccc !important; /* Light gray border */
+            padding: 2px 4px !important;
           }
         }
       `}</style>
     </div>
   );
 }
+

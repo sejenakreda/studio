@@ -11,7 +11,7 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, isKepalaSekolah } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -24,14 +24,15 @@ export default function ProtectedLayout({
         const isAdminRoute = pathname.startsWith('/admin');
         const isGuruRoute = pathname.startsWith('/guru');
 
-        if (isAdminRoute && userProfile.role !== 'admin') {
-          router.replace('/guru'); // Or an unauthorized page
+        // Allow Headmaster (a 'guru' with special permission) to access designated admin routes
+        if (isAdminRoute && userProfile.role !== 'admin' && !isKepalaSekolah) {
+          router.replace('/guru'); // Redirect non-admin, non-headmaster from admin pages
         } else if (isGuruRoute && userProfile.role !== 'guru') {
-          router.replace('/admin'); // Or an unauthorized page
+          router.replace('/admin'); // Redirect non-gurus from guru pages
         }
       }
     }
-  }, [user, userProfile, loading, router, pathname]);
+  }, [user, userProfile, loading, router, pathname, isKepalaSekolah]);
 
   if (loading || !user || !userProfile) {
     // Enhanced loading skeleton for the shell
@@ -66,7 +67,7 @@ export default function ProtectedLayout({
   // Check again for role mismatch after loading, before rendering AppShell
   const isAdminRoute = pathname.startsWith('/admin');
   const isGuruRoute = pathname.startsWith('/guru');
-  if ((isAdminRoute && userProfile.role !== 'admin') || (isGuruRoute && userProfile.role !== 'guru')) {
+  if ((isAdminRoute && userProfile.role !== 'admin' && !isKepalaSekolah) || (isGuruRoute && userProfile.role !== 'guru')) {
     // This will show the loading skeleton briefly before redirecting, which is fine.
     // The useEffect above handles the actual redirection.
     return (

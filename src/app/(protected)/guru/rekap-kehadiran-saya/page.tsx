@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, CalendarDays, UserCheck, PieChart, Info } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, PieChart, Info, CheckCircle } from "lucide-react";
 import { getTeacherDailyAttendanceForMonth } from '@/lib/firestoreService';
-import type { TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
+import type { TeacherDailyAttendance } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getWorkdaysInMonth } from '@/lib/utils';
 
 const MONTHS = [
   { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
@@ -24,10 +25,9 @@ const MONTHS = [
   { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
 ];
 const currentYear = new Date().getFullYear();
-const startYearRange = currentYear - 10; // 10 tahun ke belakang
-const endYearRange = currentYear + 5;   // 5 tahun ke depan
+const startYearRange = currentYear - 10;
+const endYearRange = currentYear + 5;
 const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
-
 
 interface AttendanceSummary {
   Hadir: number;
@@ -43,6 +43,7 @@ export default function GuruMyAttendanceRekapPage() {
   
   const [dailyRecords, setDailyRecords] = useState<TeacherDailyAttendance[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary>({ Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, Total: 0 });
+  const [attendancePercentage, setAttendancePercentage] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -68,12 +69,21 @@ export default function GuruMyAttendanceRekapPage() {
       });
       setSummary(newSummary);
 
+      const workdays = getWorkdaysInMonth(filterYear, filterMonth);
+      if (workdays > 0) {
+        const percentage = (newSummary.Hadir / workdays) * 100;
+        setAttendancePercentage(percentage);
+      } else {
+        setAttendancePercentage(null);
+      }
+
     } catch (error: any) {
       console.error("Error fetching my attendance rekap:", error);
       setFetchError("Gagal memuat data rekap kehadiran Anda.");
       toast({ variant: "destructive", title: "Error", description: "Gagal memuat rekap kehadiran." });
       setDailyRecords([]);
       setSummary({ Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, Total: 0 });
+      setAttendancePercentage(null);
     } finally {
       setIsLoading(false);
     }
@@ -132,36 +142,46 @@ export default function GuruMyAttendanceRekapPage() {
             </CardHeader>
           </Card>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-green-600">Hadir</CardTitle>
-                      <UserCheck className="h-4 w-4 text-green-500" />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-green-600">{isLoading ? <Skeleton className="h-8 w-12"/> : summary.Hadir}</div></CardContent>
-              </Card>
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-blue-600">Izin</CardTitle>
-                      <CalendarDays className="h-4 w-4 text-blue-500" />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-blue-600">{isLoading ? <Skeleton className="h-8 w-12"/> : summary.Izin}</div></CardContent>
-              </Card>
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-yellow-600">Sakit</CardTitle>
-                      <Info className="h-4 w-4 text-yellow-500" />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-yellow-600">{isLoading ? <Skeleton className="h-8 w-12"/> : summary.Sakit}</div></CardContent>
-              </Card>
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-red-600">Alpa</CardTitle>
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-red-600">{isLoading ? <Skeleton className="h-8 w-12"/> : summary.Alpa}</div></CardContent>
-              </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ringkasan Kehadiran: {MONTHS.find(m=>m.value === filterMonth)?.label} {filterYear}</CardTitle>
+              <CardDescription>
+                Persentase kehadiran dihitung berdasarkan jumlah hari kerja (Senin-Jumat) pada bulan yang dipilih.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-24">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg bg-primary/5">
+                    <p className="text-muted-foreground font-medium">Persentase Kehadiran</p>
+                    <p className="text-5xl font-bold text-primary">{attendancePercentage !== null ? `${attendancePercentage.toFixed(1)}%` : 'N/A'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg bg-muted/50 text-center">
+                      <p className="text-sm font-medium text-green-600">Hadir</p>
+                      <p className="text-3xl font-bold">{summary.Hadir}</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/50 text-center">
+                      <p className="text-sm font-medium text-blue-600">Izin</p>
+                      <p className="text-3xl font-bold">{summary.Izin}</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/50 text-center">
+                      <p className="text-sm font-medium text-yellow-600">Sakit</p>
+                      <p className="text-3xl font-bold">{summary.Sakit}</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/50 text-center">
+                      <p className="text-sm font-medium text-red-600">Alpa</p>
+                      <p className="text-3xl font-bold">{summary.Alpa}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           
           <Card>
             <CardHeader>
@@ -207,4 +227,3 @@ export default function GuruMyAttendanceRekapPage() {
     </div>
   );
 }
-

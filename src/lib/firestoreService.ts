@@ -24,7 +24,7 @@ import {
   QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -347,14 +347,9 @@ const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttend
 const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
   toFirestore: (profile: Partial<Omit<SchoolProfile, 'id'>>): DocumentData => {
     return {
-      // Manual inputs
-      totalAlumni: profile.totalAlumni ?? 0,
-      totalGuru: profile.totalGuru ?? 0,
-      totalTendik: profile.totalTendik ?? 0,
-      // Array-based data
+      stats: profile.stats || { alumni: { ril: 0, dapodik: 0 }, guru: { ril: 0, dapodik: 0 }, tendik: { ril: 0, dapodik: 0 } },
       classDetails: profile.classDetails || [],
       sarana: profile.sarana || [],
-      // Auto-calculated, but good to store for quick reads
       totalSiswa: profile.totalSiswa ?? 0,
       updatedAt: serverTimestamp(),
     };
@@ -364,11 +359,17 @@ const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
     options: SnapshotOptions
   ): SchoolProfile => {
     const data = snapshot.data(options)!;
+
+    // Handle backward compatibility for old data structure
+    const stats: SchoolStats = data.stats || {
+      alumni: { ril: data.totalAlumni || 0, dapodik: 0 },
+      guru: { ril: data.totalGuru || 0, dapodik: 0 },
+      tendik: { ril: data.totalTendik || 0, dapodik: 0 },
+    };
+
     return {
       id: snapshot.id,
-      totalAlumni: data.totalAlumni || 0,
-      totalGuru: data.totalGuru || 0,
-      totalTendik: data.totalTendik || 0,
+      stats: stats,
       totalSiswa: data.totalSiswa || 0,
       classDetails: data.classDetails || [],
       sarana: data.sarana || [],
@@ -1027,9 +1028,11 @@ export const getSchoolProfile = async (): Promise<SchoolProfile> => {
     // Return default empty profile if not found
     return {
         id: SCHOOL_PROFILE_DOC_ID,
-        totalAlumni: 0,
-        totalGuru: 0,
-        totalTendik: 0,
+        stats: {
+          alumni: { ril: 0, dapodik: 0 },
+          guru: { ril: 0, dapodik: 0 },
+          tendik: { ril: 0, dapodik: 0 },
+        },
         totalSiswa: 0,
         classDetails: [],
         sarana: [],

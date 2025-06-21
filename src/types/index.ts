@@ -148,12 +148,16 @@ export interface SaranaDetail {
   isCustom?: boolean; // To differentiate default from admin-added
 }
 
+export interface SchoolStats {
+    alumni: { ril: number; dapodik: number };
+    guru: { ril: number; dapodik: number };
+    tendik: { ril: number; dapodik: number };
+}
+
 export interface SchoolProfile {
   id?: string; // Will be a single doc, e.g. "main_profile"
+  stats: SchoolStats;
   totalSiswa: number; // This will be auto-calculated from classDetails sum
-  totalAlumni: number;
-  totalGuru: number;
-  totalTendik: number;
   classDetails: ClassDetail[];
   sarana: SaranaDetail[];
   updatedAt?: Timestamp;

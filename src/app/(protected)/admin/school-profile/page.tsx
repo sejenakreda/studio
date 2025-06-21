@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ArrowLeft, Save, Loader2, AlertCircle, Users, UserSquare, Briefcase, GraduationCap, School, PlusCircle, Trash2 } from "lucide-react";
 import { getSchoolProfile, updateSchoolProfile, addActivityLog } from '@/lib/firestoreService';
-import type { SchoolProfile, ClassDetail, SaranaDetail } from '@/types';
+import type { SchoolProfile, ClassDetail, SaranaDetail, SchoolStats } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -30,10 +30,23 @@ const saranaDetailSchema = z.object({
   isCustom: z.boolean().optional().default(false),
 });
 
+const schoolStatsSchema = z.object({
+    alumni: z.object({
+        ril: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+        dapodik: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+    }),
+    guru: z.object({
+        ril: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+        dapodik: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+    }),
+    tendik: z.object({
+        ril: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+        dapodik: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+    }),
+});
+
 const schoolProfileSchema = z.object({
-  totalAlumni: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
-  totalGuru: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
-  totalTendik: z.coerce.number().min(0, "Nilai tidak boleh negatif").default(0),
+  stats: schoolStatsSchema,
   classDetails: z.array(classDetailSchema),
   sarana: z.array(saranaDetailSchema),
 });
@@ -48,6 +61,12 @@ const DEFAULT_SARANA: SaranaDetail[] = [
     { name: "Toilet", quantity: 0, isCustom: false },
 ];
 
+const defaultStats: SchoolStats = {
+    alumni: { ril: 0, dapodik: 0 },
+    guru: { ril: 0, dapodik: 0 },
+    tendik: { ril: 0, dapodik: 0 },
+};
+
 export default function ManageSchoolProfilePage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
@@ -58,7 +77,7 @@ export default function ManageSchoolProfilePage() {
   const form = useForm<SchoolProfileFormData>({
     resolver: zodResolver(schoolProfileSchema),
     defaultValues: {
-      totalAlumni: 0, totalGuru: 0, totalTendik: 0,
+      stats: defaultStats,
       classDetails: PREDEFINED_CLASSES.map(name => ({ className: name, male: 0, female: 0 })),
       sarana: [...DEFAULT_SARANA],
     },
@@ -94,9 +113,7 @@ export default function ManageSchoolProfilePage() {
           );
 
           form.reset({
-              totalAlumni: currentProfile.totalAlumni || 0,
-              totalGuru: currentProfile.totalGuru || 0,
-              totalTendik: currentProfile.totalTendik || 0,
+              stats: currentProfile.stats || defaultStats,
               classDetails: mergedClassDetails,
               sarana: (currentProfile.sarana && currentProfile.sarana.length > 0) ? currentProfile.sarana : [...DEFAULT_SARANA],
           });
@@ -117,7 +134,7 @@ export default function ManageSchoolProfilePage() {
     try {
       const dataToSave = {
         ...data,
-        totalSiswa: totalSiswaAktif, // Add the calculated total
+        totalSiswa: totalSiswaAktif,
       };
       await updateSchoolProfile(dataToSave);
       toast({ title: "Sukses", description: "Profil sekolah berhasil diperbarui." });
@@ -152,6 +169,12 @@ export default function ManageSchoolProfilePage() {
      return <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>
   }
 
+  const sdmFields: { name: keyof SchoolStats, label: string, icon: React.ElementType }[] = [
+    { name: "alumni", label: "Jumlah Alumni", icon: GraduationCap },
+    { name: "guru", label: "Jumlah Guru", icon: UserSquare },
+    { name: "tendik", label: "Jumlah Tendik", icon: Briefcase },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4"><Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Admin"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Profil Sekolah</h1><p className="text-muted-foreground">Atur data statistik sekolah yang akan ditampilkan secara publik atau kepada guru.</p></div></div>
@@ -162,13 +185,26 @@ export default function ManageSchoolProfilePage() {
             <CardContent className="space-y-8">
               <div>
                 <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Statistik Sumber Daya Manusia</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <FormField control={form.control} name="totalAlumni" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-muted-foreground" />Jumlah Alumni</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="totalGuru" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><UserSquare className="h-4 w-4 text-muted-foreground" />Jumlah Guru</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="totalTendik" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground" />Jumlah Tenaga Pendidik</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div>
+                        <h4 className="font-semibold text-center mb-4">Data Ril Lapangan</h4>
+                        <div className="space-y-4">
+                            {sdmFields.map(field => (
+                                <FormField key={`${field.name}.ril`} control={form.control} name={`stats.${field.name}.ril`} render={({ field: formField }) => (<FormItem><FormLabel className="flex items-center gap-2"><field.icon className="h-4 w-4 text-muted-foreground" />{field.label}</FormLabel><FormControl><Input type="number" placeholder="0" {...formField} /></FormControl><FormMessage /></FormItem>)} />
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-center mb-4">Data Dapodik</h4>
+                         <div className="space-y-4">
+                            {sdmFields.map(field => (
+                                <FormField key={`${field.name}.dapodik`} control={form.control} name={`stats.${field.name}.dapodik`} render={({ field: formField }) => (<FormItem><FormLabel className="flex items-center gap-2"><field.icon className="h-4 w-4 text-muted-foreground" />{field.label}</FormLabel><FormControl><Input type="number" placeholder="0" {...formField} /></FormControl><FormMessage /></FormItem>)} />
+                            ))}
+                        </div>
+                    </div>
                 </div>
                 
-                <h4 className="text-md font-medium text-foreground mb-2">Rincian Jumlah Siswa per Kelas</h4>
+                <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Rincian Jumlah Siswa per Kelas</h3>
                 <div className="p-4 border rounded-lg bg-muted/30">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                     {PREDEFINED_CLASSES.map((className, index) => {
@@ -181,7 +217,7 @@ export default function ManageSchoolProfilePage() {
                               <FormField control={form.control} name={`classDetails.${index}.male`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Laki-laki</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                               <FormField control={form.control} name={`classDetails.${index}.female`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Perempuan</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           </div>
-                           <p className="text-center text-sm font-medium mt-2 text-primary">Total: {(Number(watchedMale) || 0) + (Number(watchedFemale) || 0)}</p>
+                           <p className="text-center text-sm font-medium mt-2 text-primary">Total: {Number(watchedMale) + Number(watchedFemale)}</p>
                         </div>
                       )
                     })}

@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School } from "lucide-react";
+import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, Database, Users2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents, getPengumumanUntukGuru, getSchoolProfile } from '@/lib/firestoreService';
@@ -57,13 +57,6 @@ export default function GuruDashboardPage() {
       return schoolProfile.classDetails.reduce((sum, detail) => sum + (detail.male || 0) + (detail.female || 0), 0);
   }, [schoolProfile]);
 
-
-  const sdmStats = [
-    { label: "Siswa Aktif", value: totalSiswaAktif, icon: Users },
-    { label: "Alumni", value: schoolProfile?.totalAlumni, icon: GraduationCap },
-    { label: "Guru", value: schoolProfile?.totalGuru, icon: UserSquare },
-    { label: "Staf/Tendik", value: schoolProfile?.totalTendik, icon: Briefcase },
-  ];
 
   const getPrioritasColor = (prioritas: Pengumuman['prioritas']) => {
     switch (prioritas) {
@@ -170,17 +163,21 @@ export default function GuruDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-                <h4 className="text-sm font-medium mb-2">Sumber Daya Manusia</h4>
-                <div className="grid grid-cols-2 gap-2">
-                    {sdmStats.map((stat) => (
-                        <div key={stat.label} className="p-2 rounded-md bg-muted/50 flex items-center gap-2">
-                            <stat.icon className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : (stat.value ?? 0)}</p>
-                                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                            </div>
-                        </div>
-                    ))}
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Users2 className="h-4 w-4 text-muted-foreground" /> Sumber Daya Manusia</h4>
+                <div className="grid grid-cols-1 gap-2 text-xs">
+                    <div className="flex justify-between items-center p-2 rounded bg-muted/50"><span>Siswa Aktif</span><span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : totalSiswaAktif}</span></div>
+                    <div className="p-2 rounded bg-muted/50">
+                        <div className="flex justify-between items-center"><span>Alumni</span> <span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.alumni.ril ?? 0}</span></div>
+                        <div className="flex justify-between items-center text-muted-foreground text-[0.7rem]">(Dapodik: {isLoading ? <Skeleton className="h-3 w-5 inline-block"/> : schoolProfile?.stats.alumni.dapodik ?? 0})</div>
+                    </div>
+                     <div className="p-2 rounded bg-muted/50">
+                        <div className="flex justify-between items-center"><span>Guru</span> <span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.guru.ril ?? 0}</span></div>
+                        <div className="flex justify-between items-center text-muted-foreground text-[0.7rem]">(Dapodik: {isLoading ? <Skeleton className="h-3 w-5 inline-block"/> : schoolProfile?.stats.guru.dapodik ?? 0})</div>
+                    </div>
+                    <div className="p-2 rounded bg-muted/50">
+                        <div className="flex justify-between items-center"><span>Staf/Tendik</span> <span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.tendik.ril ?? 0}</span></div>
+                        <div className="flex justify-between items-center text-muted-foreground text-[0.7rem]">(Dapodik: {isLoading ? <Skeleton className="h-3 w-5 inline-block"/> : schoolProfile?.stats.tendik.dapodik ?? 0})</div>
+                    </div>
                 </div>
             </div>
             <div>

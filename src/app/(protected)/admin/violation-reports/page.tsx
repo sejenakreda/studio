@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -10,16 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Printer } from "lucide-react";
-import { DateRange } from "react-day-picker"
-import { addDays } from "date-fns"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getAllPelanggaran, getStudents } from '@/lib/firestoreService';
 import type { PelanggaranSiswa, Siswa } from '@/types';
 
+
+const currentYear = new Date().getFullYear();
+const startYearRange = currentYear - 10;
+const endYearRange = currentYear + 5;
+const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
+
+const MONTHS = [
+  { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
+  { value: 4, label: 'April' }, { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
+  { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' }, { value: 9, label: 'September' },
+  { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
+];
 
 export default function ViolationReportsPage() {
   const { toast } = useToast();
@@ -29,10 +38,9 @@ export default function ViolationReportsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [filterKelas, setFilterKelas] = useState("all");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: addDays(new Date(), -30),
-    to: new Date(),
-  });
+  const [filterYear, setFilterYear] = useState<number>(currentYear);
+  const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
+
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -65,17 +73,17 @@ export default function ViolationReportsPage() {
     if (filterKelas !== "all") {
       items = items.filter(v => v.kelasSiswa === filterKelas);
     }
-    if (dateRange?.from) {
-        items = items.filter(v => v.tanggal.toDate() >= dateRange.from!);
+    
+    // Filter by year
+    items = items.filter(v => v.tanggal.toDate().getFullYear() === filterYear);
+    
+    // Filter by month if not "all"
+    if (filterMonth !== 'all') {
+      items = items.filter(v => v.tanggal.toDate().getMonth() === filterMonth - 1);
     }
-    if (dateRange?.to) {
-        // Set time to end of day for inclusive filtering
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        items = items.filter(v => v.tanggal.toDate() <= toDate);
-    }
+
     return items.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-  }, [violations, filterKelas, dateRange]);
+  }, [violations, filterKelas, filterYear, filterMonth]);
   
   const handlePrint = () => {
     window.print();
@@ -103,6 +111,13 @@ export default function ViolationReportsPage() {
     XLSX.writeFile(workbook, "laporan_pelanggaran_siswa.xlsx");
     toast({ title: "Unduhan Dimulai", description: "File Excel sedang disiapkan." });
   };
+  
+  const printTitle = useMemo(() => {
+    const monthLabel = filterMonth === 'all' 
+      ? `Tahun ${filterYear}` 
+      : `${MONTHS.find(m => m.value === filterMonth)?.label || ''} ${filterYear}`;
+    return `Periode: ${monthLabel}`;
+  }, [filterYear, filterMonth]);
 
 
   return (
@@ -126,20 +141,37 @@ export default function ViolationReportsPage() {
       <div className="print:block hidden text-center mb-4">
         <h2 className="text-xl font-bold">LAPORAN PELANGGARAN SISWA</h2>
         <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
-        <p className="text-sm">Periode: {dateRange?.from ? format(dateRange.from, "d MMM yyyy", {locale: indonesiaLocale}) : 'Semua'} - {dateRange?.to ? format(dateRange.to, "d MMM yyyy", {locale: indonesiaLocale}) : 'Semua'}</p>
+        <p className="text-sm">{printTitle}</p>
       </div>
 
       <Card className="print:shadow-none print:border-none">
         <CardHeader className="print:hidden">
           <CardTitle>Filter Laporan</CardTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
             <div>
               <label htmlFor="filter-kelas" className="text-sm font-medium">Filter Kelas</label>
               <Select value={filterKelas} onValueChange={setFilterKelas}><SelectTrigger id="filter-kelas" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{uniqueClasses.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent></Select>
             </div>
-            <div>
-              <label htmlFor="date-range-picker" className="text-sm font-medium">Filter Tanggal</label>
-              <Popover><PopoverTrigger asChild><Button id="date-range-picker" variant={"outline"} className="w-full justify-start text-left font-normal mt-1">{dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</> : format(dateRange.from, "LLL dd, y")) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={indonesiaLocale} /></PopoverContent></Popover>
+             <div>
+              <label htmlFor="filter-year" className="text-sm font-medium">Filter Tahun</label>
+              <Select value={String(filterYear)} onValueChange={(v) => setFilterYear(parseInt(v))}>
+                <SelectTrigger id="filter-year" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih tahun..." />
+                </SelectTrigger>
+                <SelectContent>{YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+             <div>
+              <label htmlFor="filter-month" className="text-sm font-medium">Filter Bulan</label>
+               <Select value={String(filterMonth)} onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))}>
+                <SelectTrigger id="filter-month" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih bulan..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>
+                    {MONTHS.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -194,3 +226,4 @@ export default function ViolationReportsPage() {
     </div>
   );
 }
+

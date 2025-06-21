@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -19,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getStudents, addPelanggaran, getAllPelanggaran, deletePelanggaran, addActivityLog } from '@/lib/firestoreService';
@@ -114,7 +115,6 @@ export default function KesiswaanDashboardPage() {
         poin: data.poin,
         recordedByUid: userProfile.uid,
         recordedByName: userProfile.displayName || "Kesiswaan",
-        createdAt: Timestamp.now(), // Placeholder, will be replaced by server
       };
 
       await addPelanggaran(violationData);
@@ -249,3 +249,5 @@ export default function KesiswaanDashboardPage() {
     </div>
   );
 }
+
+    

@@ -107,10 +107,10 @@ export default function GuruViewSchoolProfilePage() {
             <Card key={stat.label}>
               <CardHeader className="pb-2"><CardTitle className="text-lg flex items-center justify-between">{stat.label}<stat.icon className="h-5 w-5 text-muted-foreground" /></CardTitle></CardHeader>
               <CardContent>
-                  <p className="text-3xl font-bold">{stat.ril}</p>
+                  <p className="text-3xl font-bold text-primary">{stat.ril}</p>
                   <p className="text-sm text-muted-foreground">Data Ril</p>
                   <div className="mt-2 border-t pt-2">
-                    <p className="text-xl font-semibold">{stat.dapodik}</p>
+                    <p className="text-xl font-semibold text-muted-foreground">{stat.dapodik}</p>
                     <p className="text-xs text-muted-foreground">Data Dapodik</p>
                   </div>
               </CardContent>
@@ -129,9 +129,9 @@ export default function GuruViewSchoolProfilePage() {
                 {(profile?.classDetails || []).map(cd => {
                     const totalRil = (cd.male?.ril ?? 0) + (cd.female?.ril ?? 0);
                     const totalDapodik = (cd.male?.dapodik ?? 0) + (cd.female?.dapodik ?? 0);
-                    return (<TableRow key={cd.className}><TableCell className="font-medium">{cd.className}</TableCell><TableCell className="text-center">{cd.male?.ril ?? 0}</TableCell><TableCell className="text-center">{cd.female?.ril ?? 0}</TableCell><TableCell className="text-center font-bold text-primary">{totalRil}</TableCell><TableCell className="text-center">{cd.male?.dapodik ?? 0}</TableCell><TableCell className="text-center">{cd.female?.dapodik ?? 0}</TableCell><TableCell className="text-center font-semibold">{totalDapodik}</TableCell></TableRow>);
+                    return (<TableRow key={cd.className}><TableCell className="font-medium">{cd.className}</TableCell><TableCell className="text-center">{cd.male?.ril ?? 0}</TableCell><TableCell className="text-center">{cd.female?.ril ?? 0}</TableCell><TableCell className="text-center font-bold text-primary">{totalRil}</TableCell><TableCell className="text-center text-muted-foreground">{cd.male?.dapodik ?? 0}</TableCell><TableCell className="text-center text-muted-foreground">{cd.female?.dapodik ?? 0}</TableCell><TableCell className="text-center font-semibold text-muted-foreground">{totalDapodik}</TableCell></TableRow>);
                 })}
-                <TableRow className="bg-muted hover:bg-muted font-bold"><TableCell>TOTAL</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.ril ?? 0), 0)}</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.ril ?? 0), 0)}</TableCell><TableCell className="text-center text-primary text-lg">{totalSiswaRil}</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-base">{totalSiswaDapodik}</TableCell></TableRow>
+                <TableRow className="bg-muted hover:bg-muted font-bold"><TableCell>TOTAL</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.ril ?? 0), 0)}</TableCell><TableCell className="text-center">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.ril ?? 0), 0)}</TableCell><TableCell className="text-center text-primary text-lg">{totalSiswaRil}</TableCell><TableCell className="text-center text-muted-foreground">{(profile?.classDetails || []).reduce((s, c) => s + (c.male?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground">{(profile?.classDetails || []).reduce((s, c) => s + (c.female?.dapodik ?? 0), 0)}</TableCell><TableCell className="text-center text-muted-foreground text-base">{totalSiswaDapodik}</TableCell></TableRow>
               </TableBody>
             </Table>
           </div>

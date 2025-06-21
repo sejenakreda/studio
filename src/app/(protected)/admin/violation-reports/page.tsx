@@ -74,7 +74,7 @@ export default function ViolationReportsPage() {
         toDate.setHours(23, 59, 59, 999);
         items = items.filter(v => v.tanggal.toDate() <= toDate);
     }
-    return items;
+    return items.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
   }, [violations, filterKelas, dateRange]);
   
   const handlePrint = () => {

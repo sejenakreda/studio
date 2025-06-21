@@ -150,8 +150,6 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/teachers", label: "Semua Data Guru", icon: Users },
-      { href: "/admin/students", label: "Semua Data Siswa", icon: BookUser },
     ],
   },
   {

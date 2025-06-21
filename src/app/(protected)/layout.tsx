@@ -24,15 +24,34 @@ export default function ProtectedLayout({
         const isAdminRoute = pathname.startsWith('/admin');
         const isGuruRoute = pathname.startsWith('/guru');
 
-        // Allow Headmaster (a 'guru' with special permission) to access designated admin routes
-        if (isAdminRoute && userProfile.role !== 'admin' && !isKepalaSekolah) {
-          router.replace('/guru'); // Redirect non-admin, non-headmaster from admin pages
-        } else if (isGuruRoute && userProfile.role !== 'guru') {
-          router.replace('/admin'); // Redirect non-gurus from guru pages
+        if (userProfile.role === 'admin') {
+          if (isGuruRoute) router.replace('/admin');
+        
+        } else if (userProfile.role === 'guru') {
+          if (isAdminRoute) {
+            // If user is a guru on an admin route, check if they are Headmaster
+            if (isKepalaSekolah) {
+              const allowedRoutes = ['/admin/reports', '/admin/grades', '/admin/violation-reports'];
+              // Headmaster is allowed on the dashboard itself, and on the allowed report routes.
+              const isAllowed = pathname === '/admin' || allowedRoutes.some(route => pathname.startsWith(route));
+              if (!isAllowed) {
+                router.replace('/admin'); // Redirect from forbidden admin pages to the admin dashboard
+              }
+            } else {
+              // A regular guru should not be on any admin pages.
+              router.replace('/guru');
+            }
+          }
+          // If a guru is on a guru route, it's fine.
+        
+        } else {
+          // Fallback for any unknown role
+          router.replace('/login');
         }
       }
     }
   }, [user, userProfile, loading, router, pathname, isKepalaSekolah]);
+
 
   if (loading || !user || !userProfile) {
     // Enhanced loading skeleton for the shell
@@ -66,8 +85,7 @@ export default function ProtectedLayout({
 
   // Check again for role mismatch after loading, before rendering AppShell
   const isAdminRoute = pathname.startsWith('/admin');
-  const isGuruRoute = pathname.startsWith('/guru');
-  if ((isAdminRoute && userProfile.role !== 'admin' && !isKepalaSekolah) || (isGuruRoute && userProfile.role !== 'guru')) {
+  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah) {
     // This will show the loading skeleton briefly before redirecting, which is fine.
     // The useEffect above handles the actual redirection.
     return (
@@ -76,7 +94,6 @@ export default function ProtectedLayout({
          </div>
     );
   }
-  
 
   return <AppShell>{children}</AppShell>;
 }

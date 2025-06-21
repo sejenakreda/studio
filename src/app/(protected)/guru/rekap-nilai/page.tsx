@@ -314,6 +314,12 @@ export default function RekapNilaiPage() {
       toast({ variant: "default", title: "Tidak Ada Data", description: "Tidak ada data rekap nilai yang sesuai untuk diunduh." });
       return;
     }
+
+    // 1. Find the maximum number of 'tugas' entries across all filtered grades.
+    const maxTugasCount = filteredAndSortedGrades.reduce((max, grade) => {
+      return Math.max(max, grade.tugas?.length || 0);
+    }, 0);
+
     const dataForExcel = filteredAndSortedGrades.map(grade => {
       let keterangan = "";
       if (grade.isTuntas) {
@@ -340,20 +346,22 @@ export default function RekapNilaiPage() {
       }
 
       const excelRow: any = {
-        'Nama Siswa': grade.namaSiswa, 'NIS': grade.nisSiswa, 'Kelas': grade.kelasSiswa,
-        'Tahun Ajaran': grade.tahun_ajaran, 'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
-        'Mata Pelajaran': grade.mapel, 'KKM': grade.kkmValue,
+        'Nama Siswa': grade.namaSiswa,
+        'NIS': grade.nisSiswa,
+        'Kelas': grade.kelasSiswa,
+        'Tahun Ajaran': grade.tahun_ajaran,
+        'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
+        'Mata Pelajaran': grade.mapel,
+        'KKM': grade.kkmValue,
         'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
       };
-
-      (grade.tugas || []).forEach((tScore, index) => {
-        excelRow[`Tugas ${index + 1}`] = parseFloat((tScore || 0).toFixed(2));
-      });
-      const maxTugasDisplay = Math.max(5, (grade.tugas || []).length);
-      for (let i = (grade.tugas || []).length; i < maxTugasDisplay; i++) {
-         if (!excelRow.hasOwnProperty(`Tugas ${i + 1}`)) excelRow[`Tugas ${i + 1}`] = '';
+      
+      // 2. Dynamically create 'Tugas' columns up to maxTugasCount.
+      for (let i = 0; i < maxTugasCount; i++) {
+        const tugasScore = grade.tugas?.[i];
+        excelRow[`Tugas ${i + 1}`] = (tugasScore !== undefined && tugasScore !== null) ? parseFloat(tugasScore.toFixed(2)) : '';
       }
-
+      
       excelRow['Tes'] = parseFloat(grade.tes?.toFixed(2) || '0.00');
       excelRow['PTS'] = parseFloat(grade.pts?.toFixed(2) || '0.00');
       excelRow['PAS'] = parseFloat(grade.pas?.toFixed(2) || '0.00');
@@ -375,22 +383,17 @@ export default function RekapNilaiPage() {
     const safeMapel = (mapelFilter === "all" ? "SemuaMapelYgDiampu" : mapelFilter.replace(/[^a-z0-9]/gi, '_'));
 
     let desiredSheetName = `Rekap ${safeTa} S${safeSmt} ${safeMapel}`;
-    let sheetName = desiredSheetName.substring(0, 31); // Max 31 chars for sheet name
+    let sheetName = desiredSheetName.substring(0, 31);
 
-    if (sheetName.trim().length < 1) sheetName = "RekapNilai"; // Fallback
+    if (sheetName.trim().length < 1) sheetName = "RekapNilai";
 
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-    // Define column widths
+    // 3. Define column widths dynamically based on maxTugasCount.
     const baseWscols = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20}, {wch: 8}, {wch: 10}
     ];
-    const maxTugasCountInExport = dataForExcel.reduce((max, row) => {
-        let count = 0;
-        for (const key in row) if (key.startsWith("Tugas ")) count++;
-        return Math.max(max, count);
-    }, 0);
-    const tugasWscols = Array(maxTugasCountInExport).fill({ wch: 8 });
+    const tugasWscols = Array(maxTugasCount).fill({ wch: 8 });
 
     const remainingWscols = [
       { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 15 }, // Tes, PTS, PAS, Kehadiran
@@ -582,7 +585,7 @@ export default function RekapNilaiPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>{tableHeaders.map(header => (<TableHead key={header.label} onClick={() => header.key && requestSort(header.key)} className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`} title={`Urutkan berdasarkan ${header.label}`}><div className="flex items-center">{header.label}{header.key ? getSortIcon(header.key) : null}</div></TableHead>))}</TableRow>
+                    <TableRow>{tableHeaders.map(header => (<TableHead key={header.label} onClick={() => header.key && requestSort(header.key as any)} className={`cursor-pointer hover:bg-muted/50 transition-colors ${header.className || ''}`} title={`Urutkan berdasarkan ${header.label}`}><div className="flex items-center">{header.label}{header.key ? getSortIcon(header.key as any) : null}</div></TableHead>))}</TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedGrades.map((grade) => (
@@ -661,3 +664,5 @@ export default function RekapNilaiPage() {
     </div>
   );
 }
+
+    

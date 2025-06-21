@@ -11,17 +11,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
-import { ArrowLeft, Save, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, Users } from "lucide-react";
 import { getStudentById, updateStudent, addActivityLog } from '@/lib/firestoreService';
-import type { Siswa } from '@/types';
+import type { Siswa, TugasTambahan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+const kegiatanOptions: { id: TugasTambahan; label: string }[] = [
+    { id: 'pembina_osis', label: 'OSIS' },
+    { id: 'pembina_eskul_pmr', label: 'Ekstrakurikuler PMR' },
+    { id: 'pembina_eskul_paskibra', label: 'Ekstrakurikuler Paskibra' },
+    { id: 'pembina_eskul_pramuka', label: 'Ekstrakurikuler Pramuka' },
+    { id: 'pembina_eskul_karawitan', label: 'Ekstrakurikuler Karawitan' },
+    { id: 'pembina_eskul_pencak_silat', label: 'Ekstrakurikuler Pencak Silat' },
+    { id: 'pembina_eskul_volly_ball', label: 'Ekstrakurikuler Volly Ball' },
+];
 
 const editStudentSchema = z.object({
   nama: z.string().min(3, "Nama minimal 3 karakter"),
   kelas: z.string().min(1, "Kelas tidak boleh kosong"),
+  kegiatan: z.array(z.string()).optional().default([]),
 });
 
 type EditStudentFormData = z.infer<typeof editStudentSchema>;
@@ -43,6 +56,7 @@ export default function AdminEditStudentPage() {
     defaultValues: {
       nama: "",
       kelas: "",
+      kegiatan: [],
     },
   });
 
@@ -63,6 +77,7 @@ export default function AdminEditStudentPage() {
         form.reset({
           nama: fetchedStudent.nama,
           kelas: fetchedStudent.kelas,
+          kegiatan: fetchedStudent.kegiatan || [],
         });
       } else {
         setFetchError("Data siswa tidak ditemukan.");
@@ -91,13 +106,23 @@ export default function AdminEditStudentPage() {
     }
     setIsSubmitting(true);
     try {
-      await updateStudent(studentDocumentId, { // Use document ID here
+      await updateStudent(studentDocumentId, {
         nama: data.nama,
         kelas: data.kelas,
+        kegiatan: data.kegiatan,
       });
+
+      const oldKegiatan = studentData.kegiatan?.join(', ') || 'N/A';
+      const newKegiatan = data.kegiatan?.join(', ') || 'N/A';
+      let logDetails = `Data Siswa ${studentData.nama} (NIS: ${studentData.nis}) diubah.`;
+      if (studentData.nama !== data.nama) logDetails += ` Nama: ${studentData.nama} -> ${data.nama}.`;
+      if (studentData.kelas !== data.kelas) logDetails += ` Kelas: ${studentData.kelas} -> ${data.kelas}.`;
+      if (oldKegiatan !== newKegiatan) logDetails += ` Kegiatan: ${oldKegiatan} -> ${newKegiatan}.`;
+      logDetails += ` Oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`;
+
       await addActivityLog(
         "Data Siswa Diperbarui (Admin)",
-        `Siswa: ${studentData.nama} (NIS: ${studentData.nis}) diubah menjadi Nama: ${data.nama}, Kelas: ${data.kelas} oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
+        logDetails,
         currentAdminProfile.uid,
         currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
       );
@@ -175,9 +200,9 @@ export default function AdminEditStudentPage() {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
               <CardTitle>Form Edit Siswa</CardTitle>
-              <CardDescription>Ubah nama atau kelas siswa. NIS dan ID Siswa tidak dapat diubah dari form ini.</CardDescription>
+              <CardDescription>Ubah nama, kelas, atau keanggotaan kegiatan siswa. NIS dan ID Siswa tidak dapat diubah.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <FormField
                 control={form.control}
                 name="nama"
@@ -218,6 +243,61 @@ export default function AdminEditStudentPage() {
                 </FormControl>
                 <FormDesc>ID Siswa tidak dapat diubah.</FormDesc>
               </FormItem>
+
+              <FormField
+                control={form.control}
+                name="kegiatan"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary"/>
+                        Keanggotaan Kegiatan Siswa
+                      </FormLabel>
+                      <FormDesc>Pilih kegiatan yang diikuti oleh siswa ini. Ini mungkin memengaruhi komponen nilai tambahan.</FormDesc>
+                    </div>
+                    <ScrollArea className="h-40 w-full rounded-md border p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {kegiatanOptions.map((item) => (
+                          <FormField
+                            key={item.id}
+                            control={form.control}
+                            name="kegiatan"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={item.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(item.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...(field.value || []), item.id])
+                                          : field.onChange(
+                                              (field.value || []).filter(
+                                                (value) => value !== item.id
+                                              )
+                                            );
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal">
+                                    {item.label}
+                                  </FormLabel>
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
             </CardContent>
             <CardFooter>
               <Button type="submit" disabled={isSubmitting}>
@@ -240,4 +320,5 @@ export default function AdminEditStudentPage() {
     </div>
   );
 }
+
     

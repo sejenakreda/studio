@@ -138,8 +138,8 @@ export interface TeacherDailyAttendance {
 
 export interface ClassDetail {
   className: string;
-  male: number;
-  female: number;
+  male: { ril: number; dapodik: number };
+  female: { ril: number; dapodik: number };
 }
 
 export interface SaranaDetail {

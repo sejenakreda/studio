@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { ArrowLeft, Save, Loader2, AlertCircle, Users, UserSquare, Briefcase, GraduationCap, School, PlusCircle, Trash2 } from "lucide-react";
 import { getSchoolProfile, updateSchoolProfile, addActivityLog } from '@/lib/firestoreService';
 import type { SchoolProfile, ClassDetail, SaranaDetail, SchoolStats } from '@/types';
@@ -20,8 +20,14 @@ import { useAuth } from '@/context/AuthContext';
 
 const classDetailSchema = z.object({
   className: z.string(),
-  male: z.coerce.number().min(0, "Min 0").default(0),
-  female: z.coerce.number().min(0, "Min 0").default(0),
+  male: z.object({
+      ril: z.coerce.number().min(0, "Min 0").default(0),
+      dapodik: z.coerce.number().min(0, "Min 0").default(0),
+  }),
+  female: z.object({
+      ril: z.coerce.number().min(0, "Min 0").default(0),
+      dapodik: z.coerce.number().min(0, "Min 0").default(0),
+  }),
 });
 
 const saranaDetailSchema = z.object({
@@ -67,6 +73,11 @@ const defaultStats: SchoolStats = {
     tendik: { ril: 0, dapodik: 0 },
 };
 
+const defaultClassDetail = {
+    male: { ril: 0, dapodik: 0 },
+    female: { ril: 0, dapodik: 0 }
+};
+
 export default function ManageSchoolProfilePage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
@@ -78,7 +89,7 @@ export default function ManageSchoolProfilePage() {
     resolver: zodResolver(schoolProfileSchema),
     defaultValues: {
       stats: defaultStats,
-      classDetails: PREDEFINED_CLASSES.map(name => ({ className: name, male: 0, female: 0 })),
+      classDetails: PREDEFINED_CLASSES.map(name => ({ className: name, ...defaultClassDetail })),
       sarana: [...DEFAULT_SARANA],
     },
   });
@@ -90,13 +101,13 @@ export default function ManageSchoolProfilePage() {
   
   const watchedClassDetails = useWatch({ control: form.control, name: "classDetails" });
   
-  const totalSiswaAktif = React.useMemo(() => {
-    if (!watchedClassDetails) return 0;
-    return watchedClassDetails.reduce((sum, current) => {
-      const maleCount = Number(current.male) || 0;
-      const femaleCount = Number(current.female) || 0;
-      return sum + maleCount + femaleCount;
-    }, 0);
+  const { totalSiswaRil, totalSiswaDapodik } = React.useMemo(() => {
+    if (!watchedClassDetails) return { totalSiswaRil: 0, totalSiswaDapodik: 0 };
+    return watchedClassDetails.reduce((totals, current) => {
+        totals.totalSiswaRil += (Number(current.male?.ril) || 0) + (Number(current.female?.ril) || 0);
+        totals.totalSiswaDapodik += (Number(current.male?.dapodik) || 0) + (Number(current.female?.dapodik) || 0);
+        return totals;
+    }, { totalSiswaRil: 0, totalSiswaDapodik: 0 });
   }, [watchedClassDetails]);
 
 
@@ -108,9 +119,17 @@ export default function ManageSchoolProfilePage() {
         const currentProfile = await getSchoolProfile();
         if (currentProfile) {
           const classDetailsMap = new Map((currentProfile.classDetails || []).map(cd => [cd.className, cd]));
-          const mergedClassDetails = PREDEFINED_CLASSES.map(name =>
-            classDetailsMap.get(name) || { className: name, male: 0, female: 0 }
-          );
+          const mergedClassDetails = PREDEFINED_CLASSES.map(name => {
+              const existingDetail = classDetailsMap.get(name);
+              if (existingDetail) {
+                  return {
+                      className: name,
+                      male: { ril: existingDetail.male?.ril || 0, dapodik: existingDetail.male?.dapodik || 0 },
+                      female: { ril: existingDetail.female?.ril || 0, dapodik: existingDetail.female?.dapodik || 0 },
+                  };
+              }
+              return { className: name, ...defaultClassDetail };
+          });
 
           form.reset({
               stats: currentProfile.stats || defaultStats,
@@ -134,7 +153,7 @@ export default function ManageSchoolProfilePage() {
     try {
       const dataToSave = {
         ...data,
-        totalSiswa: totalSiswaAktif,
+        totalSiswa: totalSiswaRil, // Only save the Ril total
       };
       await updateSchoolProfile(dataToSave);
       toast({ title: "Sukses", description: "Profil sekolah berhasil diperbarui." });
@@ -181,7 +200,7 @@ export default function ManageSchoolProfilePage() {
       <Card>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardHeader><CardTitle>Form Statistik Sekolah</CardTitle><CardDescription>Masukkan angka untuk setiap item. Total siswa aktif akan dihitung otomatis.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Form Statistik Sekolah</CardTitle><CardDescription>Masukkan angka untuk setiap item. Total siswa aktif akan dihitung otomatis dari data ril per kelas.</CardDescription></CardHeader>
             <CardContent className="space-y-8">
               <div>
                 <h3 className="text-lg font-medium text-foreground mb-4 border-b pb-2">Statistik Sumber Daya Manusia</h3>
@@ -208,28 +227,53 @@ export default function ManageSchoolProfilePage() {
                 <div className="p-4 border rounded-lg bg-muted/30">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                     {PREDEFINED_CLASSES.map((className, index) => {
-                      const watchedMale = form.watch(`classDetails.${index}.male`);
-                      const watchedFemale = form.watch(`classDetails.${index}.female`);
+                      const maleRil = form.watch(`classDetails.${index}.male.ril`);
+                      const femaleRil = form.watch(`classDetails.${index}.female.ril`);
+                      const maleDapodik = form.watch(`classDetails.${index}.male.dapodik`);
+                      const femaleDapodik = form.watch(`classDetails.${index}.female.dapodik`);
                       return (
                         <div key={className} className="p-3 border rounded-md bg-background">
-                          <h5 className="font-semibold text-center mb-2">Kelas {className}</h5>
-                          <div className="flex justify-around gap-2">
-                              <FormField control={form.control} name={`classDetails.${index}.male`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Laki-laki</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                              <FormField control={form.control} name={`classDetails.${index}.female`} render={({ field }) => (<FormItem className="flex-1"><FormLabel className="text-xs">Perempuan</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          </div>
-                           <p className="text-center text-sm font-medium mt-2 text-primary">Total: {Number(watchedMale) + Number(watchedFemale)}</p>
+                            <h5 className="font-semibold text-center mb-2">Kelas {className}</h5>
+                            <div className="grid grid-cols-2 gap-x-4">
+                                <div>
+                                    <p className="text-center font-medium text-sm mb-1">Laki-laki</p>
+                                    <FormField control={form.control} name={`classDetails.${index}.male.ril`} render={({ field }) => (<FormItem className="mb-2"><FormLabel className="text-xs">Ril</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name={`classDetails.${index}.male.dapodik`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Dapodik</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                </div>
+                                <div>
+                                    <p className="text-center font-medium text-sm mb-1">Perempuan</p>
+                                    <FormField control={form.control} name={`classDetails.${index}.female.ril`} render={({ field }) => (<FormItem className="mb-2"><FormLabel className="text-xs">Ril</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name={`classDetails.${index}.female.dapodik`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Dapodik</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                </div>
+                            </div>
+                            <div className="text-center text-sm font-medium mt-3 pt-2 border-t text-primary">
+                                Total Ril: {Number(maleRil) + Number(femaleRil)}
+                            </div>
+                            <div className="text-center text-xs text-muted-foreground">
+                                Total Dapodik: {Number(maleDapodik) + Number(femaleDapodik)}
+                            </div>
                         </div>
                       )
                     })}
                   </div>
                 </div>
-                <div className="mt-4 p-4 border-2 border-dashed rounded-lg flex items-center justify-center gap-4">
-                  <Users className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Siswa Aktif (Otomatis)</p>
-                    <p className="text-2xl font-bold text-primary">{totalSiswaAktif}</p>
-                  </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 border-2 border-dashed rounded-lg flex items-center justify-center gap-4">
+                        <Users className="h-8 w-8 text-primary" />
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">Total Siswa Aktif (Ril)</p>
+                            <p className="text-2xl font-bold text-primary">{totalSiswaRil}</p>
+                        </div>
+                    </div>
+                     <div className="p-4 border-2 border-dashed rounded-lg flex items-center justify-center gap-4">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">Total Siswa (Dapodik)</p>
+                            <p className="text-2xl font-bold text-muted-foreground">{totalSiswaDapodik}</p>
+                        </div>
+                    </div>
                 </div>
+                <FormDescription>Total siswa aktif (Ril) akan disimpan sebagai jumlah siswa utama di database.</FormDescription>
               </div>
 
               <div>

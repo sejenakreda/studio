@@ -360,18 +360,33 @@ const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
   ): SchoolProfile => {
     const data = snapshot.data(options)!;
 
-    // Handle backward compatibility for old data structure
     const stats: SchoolStats = data.stats || {
       alumni: { ril: data.totalAlumni || 0, dapodik: 0 },
       guru: { ril: data.totalGuru || 0, dapodik: 0 },
       tendik: { ril: data.totalTendik || 0, dapodik: 0 },
     };
 
+    const classDetailsData = data.classDetails || [];
+    const convertedClassDetails = classDetailsData.map((cd: any) => {
+        if (typeof cd.male === 'number' || typeof cd.female === 'number') {
+            return {
+                className: cd.className,
+                male: { ril: cd.male || 0, dapodik: 0 },
+                female: { ril: cd.female || 0, dapodik: 0 },
+            };
+        }
+        return {
+            className: cd.className,
+            male: { ril: cd.male?.ril || 0, dapodik: cd.male?.dapodik || 0 },
+            female: { ril: cd.female?.ril || 0, dapodik: cd.female?.dapodik || 0 },
+        };
+    });
+
     return {
       id: snapshot.id,
       stats: stats,
       totalSiswa: data.totalSiswa || 0,
-      classDetails: data.classDetails || [],
+      classDetails: convertedClassDetails,
       sarana: data.sarana || [],
       updatedAt: data.updatedAt,
     };

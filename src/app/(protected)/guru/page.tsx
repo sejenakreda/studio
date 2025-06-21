@@ -54,7 +54,11 @@ export default function GuruDashboardPage() {
 
   const totalSiswaAktif = React.useMemo(() => {
       if (!schoolProfile || !schoolProfile.classDetails) return 0;
-      return schoolProfile.classDetails.reduce((sum, detail) => sum + (detail.male || 0) + (detail.female || 0), 0);
+      return schoolProfile.classDetails.reduce((sum, detail) => {
+          const maleCountRil = detail.male?.ril ?? 0;
+          const femaleCountRil = detail.female?.ril ?? 0;
+          return sum + maleCountRil + femaleCountRil;
+      }, 0);
   }, [schoolProfile]);
 
 
@@ -165,7 +169,7 @@ export default function GuruDashboardPage() {
             <div>
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Users2 className="h-4 w-4 text-muted-foreground" /> Sumber Daya Manusia</h4>
                 <div className="grid grid-cols-1 gap-2 text-xs">
-                    <div className="flex justify-between items-center p-2 rounded bg-muted/50"><span>Siswa Aktif</span><span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : totalSiswaAktif}</span></div>
+                    <div className="flex justify-between items-center p-2 rounded bg-muted/50"><span>Siswa Aktif (Ril)</span><span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : totalSiswaAktif}</span></div>
                     <div className="p-2 rounded bg-muted/50">
                         <div className="flex justify-between items-center"><span>Alumni</span> <span className="font-bold">{isLoading ? <Skeleton className="h-4 w-6"/> : schoolProfile?.stats.alumni.ril ?? 0}</span></div>
                         <div className="flex justify-between items-center text-muted-foreground text-[0.7rem]">(Dapodik: {isLoading ? <Skeleton className="h-3 w-5 inline-block"/> : schoolProfile?.stats.alumni.dapodik ?? 0})</div>

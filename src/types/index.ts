@@ -136,3 +136,15 @@ export interface TeacherDailyAttendance {
   lastUpdatedByUid?: string; // UID of user who last updated (guru on initial, admin on edit)
 }
 
+export interface SchoolProfile {
+  id?: string; // Will be a single doc, e.g. "main_profile"
+  totalSiswa: number;
+  totalAlumni: number;
+  totalGuru: number;
+  totalTendik: number;
+  ruangKelas: number;
+  laboratorium: number;
+  perpustakaan: number;
+  toilet: number;
+  updatedAt?: Timestamp;
+}

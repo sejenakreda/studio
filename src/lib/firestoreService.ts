@@ -24,7 +24,7 @@ import {
   QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -340,6 +340,40 @@ const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttend
       recordedAt: data.recordedAt,
       updatedAt: data.updatedAt,
       lastUpdatedByUid: data.lastUpdatedByUid,
+    };
+  }
+};
+
+const schoolProfileConverter: FirestoreDataConverter<SchoolProfile> = {
+  toFirestore: (profile: Omit<SchoolProfile, 'id'>): DocumentData => {
+    return {
+      totalSiswa: profile.totalSiswa || 0,
+      totalAlumni: profile.totalAlumni || 0,
+      totalGuru: profile.totalGuru || 0,
+      totalTendik: profile.totalTendik || 0,
+      ruangKelas: profile.ruangKelas || 0,
+      laboratorium: profile.laboratorium || 0,
+      perpustakaan: profile.perpustakaan || 0,
+      toilet: profile.toilet || 0,
+      updatedAt: serverTimestamp(),
+    };
+  },
+  fromFirestore: (
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): SchoolProfile => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      totalSiswa: data.totalSiswa || 0,
+      totalAlumni: data.totalAlumni || 0,
+      totalGuru: data.totalGuru || 0,
+      totalTendik: data.totalTendik || 0,
+      ruangKelas: data.ruangKelas || 0,
+      laboratorium: data.laboratorium || 0,
+      perpustakaan: data.perpustakaan || 0,
+      toilet: data.toilet || 0,
+      updatedAt: data.updatedAt,
     };
   }
 };
@@ -981,3 +1015,26 @@ export const getAllTeachersDailyAttendanceForPeriod = async (
   return querySnapshot.docs.map(doc => doc.data());
 };
 
+// --- School Profile Service ---
+const SCHOOL_CONFIG_COLLECTION = 'schoolConfig';
+const SCHOOL_PROFILE_DOC_ID = 'main_profile';
+
+export const getSchoolProfile = async (): Promise<SchoolProfile> => {
+    const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, SCHOOL_PROFILE_DOC_ID).withConverter(schoolProfileConverter);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return docSnap.data();
+    }
+    // Return default empty profile if not found
+    return {
+        id: SCHOOL_PROFILE_DOC_ID,
+        totalSiswa: 0, totalAlumni: 0, totalGuru: 0, totalTendik: 0,
+        ruangKelas: 0, laboratorium: 0, perpustakaan: 0, toilet: 0,
+    };
+};
+
+export const updateSchoolProfile = async (profileData: Partial<Omit<SchoolProfile, 'id'>>): Promise<void> => {
+    const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, SCHOOL_PROFILE_DOC_ID).withConverter(schoolProfileConverter);
+    // The converter will handle adding the `updatedAt` server timestamp
+    await setDoc(docRef, profileData, { merge: true });
+};

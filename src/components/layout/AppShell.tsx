@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, ChevronDown } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -90,6 +90,14 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
+    ],
+  },
+  {
+    groupLabel: "Pengaturan Umum",
+    groupIcon: Settings,
+    roles: ['admin'],
+    items: [
+      { href: "/admin/school-profile", label: "Profil Sekolah", icon: Building },
     ],
   },
 
@@ -184,6 +192,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 
   const handleLogout = async () => {
+    if (isMobile) setOpenMobile(false); // Close sidebar before logout action
     await signOut(auth);
     router.push("/login");
   };
@@ -254,8 +263,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           asChild
                           isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
                           tooltip={{ children: item.label, side: "right", align: "center" }}
+                          onClick={handleLinkClick}
                         >
-                          <Link href={item.href} className="relative" onClick={handleLinkClick}>
+                          <Link href={item.href} className="relative">
                             <item.icon className="h-5 w-5" />
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                           </Link>
@@ -282,8 +292,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
                                 size="sm" 
                                 className="h-7"
+                                onClick={handleLinkClick}
                               >
-                                <Link href={item.href} className="relative" onClick={handleLinkClick}>
+                                <Link href={item.href} className="relative">
                                   <item.icon className="h-4 w-4" />
                                   <span>{item.label}</span>
                                   {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
@@ -308,10 +319,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter className="p-2 border-t">
           <SidebarMenuButton
-              onClick={() => {
-                if (isMobile) setOpenMobile(false); // Close sidebar before logout action
-                handleLogout();
-              }}
+              onClick={handleLogout}
               tooltip={{ children: "Keluar", side: "right", align: "center" }}
               className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
             >

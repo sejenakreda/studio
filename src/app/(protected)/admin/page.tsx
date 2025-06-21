@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
     BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, 
-    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck 
+    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building
 } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
@@ -105,6 +105,13 @@ export default function AdminDashboardPage() {
       icon: Megaphone,
       items: [
         { title: "Pengumuman Guru", description: "Buat dan kelola pengumuman untuk guru.", href: "/admin/announcements", icon: Megaphone, color: "text-cyan-500" }
+      ]
+    },
+    {
+      title: "Pengaturan Umum",
+      icon: Settings,
+      items: [
+        { title: "Profil Sekolah", description: "Kelola data statistik sekolah seperti jumlah siswa, guru, dan sarana.", href: "/admin/school-profile", icon: Building, color: "text-gray-500" }
       ]
     }
   ];

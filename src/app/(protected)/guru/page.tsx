@@ -4,11 +4,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, BarChart2, Users, Loader2, FileClock, Presentation, BarChartHorizontalBig, Megaphone, ArrowRight } from "lucide-react";
+import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, FlaskConical, Library, Bath, Building } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
-import { getStudents, getPengumumanUntukGuru } from '@/lib/firestoreService';
-import type { Pengumuman } from '@/types';
+import { getStudents, getPengumumanUntukGuru, getSchoolProfile } from '@/lib/firestoreService';
+import type { Pengumuman, SchoolProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
@@ -19,19 +19,20 @@ export default function GuruDashboardPage() {
   const { toast } = useToast();
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [announcements, setAnnouncements] = useState<Pengumuman[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
+  const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
-    setIsLoadingStats(true);
-    setIsLoadingAnnouncements(true);
+    setIsLoading(true);
     try {
-      const [studentList, fetchedAnnouncements] = await Promise.all([
+      const [studentList, fetchedAnnouncements, fetchedProfile] = await Promise.all([
         getStudents(),
-        getPengumumanUntukGuru(3) // Get latest 3 announcements
+        getPengumumanUntukGuru(3),
+        getSchoolProfile(),
       ]);
       setStudentCount(studentList?.length || 0);
       setAnnouncements(fetchedAnnouncements || []);
+      setSchoolProfile(fetchedProfile);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       toast({
@@ -41,9 +42,9 @@ export default function GuruDashboardPage() {
       });
       setStudentCount(0); 
       setAnnouncements([]);
+      setSchoolProfile(null);
     } finally {
-      setIsLoadingStats(false);
-      setIsLoadingAnnouncements(false);
+      setIsLoading(false);
     }
   }, [toast]);
 
@@ -51,53 +52,20 @@ export default function GuruDashboardPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const quickStats = [
-    { 
-      title: "Total Siswa (Global)", 
-      value: isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin" /> : (studentCount !== null ? studentCount.toString() : "N/A"), 
-      icon: Users, 
-      color: "text-blue-500", 
-      bgColor: "bg-blue-100 dark:bg-blue-900/30", 
-      href: "/guru/students",
-      isExternal: false,
-      disabled: false,
-      tooltip: "Lihat semua siswa terdaftar"
-    },
-     { 
-      title: "Rekap Nilai Semester", 
-      value: "Lihat & Unduh", 
-      icon: BarChartHorizontalBig, 
-      color: "text-teal-500", 
-      bgColor: "bg-teal-100 dark:bg-teal-900/30", 
-      href: "/guru/rekap-nilai",
-      isExternal: false, 
-      disabled: false,
-      tooltip: "Lihat rekapitulasi nilai per semester"
-    },
-    { 
-      title: "Manajemen Kelas", 
-      value: "Segera Hadir", 
-      icon: BookUser, 
-      color: "text-gray-500", 
-      bgColor: "bg-gray-100 dark:bg-gray-700/30", 
-      href: "#", 
-      isExternal: false, 
-      disabled: true,
-      tooltip: "Fitur ini akan tersedia nanti"
-    },
-    { 
-      title: "Analisis & Laporan", 
-      value: "Segera Hadir", 
-      icon: Presentation, 
-      color: "text-gray-500", 
-      bgColor: "bg-gray-100 dark:bg-gray-700/30", 
-      href: "#", 
-      isExternal: false, 
-      disabled: true,
-      tooltip: "Fitur analisis dan laporan akan tersedia nanti"
-    },
+  const sdmStats = [
+    { label: "Siswa Aktif", value: schoolProfile?.totalSiswa, icon: Users },
+    { label: "Alumni", value: schoolProfile?.totalAlumni, icon: GraduationCap },
+    { label: "Guru", value: schoolProfile?.totalGuru, icon: UserSquare },
+    { label: "Staf/Tendik", value: schoolProfile?.totalTendik, icon: Briefcase },
   ];
   
+  const sarprasStats = [
+    { label: "Ruang Kelas", value: schoolProfile?.ruangKelas, icon: School },
+    { label: "Laboratorium", value: schoolProfile?.laboratorium, icon: FlaskConical },
+    { label: "Perpustakaan", value: schoolProfile?.perpustakaan, icon: Library },
+    { label: "Toilet", value: schoolProfile?.toilet, icon: Bath },
+  ];
+
   const getPrioritasColor = (prioritas: Pengumuman['prioritas']) => {
     switch (prioritas) {
       case 'Tinggi': return 'text-red-500';
@@ -115,54 +83,49 @@ export default function GuruDashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Guru</h1>
           <p className="text-muted-foreground">Selamat datang kembali, {userProfile?.displayName || "Guru"}!</p>
         </div>
-         <Button onClick={fetchDashboardData} variant="outline" disabled={isLoadingStats || isLoadingAnnouncements}>
-          {(isLoadingStats || isLoadingAnnouncements) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+         <Button onClick={fetchDashboardData} variant="outline" disabled={isLoading}>
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Muat Ulang Data
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {quickStats.map((stat) => {
-          const CardLink = stat.disabled || stat.href === "#" ? 'div' : Link;
-          return (
-            <CardLink 
-              href={stat.disabled ? undefined : stat.href} 
-              key={stat.title} 
-              className={`block rounded-lg ${stat.disabled ? 'cursor-not-allowed opacity-70' : 'hover:shadow-lg transition-shadow duration-300'}`}
-              title={stat.tooltip}
-            >
-              <Card className="overflow-hidden h-full flex flex-col">
-                <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2 ${stat.bgColor}`}>
-                  <CardTitle className={`text-sm font-medium ${stat.color}`}>{stat.title}</CardTitle>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-center">
-                  <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-                  {!stat.disabled && (
-                    <p className="text-xs text-muted-foreground pt-1">
-                      Lihat Detail
-                    </p>
-                  )}
-                  {stat.disabled && (
-                     <p className="text-xs text-muted-foreground pt-1">
-                      Segera Hadir
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </CardLink>
-          );
-        })}
-      </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Pintasan Menu Guru</CardTitle>
+            <CardDescription>Akses cepat ke fitur yang sering digunakan.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <Link href="/guru/students">
+              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
+                <Users className="h-6 w-6" /> Daftar Siswa
+              </Button>
+            </Link>
+            <Link href="/guru/grades">
+              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
+                <Edit3 className="h-6 w-6" /> Input & Lihat Nilai
+              </Button>
+            </Link>
+            <Link href="/guru/rekap-nilai">
+              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
+                <BarChartHorizontalBig className="h-6 w-6" /> Rekap Nilai
+              </Button>
+            </Link>
+             <Link href="/guru/attendance">
+               <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
+                <BookUser className="h-6 w-6" /> Catat Kehadiran
+              </Button>
+             </Link>
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Pengumuman & Info Penting</CardTitle>
             <CardDescription>Daftar pengumuman terbaru dari admin (maks. 3).</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingAnnouncements ? (
+            {isLoading ? (
                <div className="space-y-3">
                 {[...Array(2)].map((_,i) => <Skeleton key={i} className="h-16 w-full" />)}
               </div>
@@ -200,34 +163,44 @@ export default function GuruDashboardPage() {
             </CardFooter>
           )}
         </Card>
-        <Card>
+
+        <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Pintasan Menu Guru</CardTitle>
-            <CardDescription>Akses cepat ke fitur yang sering digunakan.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Building className="h-5 w-5 text-primary" /> Profil Sekolah</CardTitle>
+            <CardDescription>Data statistik umum sekolah.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Link href="/guru/students">
-              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
-                <Users className="h-6 w-6" /> Kelola Data Siswa
-              </Button>
-            </Link>
-            <Link href="/guru/grades">
-              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
-                <Edit3 className="h-6 w-6" /> Input & Lihat Nilai
-              </Button>
-            </Link>
-            <Link href="/guru/rekap-nilai">
-              <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
-                <BarChartHorizontalBig className="h-6 w-6" /> Rekap Nilai
-              </Button>
-            </Link>
-             <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary" disabled title="Fitur dalam pengembangan">
-              <BookUser className="h-6 w-6" /> Daftar Kehadiran
-            </Button>
+          <CardContent className="space-y-4">
+            <div>
+                <h4 className="text-sm font-medium mb-2">Sumber Daya Manusia</h4>
+                <div className="grid grid-cols-2 gap-2">
+                    {sdmStats.map((stat) => (
+                        <div key={stat.label} className="p-2 rounded-md bg-muted/50 flex items-center gap-2">
+                            <stat.icon className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : stat.value}</p>
+                                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div>
+                <h4 className="text-sm font-medium mb-2">Sarana & Prasarana</h4>
+                <div className="grid grid-cols-2 gap-2">
+                    {sarprasStats.map((stat) => (
+                         <div key={stat.label} className="p-2 rounded-md bg-muted/50 flex items-center gap-2">
+                            <stat.icon className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-semibold">{isLoading ? <Skeleton className="h-5 w-8"/> : stat.value}</p>
+                                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-    

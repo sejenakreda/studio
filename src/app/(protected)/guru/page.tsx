@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, Database, Users2 } from "lucide-react";
+import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, Database, Users2, Building } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents, getPengumumanUntukGuru, getSchoolProfile } from '@/lib/firestoreService';
@@ -185,7 +185,7 @@ export default function GuruDashboardPage() {
                 </div>
             </div>
             <div>
-                <h4 className="text-sm font-medium mb-2">Sarana & Prasarana</h4>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Building className="h-4 w-4 text-muted-foreground" />Sarana & Prasarana</h4>
                 {isLoading ? (
                     <div className="grid grid-cols-2 gap-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full"/>)}</div>
                 ) : !schoolProfile || !schoolProfile.sarana || schoolProfile.sarana.length === 0 ? (
@@ -207,3 +207,4 @@ export default function GuruDashboardPage() {
     </div>
   );
 }
+

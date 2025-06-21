@@ -107,7 +107,15 @@ const navigationStructure: NavGroup[] = [
     items: [{ href: "/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
   },
   {
-    groupLabel: "Informasi",
+    groupLabel: "Informasi Sekolah",
+    groupIcon: Building,
+    roles: ['guru'],
+    items: [
+      { href: "/guru/school-profile", label: "Profil Sekolah", icon: Building }
+    ],
+  },
+  {
+    groupLabel: "Komunikasi",
     groupIcon: Megaphone,
     roles: ['guru'],
     items: [{ href: "/guru/announcements", label: "Pengumuman", icon: Megaphone }],

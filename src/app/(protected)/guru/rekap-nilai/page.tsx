@@ -326,7 +326,7 @@ export default function RekapNilaiPage() {
     const dataForExcel = filteredAndSortedGrades.map(grade => {
       let keterangan = "";
       if (grade.isTuntas) {
-        keterangan = "Semua nilai tuntas.";
+        keterangan = "Semua komponen nilai tuntas.";
       } else {
         const kkm = grade.kkmValue || 70;
         const messages: string[] = [];
@@ -344,7 +344,7 @@ export default function RekapNilaiPage() {
         } else if ((grade.nilai_akhir || 0) < kkm) {
           keterangan = `Nilai Akhir (${(grade.nilai_akhir || 0).toFixed(2)}) di bawah KKM (${kkm}).`;
         } else {
-          keterangan = "Belum tuntas (periksa detail nilai, mungkin nilai akhir di bawah KKM meskipun komponen tuntas).";
+          keterangan = "Belum tuntas (periksa detail nilai).";
         }
       }
 
@@ -410,6 +410,7 @@ export default function RekapNilaiPage() {
     XLSX.writeFile(workbook, `rekap_nilai_${safeTa}_smt${safeSmt}_${safeMapel}.xlsx`);
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap nilai sedang disiapkan." });
   };
+
 
   const handleEditGrade = (grade: GuruGradeSummaryView) => {
     const student = studentsMap.get(grade.id_siswa);

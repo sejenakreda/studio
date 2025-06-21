@@ -54,7 +54,11 @@ interface TeacherImportData {
   tugasTambahan?: string; 
 }
 
-const availableTugasTambahan: TugasTambahan[] = ['kesiswaan', 'kurikulum', 'pembina_osis', 'pembina_eskul', 'kepala_sekolah'];
+const availableTugasTambahan: TugasTambahan[] = [
+    'kesiswaan', 'kurikulum', 'pembina_osis', 'kepala_sekolah', 'operator', 'bendahara', 'bk',
+    'pembina_eskul_pmr', 'pembina_eskul_paskibra', 'pembina_eskul_pramuka',
+    'pembina_eskul_karawitan', 'pembina_eskul_pencak_silat', 'pembina_eskul_volly_ball'
+];
 
 export default function ManageTeachersPage() {
   const { toast } = useToast();

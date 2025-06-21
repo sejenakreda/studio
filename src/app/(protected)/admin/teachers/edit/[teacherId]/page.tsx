@@ -29,12 +29,26 @@ const editTeacherSchema = z.object({
 
 type EditTeacherFormData = z.infer<typeof editTeacherSchema>;
 
-const tugasTambahanOptions: { id: TugasTambahan; label: string }[] = [
+const strukturalOptions: { id: TugasTambahan; label: string }[] = [
     { id: 'kepala_sekolah', label: 'Kepala Sekolah' },
     { id: 'kurikulum', label: 'Wakasek Kurikulum' },
     { id: 'kesiswaan', label: 'Wakasek Kesiswaan' },
+    { id: 'bendahara', label: 'Bendahara' },
+];
+
+const stafOptions: { id: TugasTambahan; label: string }[] = [
+    { id: 'operator', label: 'Operator' },
+    { id: 'bk', label: 'Guru BK' },
+];
+
+const pembinaOptions: { id: TugasTambahan; label: string }[] = [
     { id: 'pembina_osis', label: 'Pembina OSIS' },
-    { id: 'pembina_eskul', label: 'Pembina Eskul' },
+    { id: 'pembina_eskul_pmr', label: 'Pembina Eskul PMR' },
+    { id: 'pembina_eskul_paskibra', label: 'Pembina Eskul Paskibra' },
+    { id: 'pembina_eskul_pramuka', label: 'Pembina Eskul Pramuka' },
+    { id: 'pembina_eskul_karawitan', label: 'Pembina Eskul Karawitan' },
+    { id: 'pembina_eskul_pencak_silat', label: 'Pembina Eskul Pencak Silat' },
+    { id: 'pembina_eskul_volly_ball', label: 'Pembina Eskul Volly Ball' },
 ];
 
 export default function EditTeacherPage() {
@@ -145,6 +159,41 @@ export default function EditTeacherPage() {
       setIsSubmitting(false);
     }
   };
+
+  const renderCheckboxGroup = (options: {id: TugasTambahan, label: string}[]) => {
+     return options.map((tugasItem) => (
+        <FormField
+            key={tugasItem.id}
+            control={form.control}
+            name="tugasTambahan"
+            render={({ field }) => (
+                <FormItem
+                key={tugasItem.id}
+                className="flex flex-row items-start space-x-3 space-y-0"
+                >
+                <FormControl>
+                    <Checkbox
+                    checked={field.value?.includes(tugasItem.id)}
+                    onCheckedChange={(checked) => {
+                        return checked
+                        ? field.onChange([...(field.value || []), tugasItem.id])
+                        : field.onChange(
+                            (field.value || []).filter(
+                                (value) => value !== tugasItem.id
+                            )
+                            )
+                    }}
+                    />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">
+                    {tugasItem.label}
+                </FormLabel>
+                </FormItem>
+            )}
+        />
+        ));
+  }
+
 
   if (isLoadingData || isLoadingMapel) {
     return (
@@ -318,38 +367,20 @@ export default function EditTeacherPage() {
                       </FormLabel>
                       <FormDesc>Pilih tugas tambahan yang diemban oleh guru ini. Ini akan membuka akses ke menu khusus.</FormDesc>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-md">
-                        {tugasTambahanOptions.map((tugasItem) => (
-                        <FormField
-                            key={tugasItem.id}
-                            control={form.control}
-                            name="tugasTambahan"
-                            render={({ field }) => (
-                                <FormItem
-                                key={tugasItem.id}
-                                className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                <FormControl>
-                                    <Checkbox
-                                    checked={field.value?.includes(tugasItem.id)}
-                                    onCheckedChange={(checked) => {
-                                        return checked
-                                        ? field.onChange([...(field.value || []), tugasItem.id])
-                                        : field.onChange(
-                                            (field.value || []).filter(
-                                                (value) => value !== tugasItem.id
-                                            )
-                                            )
-                                    }}
-                                    />
-                                </FormControl>
-                                <FormLabel className="text-sm font-normal">
-                                    {tugasItem.label}
-                                </FormLabel>
-                                </FormItem>
-                            )}
-                        />
-                        ))}
+                    <div className="space-y-6">
+                        <div>
+                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Struktural & Staf</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 p-4 border rounded-md">
+                                {renderCheckboxGroup(strukturalOptions)}
+                                {renderCheckboxGroup(stafOptions)}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Pembina Kegiatan & Ekstrakurikuler</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 p-4 border rounded-md">
+                                {renderCheckboxGroup(pembinaOptions)}
+                            </div>
+                        </div>
                     </div>
                     <FormMessage />
                   </FormItem>

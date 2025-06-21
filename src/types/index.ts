@@ -3,7 +3,20 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type Role = 'admin' | 'guru';
 
-export type TugasTambahan = 'kesiswaan' | 'kurikulum' | 'pembina_osis' | 'pembina_eskul' | 'kepala_sekolah';
+export type TugasTambahan = 
+  | 'kesiswaan' 
+  | 'kurikulum' 
+  | 'pembina_osis' 
+  | 'kepala_sekolah'
+  | 'operator'
+  | 'bendahara'
+  | 'bk'
+  | 'pembina_eskul_pmr'
+  | 'pembina_eskul_paskibra'
+  | 'pembina_eskul_pramuka'
+  | 'pembina_eskul_karawitan'
+  | 'pembina_eskul_pencak_silat'
+  | 'pembina_eskul_volly_ball';
 
 export interface UserProfile {
   uid: string;

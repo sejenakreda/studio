@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -140,14 +140,71 @@ const navigationStructure: NavGroup[] = [
       { href: "/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
     ],
   },
-  // --- GURU - TUGAS TAMBAHAN ---
+  // --- GURU - TUGAS TAMBAHAN (ordered by likely importance/power) ---
   {
-    groupLabel: "Manajemen Kurikulum",
+    groupLabel: "Kepala Sekolah",
+    groupIcon: Shield,
+    roles: ['guru'],
+    requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah,
+    items: [
+      { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
+      { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
+      { href: "/admin/teachers", label: "Semua Data Guru", icon: Users },
+      { href: "/admin/students", label: "Semua Data Siswa", icon: BookUser },
+    ],
+  },
+  {
+    groupLabel: "Kurikulum",
     groupIcon: Library,
     roles: ['guru'],
     requiredTugas: ({ isKurikulum }) => isKurikulum,
     items: [
-      // { href: "/guru/kurikulum/dashboard", label: "Dasbor Kurikulum", icon: Home },
+      { href: "/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Kesiswaan",
+    groupIcon: Users2,
+    roles: ['guru'],
+    requiredTugas: ({ isKesiswaan }) => isKesiswaan,
+    items: [
+      { href: "/guru/kesiswaan", label: "Dasbor Kesiswaan", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Keuangan",
+    groupIcon: CircleDollarSign,
+    roles: ['guru'],
+    requiredTugas: ({ isBendahara }) => isBendahara,
+    items: [
+      { href: "/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Operator",
+    groupIcon: DatabaseZap,
+    roles: ['guru'],
+    requiredTugas: ({ isOperator }) => isOperator,
+    items: [
+      { href: "/guru/operator", label: "Dasbor Operator", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Bimbingan Konseling",
+    groupIcon: HeartHandshake,
+    roles: ['guru'],
+    requiredTugas: ({ isBk }) => isBk,
+    items: [
+      { href: "/guru/bk", label: "Dasbor BK", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Manajemen Pembina",
+    groupIcon: Award,
+    roles: ['guru'],
+    requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
+    items: [
+       { href: "/guru/pembina", label: "Dasbor Pembina", icon: Home },
     ],
   },
 ];

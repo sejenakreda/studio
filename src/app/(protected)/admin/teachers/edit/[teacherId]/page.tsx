@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
 import { useRouter, useParams } from 'next/navigation';
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, Loader2, AlertCircle, UserCog, BookOpen } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, UserCog, BookOpen, Briefcase } from "lucide-react";
 import { getUserProfile, updateUserProfile, addActivityLog, getMataPelajaranMaster } from '@/lib/firestoreService';
-import type { UserProfile, MataPelajaranMaster } from '@/types';
+import type { UserProfile, MataPelajaranMaster, TugasTambahan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -24,9 +24,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const editTeacherSchema = z.object({
   displayName: z.string().min(3, "Nama tampilan minimal 3 karakter"),
   assignedMapel: z.array(z.string()).optional().default([]),
+  tugasTambahan: z.array(z.string()).optional().default([]),
 });
 
 type EditTeacherFormData = z.infer<typeof editTeacherSchema>;
+
+const tugasTambahanOptions: { id: TugasTambahan; label: string }[] = [
+    { id: 'kepala_sekolah', label: 'Kepala Sekolah' },
+    { id: 'kurikulum', label: 'Wakasek Kurikulum' },
+    { id: 'kesiswaan', label: 'Wakasek Kesiswaan' },
+    { id: 'pembina_osis', label: 'Pembina OSIS' },
+    { id: 'pembina_eskul', label: 'Pembina Eskul' },
+];
 
 export default function EditTeacherPage() {
   const { toast } = useToast();
@@ -47,6 +56,7 @@ export default function EditTeacherPage() {
     defaultValues: {
       displayName: "",
       assignedMapel: [],
+      tugasTambahan: [],
     },
   });
 
@@ -72,6 +82,7 @@ export default function EditTeacherPage() {
         form.reset({
           displayName: fetchedTeacher.displayName || "",
           assignedMapel: fetchedTeacher.assignedMapel || [],
+          tugasTambahan: fetchedTeacher.tugasTambahan || [],
         });
       } else {
         setFetchError("Data guru tidak ditemukan atau peran tidak sesuai.");
@@ -105,13 +116,22 @@ export default function EditTeacherPage() {
       await updateUserProfile(teacherId, {
         displayName: data.displayName,
         assignedMapel: data.assignedMapel || [], 
+        tugasTambahan: data.tugasTambahan as TugasTambahan[] || [],
       });
 
-      const oldMapel = teacherData.assignedMapel?.join(', ') || 'Belum ada';
-      const newMapel = data.assignedMapel?.join(', ') || 'Tidak ada';
+      const oldMapel = teacherData.assignedMapel?.join(', ') || 'N/A';
+      const newMapel = data.assignedMapel?.join(', ') || 'N/A';
+      const oldTugas = teacherData.tugasTambahan?.join(', ') || 'N/A';
+      const newTugas = data.tugasTambahan?.join(', ') || 'N/A';
+      
+      let logDetails = `Profil Guru ${teacherData.email}: Nama -> ${data.displayName}.`;
+      if (oldMapel !== newMapel) logDetails += ` Mapel: ${oldMapel} -> ${newMapel}.`;
+      if (oldTugas !== newTugas) logDetails += ` Tugas: ${oldTugas} -> ${newTugas}.`;
+      logDetails += ` Oleh Admin: ${currentAdminProfile.displayName}`;
+
       await addActivityLog(
-        "Profil & Mapel Guru Diperbarui",
-        "Profil Guru " + teacherData.email + ": Nama -> " + data.displayName + ". Mapel: " + oldMapel + " -> " + newMapel + ". Oleh Admin: " + currentAdminProfile.displayName,
+        "Profil & Tugas Guru Diperbarui",
+        logDetails,
         currentAdminProfile.uid,
         currentAdminProfile.displayName
       );
@@ -179,9 +199,9 @@ export default function EditTeacherPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Edit Data Guru & Mapel</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Edit Data Guru & Tugas</h1>
           <p className="text-muted-foreground">
-            Perbarui nama tampilan dan mata pelajaran yang diampu oleh guru <span className="font-semibold">{teacherData.displayName}</span>.
+            Perbarui nama, mata pelajaran, dan tugas tambahan untuk guru <span className="font-semibold">{teacherData.displayName}</span>.
           </p>
         </div>
       </div>
@@ -191,45 +211,33 @@ export default function EditTeacherPage() {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserCog className="h-6 w-6 text-primary" /> Form Edit Profil & Mapel Guru
+                <UserCog className="h-6 w-6 text-primary" /> Form Edit Profil Guru
               </CardTitle>
-              <CardDescription>Ubah nama tampilan dan pilih mapel yang diajarkan. Email dan peran tidak dapat diubah.</CardDescription>
+              <CardDescription>Ubah nama, mapel yang diajarkan, dan tugas tambahan. Email dan peran tidak dapat diubah.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <FormField
-                control={form.control}
-                name="displayName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nama Tampilan Guru</FormLabel>
-                    <FormControl>
-                      <Input placeholder="cth: Budi Sudarsono" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormItem>
-                <FormLabel>Email Guru</FormLabel>
-                <FormControl>
-                  <Input value={teacherData.email || ""} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
-                </FormControl>
-                <FormDesc>Email tidak dapat diubah.</FormDesc>
-              </FormItem>
-              <FormItem>
-                <FormLabel>Peran</FormLabel>
-                <FormControl>
-                  <Input value={teacherData.role} readOnly disabled className="bg-muted/50 cursor-not-allowed capitalize" />
-                </FormControl>
-                <FormDesc>Peran tidak dapat diubah.</FormDesc>
-              </FormItem>
-               <FormItem>
-                <FormLabel>UID Guru</FormLabel>
-                <FormControl>
-                  <Input value={teacherData.uid} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
-                </FormControl>
-                <FormDesc>UID unik pengguna.</FormDesc>
-              </FormItem>
+            <CardContent className="space-y-8">
+              <div className='space-y-6'>
+                <FormField
+                  control={form.control}
+                  name="displayName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Tampilan Guru</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: Budi Sudarsono" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormItem>
+                  <FormLabel>Email Guru</FormLabel>
+                  <FormControl>
+                    <Input value={teacherData.email || ""} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
+                  </FormControl>
+                  <FormDesc>Email tidak dapat diubah.</FormDesc>
+                </FormItem>
+              </div>
 
               <FormField
                 control={form.control}
@@ -244,7 +252,7 @@ export default function EditTeacherPage() {
                       <FormDesc>Pilih mata pelajaran yang akan diajarkan oleh guru ini. Daftar mapel diambil dari Pengaturan Master Mapel.</FormDesc>
                     </div>
                     {isLoadingMapel ? (
-                         <Skeleton className="h-72 w-full rounded-md border p-4" />
+                         <Skeleton className="h-40 w-full rounded-md border p-4" />
                     ) : masterMapelList.length === 0 ? (
                         <Alert variant="default">
                             <BookOpen className="h-4 w-4"/>
@@ -257,15 +265,14 @@ export default function EditTeacherPage() {
                             </AlertDescription>
                         </Alert>
                     ) : (
-                        <ScrollArea className="h-72 w-full rounded-md border p-4">
+                        <ScrollArea className="h-40 w-full rounded-md border p-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {(masterMapelList || []).map((mapelItem) => (
                             <FormField
                                 key={mapelItem.id}
                                 control={form.control}
                                 name="assignedMapel"
-                                render={({ field }) => {
-                                return (
+                                render={({ field }) => (
                                     <FormItem
                                     key={mapelItem.id}
                                     className="flex flex-row items-start space-x-3 space-y-0"
@@ -288,8 +295,7 @@ export default function EditTeacherPage() {
                                         {mapelItem.namaMapel}
                                     </FormLabel>
                                     </FormItem>
-                                )
-                                }}
+                                )}
                             />
                             ))}
                         </div>
@@ -299,6 +305,57 @@ export default function EditTeacherPage() {
                   </FormItem>
                 )}
               />
+
+               <FormField
+                control={form.control}
+                name="tugasTambahan"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base flex items-center gap-2">
+                        <Briefcase className="h-5 w-5 text-primary"/>
+                        Tugaskan Tugas Tambahan
+                      </FormLabel>
+                      <FormDesc>Pilih tugas tambahan yang diemban oleh guru ini. Ini akan membuka akses ke menu khusus.</FormDesc>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-md">
+                        {tugasTambahanOptions.map((tugasItem) => (
+                        <FormField
+                            key={tugasItem.id}
+                            control={form.control}
+                            name="tugasTambahan"
+                            render={({ field }) => (
+                                <FormItem
+                                key={tugasItem.id}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                <FormControl>
+                                    <Checkbox
+                                    checked={field.value?.includes(tugasItem.id)}
+                                    onCheckedChange={(checked) => {
+                                        return checked
+                                        ? field.onChange([...(field.value || []), tugasItem.id])
+                                        : field.onChange(
+                                            (field.value || []).filter(
+                                                (value) => value !== tugasItem.id
+                                            )
+                                            )
+                                    }}
+                                    />
+                                </FormControl>
+                                <FormLabel className="text-sm font-normal">
+                                    {tugasItem.label}
+                                </FormLabel>
+                                </FormItem>
+                            )}
+                        />
+                        ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
             </CardContent>
             <CardFooter>
               <Button type="submit" disabled={isSubmitting}>

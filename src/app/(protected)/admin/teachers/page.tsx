@@ -19,11 +19,10 @@ import {
   createUserProfile as createUserProfileFirestore, 
   addActivityLog,
   deleteUserRecord, 
-  getMataPelajaranMaster,
 } from '@/lib/firestoreService';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import type { UserProfile, MataPelajaranMaster } from '@/types';
+import type { UserProfile, TugasTambahan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -51,9 +50,11 @@ interface TeacherImportData {
   displayName: string;
   email: string;
   password?: string;
-  assignedMapel?: string; // Nama mapel dipisahkan koma
+  assignedMapel?: string;
+  tugasTambahan?: string; 
 }
 
+const availableTugasTambahan: TugasTambahan[] = ['kesiswaan', 'kurikulum', 'pembina_osis', 'pembina_eskul', 'kepala_sekolah'];
 
 export default function ManageTeachersPage() {
   const { toast } = useToast();
@@ -114,7 +115,8 @@ export default function ManageTeachersPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       
-      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName); 
+      // Creating profile with default empty arrays for mapel and tugasTambahan
+      await createUserProfileFirestore(userCredential.user, 'guru', data.displayName, [], []); 
       
       await addActivityLog(
           "Guru Baru Ditambahkan (Manual)", 
@@ -182,17 +184,18 @@ export default function ManageTeachersPage() {
 
   const handleDownloadTeacherTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ["displayName", "email", "password", "assignedMapel"],
-      ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia"], 
+      ["displayName", "email", "password", "assignedMapel", "tugasTambahan"],
+      ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia", "kurikulum,pembina_osis"], 
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 40} ];
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 40}, {wch: 40} ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "template_import_guru.xlsx");
     toast({ 
         title: "Template Diunduh", 
-        description: "Template Excel untuk impor guru telah diunduh. Isi kolom 'assignedMapel' dengan nama mapel dipisahkan koma (cth: Matematika,IPA)." 
+        description: "Template Excel untuk impor guru telah diunduh. Isi kolom dengan data yang sesuai, pisahkan dengan koma.",
+        duration: 7000
     });
   };
 
@@ -205,11 +208,12 @@ export default function ManageTeachersPage() {
       NamaTampilan: teacher.displayName,
       Email: teacher.email,
       MapelDitugaskan: teacher.assignedMapel?.join(', ') || '',
+      TugasTambahan: teacher.tugasTambahan?.join(', ') || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Guru");
-    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 40 } ];
+    const wscols = [ { wch: 25 }, { wch: 30 }, { wch: 40 }, { wch: 40 } ];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, "data_guru_siap_smapna.xlsx");
     toast({ title: "Data Diekspor", description: "Data guru telah diekspor ke Excel." });
@@ -234,15 +238,6 @@ export default function ManageTeachersPage() {
     }
 
     setIsImporting(true);
-    let masterMapel: MataPelajaranMaster[] = [];
-    try {
-        masterMapel = await getMataPelajaranMaster();
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error Impor", description: "Gagal memuat daftar master mata pelajaran. Impor dibatalkan." });
-        setIsImporting(false);
-        return;
-    }
-    const masterMapelNames = masterMapel.map(m => m.namaMapel);
     const currentTeacherList = await getAllUsersByRole('guru'); // Fetch fresh list
 
     const reader = new FileReader();
@@ -271,7 +266,7 @@ export default function ManageTeachersPage() {
         let failCount = 0;
         const errorMessages: string[] = [];
         let anyInvalidMapelDetected = false;
-
+        let anyInvalidTugasDetected = false;
 
         for (const [index, teacher] of json.entries()) {
           const teacherEmail = String(teacher.email || "").trim();
@@ -296,34 +291,40 @@ export default function ManageTeachersPage() {
             continue;
           }
 
+          // Handle assignedMapel (assuming they are already in the master list)
           let finalAssignedMapel: string[] = [];
           if (teacher.assignedMapel && typeof teacher.assignedMapel === 'string') {
-            const importedMapelArray = teacher.assignedMapel.split(',').map(m => m.trim()).filter(m => m);
-            const validMapelForTeacher: string[] = [];
-            const invalidMapelForTeacher: string[] = [];
+            finalAssignedMapel = teacher.assignedMapel.split(',').map(m => m.trim()).filter(Boolean);
+          }
 
-            for (const impMapel of importedMapelArray) {
-              if (masterMapelNames.includes(impMapel)) {
-                validMapelForTeacher.push(impMapel);
+          // Handle tugasTambahan
+          let finalTugasTambahan: TugasTambahan[] = [];
+          if (teacher.tugasTambahan && typeof teacher.tugasTambahan === 'string') {
+            const importedTugasArray = teacher.tugasTambahan.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+            const validTugas: TugasTambahan[] = [];
+            const invalidTugas: string[] = [];
+
+            for (const impTugas of importedTugasArray) {
+              if (availableTugasTambahan.includes(impTugas as TugasTambahan)) {
+                validTugas.push(impTugas as TugasTambahan);
               } else {
-                invalidMapelForTeacher.push(impMapel);
-                anyInvalidMapelDetected = true;
+                invalidTugas.push(impTugas);
+                anyInvalidTugasDetected = true;
               }
             }
-            finalAssignedMapel = validMapelForTeacher;
-            if (invalidMapelForTeacher.length > 0) {
-              errorMessages.push(`Baris ${index + 2} (Guru ${teacherEmail}): Mapel tidak valid/tidak ditemukan di master: ${invalidMapelForTeacher.join(', ')}. Mapel ini tidak akan ditugaskan.`);
+            finalTugasTambahan = validTugas;
+            if (invalidTugas.length > 0) {
+              errorMessages.push(`Baris ${index + 2} (Guru ${teacherEmail}): Tugas tambahan tidak valid: ${invalidTugas.join(', ')}. Dilewati.`);
             }
           }
 
-
           try {
             const userCredential = await createUserWithEmailAndPassword(auth, teacherEmail, teacherPassword);
-            await createUserProfileFirestore(userCredential.user, 'guru', teacherDisplayName, finalAssignedMapel);
+            await createUserProfileFirestore(userCredential.user, 'guru', teacherDisplayName, finalAssignedMapel, finalTugasTambahan);
             
             await addActivityLog(
               "Guru Baru Diimpor (Excel)",
-              `Guru: ${teacherDisplayName} (${teacherEmail}) Mapel: ${finalAssignedMapel.join(', ') || 'Tidak ada'} oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
+              `Guru: ${teacherDisplayName} (${teacherEmail}) Mapel: ${finalAssignedMapel.join(', ') || 'N/A'}. Tugas: ${finalTugasTambahan.join(', ') || 'N/A'} oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
               currentAdminProfile.uid,
               currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
             );
@@ -332,13 +333,13 @@ export default function ManageTeachersPage() {
               await signOut(auth);
             }
             successCount++;
-            // Optimistically add to local list to avoid re-adding if file has duplicates not caught by fresh fetch
             currentTeacherList.push({ 
                 uid: userCredential.user.uid, 
                 email: teacherEmail, 
                 displayName: teacherDisplayName, 
                 role: 'guru', 
-                assignedMapel: finalAssignedMapel 
+                assignedMapel: finalAssignedMapel,
+                tugasTambahan: finalTugasTambahan,
             });
           } catch (error: any) {
             failCount++;
@@ -351,17 +352,17 @@ export default function ManageTeachersPage() {
         }
         
         let summaryMessage = `${successCount} guru berhasil diimpor. ${failCount} guru gagal diimpor.`;
-        if (anyInvalidMapelDetected) {
-            summaryMessage += " Beberapa mapel yang diimpor tidak valid dan tidak ditugaskan.";
+        if (anyInvalidTugasDetected) {
+            summaryMessage += " Beberapa tugas tambahan tidak valid dan tidak ditugaskan.";
         }
-        if (failCount > 0 || anyInvalidMapelDetected) {
-            summaryMessage += " Lihat konsol untuk detail error/peringatan mapel.";
+        if (failCount > 0 || anyInvalidTugasDetected) {
+            summaryMessage += " Lihat konsol untuk detail error/peringatan.";
         }
 
         toast({
           title: "Proses Impor Selesai",
           description: summaryMessage,
-          duration: (failCount > 0 || anyInvalidMapelDetected) ? 10000 : 5000,
+          duration: (failCount > 0 || anyInvalidTugasDetected) ? 10000 : 5000,
         });
 
         if (errorMessages.length > 0) {
@@ -476,7 +477,7 @@ export default function ManageTeachersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Impor Guru dari Excel</CardTitle>
-          <CardDescription>Impor banyak data guru sekaligus menggunakan file Excel. Gunakan template yang disediakan. Mapel harus sudah ada di Kelola Mapel.</CardDescription>
+          <CardDescription>Impor banyak data guru sekaligus menggunakan file Excel. Gunakan template yang disediakan. Mapel dan tugas harus sudah ada di sistem.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -493,7 +494,7 @@ export default function ManageTeachersPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>, dan opsional <code className="bg-muted px-1 py-0.5 rounded text-xs">assignedMapel</code> (dipisahkan koma).
+            Pastikan file Excel memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>, dan opsional <code className="bg-muted px-1 py-0.5 rounded text-xs">assignedMapel</code> serta <code className="bg-muted px-1 py-0.5 rounded text-xs">tugasTambahan</code> (pisahkan dengan koma).
             Data yang sudah ada (berdasarkan email) akan dilewati.
           </p>
         </CardContent>
@@ -554,6 +555,7 @@ export default function ManageTeachersPage() {
                     <TableHead>Nama Tampilan</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Mapel Ditugaskan</TableHead>
+                    <TableHead>Tugas Tambahan</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -566,6 +568,12 @@ export default function ManageTeachersPage() {
                         {teacher.assignedMapel && teacher.assignedMapel.length > 0 
                           ? teacher.assignedMapel.join(', ') 
                           : <span className="italic text-muted-foreground">Belum ada</span>
+                        }
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[200px] truncate" title={teacher.tugasTambahan?.join(', ') || 'Tidak ada'}>
+                        {teacher.tugasTambahan && teacher.tugasTambahan.length > 0
+                          ? teacher.tugasTambahan.join(', ').replace(/_/g, ' ')
+                          : <span className="italic text-muted-foreground">Tidak ada</span>
                         }
                       </TableCell>
                       <TableCell className="text-right space-x-1">

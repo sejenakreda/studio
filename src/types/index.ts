@@ -1,8 +1,9 @@
-
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
 export type Role = 'admin' | 'guru';
+
+export type TugasTambahan = 'kesiswaan' | 'kurikulum' | 'pembina_osis' | 'pembina_eskul' | 'kepala_sekolah';
 
 export interface UserProfile {
   uid: string;
@@ -10,6 +11,7 @@ export interface UserProfile {
   displayName: string | null;
   role: Role;
   assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
+  tugasTambahan?: TugasTambahan[]; // Daftar tugas tambahan guru
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

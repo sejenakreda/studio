@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -31,7 +31,7 @@ import { getAllPengumuman } from "@/lib/firestoreService";
 import type { Pengumuman } from "@/types";
 import { Timestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
-import { useSidebar } from "@/components/ui/sidebar"; // Import useSidebar
+import { useSidebar } from "@/components/ui/sidebar";
 
 
 interface NavMenuItem {
@@ -46,6 +46,7 @@ interface NavGroup {
   groupIcon?: React.ElementType;
   items: NavMenuItem[];
   roles: Array<'admin' | 'guru'>; 
+  requiredTugas?: (authContext: ReturnType<typeof useAuth>) => boolean;
 }
 
 
@@ -138,17 +139,28 @@ const navigationStructure: NavGroup[] = [
       { href: "/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
       { href: "/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
     ],
-  }
+  },
+  // --- GURU - TUGAS TAMBAHAN ---
+  {
+    groupLabel: "Manajemen Kurikulum",
+    groupIcon: Library,
+    roles: ['guru'],
+    requiredTugas: ({ isKurikulum }) => isKurikulum,
+    items: [
+      // { href: "/guru/kurikulum/dashboard", label: "Dasbor Kurikulum", icon: Home },
+    ],
+  },
 ];
 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { userProfile, loading } = useAuth();
+  const authContext = useAuth();
+  const { userProfile, loading } = authContext;
   const router = useRouter();
   const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number>(0);
   const [isLoadingBadge, setIsLoadingBadge] = React.useState(false);
-  const { isMobile, setOpenMobile } = useSidebar(); // Get mobile state and setter
+  const { isMobile, setOpenMobile } = useSidebar();
 
   React.useEffect(() => {
     if (userProfile?.role === 'guru' && userProfile.uid) {
@@ -200,15 +212,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 
   const handleLogout = async () => {
-    if (isMobile) setOpenMobile(false); // Close sidebar before logout action
+    if (isMobile) setOpenMobile(false);
     await signOut(auth);
     router.push("/login");
   };
 
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    return navigationStructure.filter(group => group.roles.includes(userProfile.role));
-  }, [userProfile, loading]);
+    return navigationStructure.filter(group => {
+      if (!group.roles.includes(userProfile.role)) return false;
+      if (group.requiredTugas) {
+        return group.requiredTugas(authContext);
+      }
+      return true;
+    });
+  }, [userProfile, loading, authContext]);
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];
@@ -251,7 +269,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link 
             href={userProfile?.role === 'admin' ? '/admin' : '/guru'} 
             className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"
-            onClick={handleLinkClick} // Close on header click for mobile
+            onClick={handleLinkClick}
           >
             <BookCopy className="h-8 w-8 text-primary transition-transform duration-300 group-hover/sidebar:rotate-[10deg]" />
             <span id="sidebar-mobile-title" className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden font-headline">SiAP Smapna</span>
@@ -264,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <React.Fragment key={`navgroup-${group.groupLabel || group.items[0]?.href || groupIndex}`}>
                   {groupIndex > 0 && (!group.groupLabel || !filteredNavGroups[groupIndex-1].groupLabel) && <SidebarSeparator className="my-1"/>}
                   
-                  {!group.groupLabel ? ( // Direct items (like Dashboard)
+                  {!group.groupLabel ? (
                     group.items.map((item) => (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
@@ -280,7 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))
-                  ) : ( // Collapsible group
+                  ) : (
                     <AccordionItem value={group.groupLabel!} className="border-b-0">
                       <AccordionTrigger 
                         className={cn(
@@ -356,4 +374,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-    

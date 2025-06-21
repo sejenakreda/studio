@@ -1,4 +1,3 @@
-
 import {
   doc,
   getDoc,
@@ -24,7 +23,7 @@ import {
   QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -135,6 +134,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
         displayName: profile.displayName,
         role: profile.role,
         assignedMapel: profile.assignedMapel || [],
+        tugasTambahan: profile.tugasTambahan || [],
         createdAt: profile.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -150,6 +150,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       displayName: data.displayName || null,
       role: data.role as Role,
       assignedMapel: Array.isArray(data.assignedMapel) ? data.assignedMapel : [],
+      tugasTambahan: Array.isArray(data.tugasTambahan) ? data.tugasTambahan : [],
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -611,7 +612,8 @@ export const createUserProfile = async (
   firebaseUser: User,
   role: Role,
   displayName?: string,
-  assignedMapel?: string[]
+  assignedMapel?: string[],
+  tugasTambahan?: TugasTambahan[]
 ): Promise<void> => {
   const userDocRef = doc(db, 'users', firebaseUser.uid).withConverter(userProfileConverter);
   const profile: UserProfile = {
@@ -620,6 +622,7 @@ export const createUserProfile = async (
     displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pengguna Baru',
     role: role,
     assignedMapel: assignedMapel || [],
+    tugasTambahan: tugasTambahan || [],
     createdAt: serverTimestamp() as Timestamp,
     updatedAt: serverTimestamp() as Timestamp,
   };
@@ -644,6 +647,9 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
   const updateData: any = { ...data, updatedAt: serverTimestamp() };
   if (data.hasOwnProperty('assignedMapel')) {
     updateData.assignedMapel = Array.isArray(data.assignedMapel) ? data.assignedMapel : [];
+  }
+  if (data.hasOwnProperty('tugasTambahan')) {
+    updateData.tugasTambahan = Array.isArray(data.tugasTambahan) ? data.tugasTambahan : [];
   }
   delete updateData.uid;
   delete updateData.email;

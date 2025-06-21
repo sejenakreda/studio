@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { doc, getDoc, Firestore } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import type { UserProfile, Role } from '@/types';
+import type { UserProfile, Role, TugasTambahan } from '@/types';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -14,6 +14,12 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isGuru: boolean;
+  // Tugas Tambahan helpers
+  isKesiswaan: boolean;
+  isKurikulum: boolean;
+  isPembinaOsis: boolean;
+  isPembinaEskul: boolean;
+  isKepalaSekolah: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true); // Indicate processing has started for this auth state event
+      setLoading(true);
 
       if (fbUser) {
         try {
@@ -45,37 +51,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 displayName: profileDataFromDb.displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Pengguna',
                 role: profileDataFromDb.role as Role,
                 assignedMapel: profileDataFromDb.assignedMapel || [],
+                tugasTambahan: profileDataFromDb.tugasTambahan || [], // Added this line
                 createdAt: profileDataFromDb.createdAt,
                 updatedAt: profileDataFromDb.updatedAt,
               };
               
               setUser(fbUser); 
               setUserProfile(constructedProfile);
-              setLoading(false); // Successfully loaded user and profile
+              setLoading(false);
 
             } else {
               console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has missing, malformed, or invalid 'role'. Logging out. Firestore Data:`, profileDataFromDb);
               setUser(null);
               setUserProfile(null);
-              await signOut(auth); // This will trigger another onAuthStateChanged(null)
-              // setLoading will be handled by the next onAuthStateChanged(null) cycle.
+              await signOut(auth);
             }
           } else {
             console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found. Logging out.`);
             setUser(null);
             setUserProfile(null);
-            await signOut(auth); // This will trigger another onAuthStateChanged(null)
+            await signOut(auth);
           }
         } catch (error) {
           console.error(`AuthContext: Error fetching/processing user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
           setUser(null);
           setUserProfile(null);
-          await signOut(auth); // This will trigger another onAuthStateChanged(null)
+          await signOut(auth);
         }
-      } else { // fbUser is null (logged out or initial state)
+      } else {
         setUser(null);
         setUserProfile(null);
-        setLoading(false); // Processing of "logged out" state is complete
+        setLoading(false);
       }
     });
 
@@ -85,6 +91,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = useMemo(() => userProfile?.role === 'admin', [userProfile]);
   const isGuru = useMemo(() => userProfile?.role === 'guru', [userProfile]);
+  
+  const hasTugas = (tugas: TugasTambahan): boolean => {
+    return userProfile?.tugasTambahan?.includes(tugas) ?? false;
+  }
+
+  const isKesiswaan = useMemo(() => hasTugas('kesiswaan'), [userProfile]);
+  const isKurikulum = useMemo(() => hasTugas('kurikulum'), [userProfile]);
+  const isPembinaOsis = useMemo(() => hasTugas('pembina_osis'), [userProfile]);
+  const isPembinaEskul = useMemo(() => hasTugas('pembina_eskul'), [userProfile]);
+  const isKepalaSekolah = useMemo(() => hasTugas('kepala_sekolah'), [userProfile]);
 
   const value = useMemo(() => ({
     user,
@@ -92,7 +108,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     isAdmin,
     isGuru,
-  }), [user, userProfile, loading, isAdmin, isGuru]);
+    isKesiswaan,
+    isKurikulum,
+    isPembinaOsis,
+    isPembinaEskul,
+    isKepalaSekolah,
+  }), [user, userProfile, loading, isAdmin, isGuru, isKesiswaan, isKurikulum, isPembinaOsis, isPembinaEskul, isKepalaSekolah]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
@@ -104,4 +125,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

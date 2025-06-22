@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +29,7 @@ import type { Siswa, AgendaKelas } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Timestamp } from 'firebase/firestore';
+import { cn } from "@/lib/utils";
 
 const agendaSchema = z.object({
     id: z.string().optional(),

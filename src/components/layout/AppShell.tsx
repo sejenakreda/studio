@@ -180,6 +180,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKurikulum }) => isKurikulum,
     items: [
       { href: "/protected/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -189,6 +190,8 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKesiswaan }) => isKesiswaan,
     items: [
       { href: "/protected/guru/kesiswaan", label: "Dasbor Kesiswaan", icon: Home },
+      { href: "/protected/guru/pelanggaran-siswa", label: "Catat Pelanggaran", icon: ShieldAlert },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -198,6 +201,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isBendahara }) => isBendahara,
     items: [
       { href: "/protected/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -207,6 +211,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
     items: [
        { href: "/protected/guru/pembina", label: "Dasbor Pembina", icon: Home },
+       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -216,6 +221,8 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isBk }) => isBk,
     items: [
       { href: "/protected/guru/bk", label: "Dasbor BK", icon: Home },
+      { href: "/protected/guru/pelanggaran-siswa", label: "Catat Pelanggaran", icon: ShieldAlert },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -225,6 +232,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
     items: [
       { href: "/protected/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Saya", icon: BookCheck },
       { isSeparator: true },
       ...reportableRolesForTU
         .map(role => ({
@@ -242,6 +250,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isOperator }) => isOperator,
     items: [
       { href: "/protected/guru/operator", label: "Dasbor Operator", icon: Home },
+      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
    {
@@ -251,6 +260,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isStafTu }) => isStafTu,
     items: [
        { href: "/protected/guru/staf-tu", label: "Laporan Staf TU", icon: Home },
+       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -260,6 +270,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isSatpam }) => isSatpam,
     items: [
        { href: "/protected/guru/satpam", label: "Laporan Satpam", icon: Home },
+       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
    {
@@ -269,6 +280,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isPenjagaSekolah }) => isPenjagaSekolah,
     items: [
        { href: "/protected/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
+       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
 
@@ -502,6 +514,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           <Link href={item.href!} className="relative">
                             {item.icon && <item.icon className="h-5 w-5" />}
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                             {item.href === "/protected/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
+                                <SidebarMenuBadge 
+                                className="absolute top-1.5 right-2 h-4 min-w-[16px] px-1 flex items-center justify-center text-xs"
+                                >
+                                {announcementBadgeCount}
+                                </SidebarMenuBadge>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

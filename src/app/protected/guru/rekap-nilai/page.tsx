@@ -85,7 +85,11 @@ export default function RekapNilaiPage() {
 
     const rekapData = useMemo<RekapRow[]>(() => {
         const studentsInClass = selectedClass === "all" ? students : students.filter(s => s.kelas === selectedClass);
-        return studentsInClass.map(student => ({
+        
+        // Sort students alphabetically by name
+        const sortedStudents = [...studentsInClass].sort((a, b) => a.nama.localeCompare(b.nama));
+        
+        return sortedStudents.map(student => ({
             ...student,
             nilai: grades.find(g => g.id_siswa === student.id_siswa),
         }));
@@ -124,7 +128,15 @@ export default function RekapNilaiPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/> Filter Rekap Nilai</CardTitle>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/> Filter Rekap Nilai</CardTitle>
+                            <CardDescription>Pilih filter untuk melihat rekapitulasi nilai dan unduh data.</CardDescription>
+                        </div>
+                        <Button onClick={handleDownloadExcel} disabled={isLoading || rekapData.length === 0}>
+                            <Download className="mr-2 h-4 w-4" /> Unduh Excel
+                        </Button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                         <Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>
                         <Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select>
@@ -171,11 +183,6 @@ export default function RekapNilaiPage() {
                     </div>
                   )}
                 </CardContent>
-                <CardFooter>
-                    <Button onClick={handleDownloadExcel} disabled={isLoading || rekapData.length === 0}>
-                        <Download className="mr-2 h-4 w-4" /> Unduh Excel
-                    </Button>
-                </CardFooter>
             </Card>
         </div>
     );

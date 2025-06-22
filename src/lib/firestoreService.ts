@@ -639,9 +639,12 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
   const usersCollRef = collection(db, 'users').withConverter(userProfileConverter);
-  const q = query(usersCollRef, where('role', '==', role), orderBy("displayName", "asc"));
+  // Remove orderBy to prevent needing a composite index
+  const q = query(usersCollRef, where('role', '==', role));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
+  const users = querySnapshot.docs.map(doc => doc.data());
+  // Sort on the client
+  return users.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
 };
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
@@ -838,9 +841,16 @@ export const getAllTeachersDailyAttendanceForPeriod = async (year: number, month
     endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
   }
   const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
-  const q = query(collRef, where('date', '>=', startDate), where('date', '<=', endDate), orderBy('date', 'asc'), orderBy('teacherName', 'asc'));
+  // Remove complex ordering to avoid needing a composite index
+  const q = query(collRef, where('date', '>=', startDate), where('date', '<=', endDate));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
+  const records = querySnapshot.docs.map(doc => doc.data());
+  // Sort on the client
+  return records.sort((a, b) => {
+    const dateComparison = a.date.toMillis() - b.date.toMillis();
+    if (dateComparison !== 0) return dateComparison;
+    return (a.teacherName || "").localeCompare(b.teacherName || "");
+  });
 };
 
 // --- School Profile Service ---
@@ -905,9 +915,12 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef, where('activityId', '==', activityId), orderBy('date', 'desc'));
+  // Remove orderBy to avoid needing a composite index
+  const q = query(collRef, where('activityId', '==', activityId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
+  const reports = querySnapshot.docs.map(doc => doc.data());
+  // Sort on the client
+  return reports.sort((a, b) => b.date.toMillis() - a.date.toMillis());
 };
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {

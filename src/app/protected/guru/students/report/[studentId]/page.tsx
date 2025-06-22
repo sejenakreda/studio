@@ -340,7 +340,7 @@ export default function StudentReportPage() {
           .print\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .print\\:gap-x-4 { column-gap: 1rem !important; }
           .print\\:gap-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.5rem !important; }
-          .print\\:items-center { align-items-center !important; }
+          .print\\:items-center { align-items: center !important; }
           .print\\:font-medium { font-weight: 500 !important; }
           .print\\:font-semibold { font-weight: 600 !important; }
           .print\\:font-bold { font-weight: 700 !important; }

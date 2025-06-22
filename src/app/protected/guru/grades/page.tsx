@@ -141,7 +141,11 @@ export default function InputNilaiPage() {
     
     useEffect(() => { if (selectedClass && selectedMapel) fetchDataForTable(); }, [fetchDataForTable]);
     
-    const studentsInClass = useMemo(() => allStudents.filter(s => s.kelas === selectedClass), [allStudents, selectedClass]);
+    const studentsInClass = useMemo(() => {
+        return allStudents
+            .filter(s => s.kelas === selectedClass)
+            .sort((a, b) => a.nama.localeCompare(b.nama));
+    }, [allStudents, selectedClass]);
     
     useEffect(() => {
       const studentData: StudentGradeFormData[] = studentsInClass.map(student => {
@@ -238,12 +242,12 @@ export default function InputNilaiPage() {
                     const studentIndex = currentStudentsInForm.findIndex(s => allStudents.find(as => as.id_siswa === s.id_siswa)?.nis === studentNis);
                     if (studentIndex !== -1) {
                         setValue(`students.${studentIndex}.grades.tugas`, String(row.Tugas ?? ''));
-                        setValue(`students.${studentIndex}.grades.tes`, row.Tes);
-                        setValue(`students.${studentIndex}.grades.pts`, row.PTS);
-                        setValue(`students.${studentIndex}.grades.pas`, row.PAS);
-                        setValue(`students.${studentIndex}.grades.kehadiran`, row.Kehadiran);
-                        setValue(`students.${studentIndex}.grades.eskul`, row.Eskul);
-                        setValue(`students.${studentIndex}.grades.osis`, row.OSIS);
+                        setValue(`students.${index}.grades.tes`, row.Tes);
+                        setValue(`students.${index}.grades.pts`, row.PTS);
+                        setValue(`students.${index}.grades.pas`, row.PAS);
+                        setValue(`students.${index}.grades.kehadiran`, row.Kehadiran);
+                        setValue(`students.${index}.grades.eskul`, row.Eskul);
+                        setValue(`students.${index}.grades.osis`, row.OSIS);
                         updatedCount++;
                     }
                 });
@@ -292,6 +296,7 @@ export default function InputNilaiPage() {
                                   <TableRow>
                                     <TableHead className="min-w-[200px]">Nama Siswa</TableHead>
                                     <TableHead>Tugas (koma)</TableHead><TableHead>Tes</TableHead><TableHead>PTS</TableHead><TableHead>PAS</TableHead><TableHead>Kehadiran (%)</TableHead><TableHead>Eskul</TableHead><TableHead>OSIS</TableHead>
+                                    <TableHead className="text-center font-semibold">Nilai Akhir</TableHead>
                                     <TableHead className="text-center">Status</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                   </TableRow>
@@ -304,7 +309,7 @@ export default function InputNilaiPage() {
                                   const isTuntas = kkm !== null && nilaiAkhir !== undefined && nilaiAkhir >= kkm;
                                   return (
                                     <TableRow key={studentField.id} className="hover:bg-muted/30">
-                                      <TableCell className="font-medium"><p>{studentField.namaSiswa}</p><p className="text-xs text-muted-foreground">Nilai Akhir: <span className="font-semibold text-primary">{nilaiAkhir?.toFixed(1) || '-'}</span> | Tugas Avg: <span className="font-semibold">{avgTugas}</span></p></TableCell>
+                                      <TableCell className="font-medium"><p>{studentField.namaSiswa}</p><p className="text-xs text-muted-foreground">Tugas Avg: <span className="font-semibold">{avgTugas}</span></p></TableCell>
                                       <TableCell><Input {...form.register(`students.${index}.grades.tugas`)} placeholder="80,90,75" className="w-28 text-sm"/></TableCell>
                                       <TableCell><Input type="number" {...form.register(`students.${index}.grades.tes`)} className="w-20 text-sm"/></TableCell>
                                       <TableCell><Input type="number" {...form.register(`students.${index}.grades.pts`)} className="w-20 text-sm"/></TableCell>
@@ -312,7 +317,8 @@ export default function InputNilaiPage() {
                                       <TableCell><Input type="number" {...form.register(`students.${index}.grades.kehadiran`)} className="w-20 text-sm"/></TableCell>
                                       <TableCell><Input type="number" {...form.register(`students.${index}.grades.eskul`)} className="w-20 text-sm"/></TableCell>
                                       <TableCell><Input type="number" {...form.register(`students.${index}.grades.osis`)} className="w-20 text-sm"/></TableCell>
-                                      <TableCell className="text-center">{kkm !== null && nilaiAkhir !== undefined ? (<Badge variant={isTuntas ? "default" : "destructive"} className={isTuntas ? "bg-green-600 hover:bg-green-700" : ""}>{isTuntas ? "Tuntas" : "Tidak Tuntas"}</Badge>) : (<Badge variant="secondary">N/A</Badge>)}</TableCell>
+                                      <TableCell className="text-center font-bold text-primary">{nilaiAkhir?.toFixed(1) || '-'}</TableCell>
+                                      <TableCell className="text-center">{nilaiAkhir !== undefined ? (<Badge variant={isTuntas ? "default" : "destructive"} className={isTuntas ? "bg-green-600 hover:bg-green-700" : ""}>{isTuntas ? "Tuntas" : "Tidak Tuntas"}</Badge>) : (<Badge variant="secondary">N/A</Badge>)}</TableCell>
                                       <TableCell className="text-right"><Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteClick(form.getValues().students[index])} disabled={!studentField.gradeId || !!isDeleting}>{isDeleting === studentField.gradeId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}</Button></TableCell>
                                     </TableRow>
                                   );

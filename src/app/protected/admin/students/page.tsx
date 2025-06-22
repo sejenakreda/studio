@@ -108,10 +108,13 @@ export default function AdminManageStudentsPage() {
   }, [selectedClass]);
 
   const filteredStudents = useMemo(() => {
-    if (selectedClass === "all") {
-      return allStudents;
+    let studentsToFilter = [...allStudents];
+    if (selectedClass !== "all") {
+      studentsToFilter = studentsToFilter.filter(student => student.kelas === selectedClass);
     }
-    return allStudents.filter(student => student.kelas === selectedClass);
+    // Sort by name alphabetically
+    studentsToFilter.sort((a, b) => a.nama.localeCompare(b.nama));
+    return studentsToFilter;
   }, [allStudents, selectedClass]);
 
   const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);

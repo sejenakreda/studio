@@ -667,12 +667,9 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
   const usersCollRef = collection(db, 'users').withConverter(userProfileConverter);
-  // Remove orderBy to prevent needing a composite index
-  const q = query(usersCollRef, where('role', '==', role));
+  const q = query(usersCollRef, where('role', '==', role), orderBy('displayName', 'asc'));
   const querySnapshot = await getDocs(q);
-  const users = querySnapshot.docs.map(doc => doc.data());
-  // Sort on the client
-  return users.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+  return querySnapshot.docs.map(doc => doc.data());
 };
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
@@ -943,10 +940,9 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef, where('activityId', '==', activityId));
+  const q = query(collRef, where('activityId', '==', activityId), orderBy('date', 'desc'));
   const querySnapshot = await getDocs(q);
-  const reports = querySnapshot.docs.map(doc => doc.data());
-  return reports.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+  return querySnapshot.docs.map(doc => doc.data());
 };
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {

@@ -1,4 +1,3 @@
-
 // This component is intentionally left blank.
 // It is no longer in use, as the login form logic has been integrated
 // directly into the src/app/login/page.tsx file for better co-location

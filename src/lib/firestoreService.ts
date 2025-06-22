@@ -1,3 +1,4 @@
+
 import {
   doc,
   getDoc,
@@ -397,6 +398,7 @@ const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
     return {
       ...pelanggaran,
       createdAt: pelanggaran.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
   },
   fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PelanggaranSiswa {
@@ -413,6 +415,7 @@ const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
       recordedByUid: data.recordedByUid,
       recordedByName: data.recordedByName,
       createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   }
 };
@@ -497,7 +500,7 @@ export const addStudent = async (siswa: Omit<Siswa, 'id'>): Promise<Siswa> => {
 };
 export const getStudents = async (): Promise<Siswa[]> => {
   const collRef = collection(db, 'siswa').withConverter(siswaConverter);
-  const q = query(collRef, orderBy("nama", "asc"));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -582,17 +585,14 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
 export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(collRef,
-    where('id_siswa', '==', id_siswa),
-    orderBy("tahun_ajaran", "desc"),
-    orderBy("semester", "asc"),
-    orderBy("mapel", "asc")
+    where('id_siswa', '==', id_siswa)
   );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
 export const getAllGrades = async (): Promise<Nilai[]> => {
   const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const q = query(collRef, orderBy("updatedAt", "desc"));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -612,9 +612,7 @@ export const getGradesForTeacherDisplay = async (
         where('teacherUid', '==', teacherUid),
         where('tahun_ajaran', '==', tahunAjaran),
         where('semester', '==', semester),
-        where('mapel', 'in', chunk),
-        orderBy("mapel", "asc"),
-        orderBy("updatedAt", "desc")
+        where('mapel', 'in', chunk)
       );
       return getDocs(q);
   });
@@ -667,7 +665,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
   const usersCollRef = collection(db, 'users').withConverter(userProfileConverter);
-  const q = query(usersCollRef, where('role', '==', role), orderBy('displayName', 'asc'));
+  const q = query(usersCollRef, where('role', '==', role));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -699,7 +697,7 @@ export const getRecentActivityLogs = async (count = 5): Promise<ActivityLog[]> =
 const ACADEMIC_YEAR_CONFIGS_COLLECTION = 'academicYearConfigs';
 export const getAcademicYearSettings = async (): Promise<AcademicYearSetting[]> => {
   const collRef = collection(db, ACADEMIC_YEAR_CONFIGS_COLLECTION).withConverter(academicYearSettingConverter);
-  const q = query(collRef, orderBy("year", "desc"));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -744,7 +742,7 @@ export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPel
 };
 export const getMataPelajaranMaster = async (): Promise<MataPelajaranMaster[]> => {
   const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
-  const q = query(collRef, orderBy("namaMapel", "asc"));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -871,11 +869,7 @@ export const getAllTeachersDailyAttendanceForPeriod = async (year: number, month
   const querySnapshot = await getDocs(q);
   const records = querySnapshot.docs.map(doc => doc.data());
   // Sort on the client
-  return records.sort((a, b) => {
-    const dateComparison = a.date.toMillis() - b.date.toMillis();
-    if (dateComparison !== 0) return dateComparison;
-    return (a.teacherName || "").localeCompare(b.teacherName || "");
-  });
+  return records;
 };
 
 // --- School Profile Service ---
@@ -902,14 +896,19 @@ const PELANGGARAN_COLLECTION = 'pelanggaran_siswa';
 
 export const addPelanggaran = async (data: Omit<PelanggaranSiswa, 'id' | 'createdAt'>): Promise<PelanggaranSiswa> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-  const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+  const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
   const docRef = await addDoc(collRef, dataToSave);
   return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() };
 };
 
+export const updatePelanggaran = async (id: string, data: Partial<Omit<PelanggaranSiswa, 'id' | 'createdAt'>>): Promise<void> => {
+  const docRef = doc(db, PELANGGARAN_COLLECTION, id);
+  await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+};
+
 export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-  const q = query(collRef, orderBy('tanggal', 'desc'));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -940,14 +939,14 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef, where('activityId', '==', activityId), orderBy('date', 'desc'));
+  const q = query(collRef, where('activityId', '==', activityId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef, orderBy('date', 'desc'));
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -1002,7 +1001,7 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const q = query(coll, orderBy('tanggal', 'desc'));
+    const q = query(coll);
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data());
 };

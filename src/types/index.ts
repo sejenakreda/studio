@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -194,6 +195,7 @@ export interface PelanggaranSiswa {
   recordedByUid: string;
   recordedByName: string;
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface LaporanKegiatan {

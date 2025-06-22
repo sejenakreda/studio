@@ -1,10 +1,9 @@
 
 "use client";
 
-import
-* as React from "react";
+import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -28,7 +27,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { getAllPengumuman } from "@/lib/firestoreService"; 
-import type { Pengumuman } from "@/types";
+import type { Pengumuman, TugasTambahan } from "@/types";
 import { Timestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -49,6 +48,16 @@ interface NavGroup {
   requiredTugas?: (authContext: ReturnType<typeof useAuth>) => boolean;
 }
 
+const reportableRoles: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
+    { id: 'kesiswaan', label: 'Kesiswaan', icon: Users2 },
+    { id: 'pembina_osis', label: 'OSIS', icon: Award },
+    { id: 'pembina_eskul_pmr', label: 'Eskul PMR', icon: Award },
+    { id: 'pembina_eskul_paskibra', label: 'Eskul Paskibra', icon: Award },
+    { id: 'pembina_eskul_pramuka', label: 'Eskul Pramuka', icon: Award },
+    { id: 'pembina_eskul_karawitan', label: 'Eskul Karawitan', icon: Award },
+    { id: 'pembina_eskul_pencak_silat', label: 'Eskul Pencak Silat', icon: Award },
+    { id: 'pembina_eskul_volly_ball', label: 'Eskul Volly Ball', icon: Award },
+];
 
 const navigationStructure: NavGroup[] = [
   // --- Admin Items ---
@@ -85,15 +94,29 @@ const navigationStructure: NavGroup[] = [
     ]
   },
   {
-    groupLabel: "Komunikasi & Laporan",
+    groupLabel: "Komunikasi & Laporan Umum",
     groupIcon: Megaphone,
     roles: ['admin'],
     items: [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/kegiatan-reports", label: "Laporan Kegiatan", icon: Award },
     ],
+  },
+   {
+    groupLabel: "Laporan Kegiatan",
+    groupIcon: FileText,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isAdmin, isKepalaSekolah }) => isAdmin || isKepalaSekolah,
+    items: [
+      { href: "/admin/kegiatan-reports", label: "Semua Laporan", icon: BarChart3, isExact: true },
+      ...reportableRoles.map(role => ({
+        href: `/admin/kegiatan-reports?activity=${role.id}`,
+        label: `Laporan ${role.label}`,
+        icon: role.icon,
+        isExact: false, 
+      }))
+    ]
   },
   {
     groupLabel: "Pengaturan Umum",
@@ -152,7 +175,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/kegiatan-reports", label: "Laporan Kegiatan", icon: Award },
+      // The dynamic "Laporan Kegiatan" group will cover this now.
     ],
   },
   {
@@ -214,6 +237,7 @@ const navigationStructure: NavGroup[] = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const authContext = useAuth();
   const { userProfile, loading } = authContext;
   const router = useRouter();
@@ -289,23 +313,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];
+    
+    const currentActivity = searchParams.get('activity');
+    if (pathname === '/admin/kegiatan-reports' && currentActivity) {
+      return ['Laporan Kegiatan'];
+    }
+
     return filteredNavGroups
       .filter(group => group.groupLabel && group.items.some(item =>
         item.isExact ? pathname === item.href : pathname.startsWith(item.href)
       ))
       .map(group => group.groupLabel!);
-  }, [pathname, filteredNavGroups, loading, userProfile]);
+  }, [pathname, searchParams, filteredNavGroups, loading, userProfile]);
 
 
   const currentPageLabel = React.useMemo(() => {
     if (loading || !userProfile) return "Memuat...";
+    
+    const currentActivity = searchParams.get('activity');
+    if (pathname === '/admin/kegiatan-reports' && currentActivity) {
+      const role = reportableRoles.find(r => r.id === currentActivity);
+      if (role) return `Laporan ${role.label}`;
+    }
+
     const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
     const allNavItemsFlat = filteredNavGroups.flatMap(group => group.items);
     const exactMatch = allNavItemsFlat.find(item => item.href === pathname);
     if (exactMatch) return exactMatch.label;
+    
     let bestMatch: NavMenuItem | null = null;
     for (const item of allNavItemsFlat) {
-      if (item.isExact) continue; 
+      if (item.isExact || item.href.includes('?')) continue; 
       if (pathname.startsWith(item.href)) {
         if (!bestMatch || item.href.length > bestMatch.href.length) {
           bestMatch = item;
@@ -313,7 +351,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
     return bestMatch ? bestMatch.label : defaultDashboardLabel;
-  }, [pathname, filteredNavGroups, userProfile, loading]);
+  }, [pathname, searchParams, filteredNavGroups, userProfile, loading]);
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -374,7 +412,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <SidebarMenuItem key={item.href}>
                               <SidebarMenuButton
                                 asChild
-                                isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
+                                isActive={(() => {
+                                    if (item.isExact) return pathname === item.href;
+                                    
+                                    const itemPath = item.href.split('?')[0];
+                                    if (pathname !== itemPath) return false;
+
+                                    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+                                    const itemActivity = itemParams.get('activity');
+                                    
+                                    if (itemActivity) {
+                                      return itemActivity === searchParams.get('activity');
+                                    }
+
+                                    return pathname.startsWith(item.href);
+                                })()}
                                 size="sm" 
                                 className="h-7"
                                 onClick={handleLinkClick}

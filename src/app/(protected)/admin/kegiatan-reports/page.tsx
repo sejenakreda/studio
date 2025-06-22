@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
+import { useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
@@ -16,11 +17,25 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getAllLaporanKegiatan } from '@/lib/firestoreService';
 import type { LaporanKegiatan, TugasTambahan } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+
+
+const getActivityName = (activityId: TugasTambahan | string): string => {
+    if (activityId === 'pembina_osis') return 'OSIS';
+    if (activityId === 'kesiswaan') return 'Kesiswaan';
+    return activityId
+        .replace('pembina_eskul_', '')
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};
 
 export default function KegiatanReportsPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const activityFilter = searchParams.get('activity') as TugasTambahan | null;
+
   const [reports, setReports] = useState<LaporanKegiatan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +58,14 @@ export default function KegiatanReportsPage() {
     fetchData();
   }, [fetchData]);
 
-  const reportGroups = useMemo(() => {
+  const filteredReportGroups = useMemo(() => {
     const groups = new Map<TugasTambahan, LaporanKegiatan[]>();
-    reports.forEach(report => {
+    
+    const reportsToProcess = activityFilter
+      ? reports.filter(report => report.activityId === activityFilter)
+      : reports;
+
+    reportsToProcess.forEach(report => {
       if (!groups.has(report.activityId)) {
         groups.set(report.activityId, []);
       }
@@ -53,17 +73,17 @@ export default function KegiatanReportsPage() {
     });
     // Sort groups by activity name
     return new Map([...groups.entries()].sort((a, b) => a[1][0].activityName.localeCompare(b[1][0].activityName)));
-  }, [reports]);
+  }, [reports, activityFilter]);
 
   const handleDownloadExcel = () => {
     const workbook = XLSX.utils.book_new();
     
-    if (reportGroups.size === 0) {
+    if (filteredReportGroups.size === 0) {
         toast({ variant: "default", title: "Tidak ada data untuk diunduh." });
         return;
     }
 
-    reportGroups.forEach((groupReports, activityId) => {
+    filteredReportGroups.forEach((groupReports, activityId) => {
       if (groupReports.length > 0) {
         const sheetName = groupReports[0].activityName.substring(0, 31);
         const dataForExcel = groupReports.map(report => ({
@@ -87,6 +107,29 @@ export default function KegiatanReportsPage() {
   const handlePrint = () => {
     window.print();
   };
+
+  const pageTitle = activityFilter ? `Laporan ${getActivityName(activityFilter)}` : 'Semua Laporan Kegiatan';
+  const pageDescription = activityFilter ? `Menampilkan semua laporan yang dibuat untuk kegiatan ${getActivityName(activityFilter)}.` : 'Lihat semua laporan kegiatan yang dibuat oleh Pembina & Kesiswaan.';
+  const printTitle = `LAPORAN KEGIATAN - ${activityFilter ? getActivityName(activityFilter).toUpperCase() : 'SEMUA'}`;
+  
+  const renderReportList = (reports: LaporanKegiatan[]) => (
+     <div className="space-y-3 print:space-y-1">
+        {reports.map(report => (
+            <Card key={report.id} className="p-4 hover:shadow-md transition-shadow print:shadow-none print:border-none print:p-0 print:mb-2">
+                <CardHeader className="p-0 mb-2 print:mb-1">
+                    <CardTitle className="text-base print:text-sm">{report.title}</CardTitle>
+                    <CardDescription className="print:text-xs">
+                        Kegiatan tgl: {report.date ? format(report.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }) : 'N/A'} | 
+                        Dibuat oleh: {report.createdByDisplayName}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <p className="text-sm whitespace-pre-wrap print:text-xs">{report.content}</p>
+                </CardContent>
+            </Card>
+        ))}
+    </div>
+  );
   
   return (
     <div className="space-y-6 print:space-y-2">
@@ -95,72 +138,64 @@ export default function KegiatanReportsPage() {
           <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline flex items-center gap-2">
-              <Award className="h-8 w-8 text-primary" /> Laporan Kegiatan
+              <Award className="h-8 w-8 text-primary" /> {pageTitle}
             </h1>
-            <p className="text-muted-foreground">Lihat semua laporan kegiatan yang dibuat oleh Pembina & Kesiswaan.</p>
+            <p className="text-muted-foreground">{pageDescription}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleDownloadExcel} variant="outline" disabled={isLoading || reportGroups.size === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
-          <Button onClick={handlePrint} variant="outline" disabled={isLoading || reportGroups.size === 0}><Printer className="mr-2 h-4 w-4" />Cetak/PDF</Button>
+          <Button onClick={handleDownloadExcel} variant="outline" disabled={isLoading || filteredReportGroups.size === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
+          <Button onClick={handlePrint} variant="outline" disabled={isLoading || filteredReportGroups.size === 0}><Printer className="mr-2 h-4 w-4" />Cetak/PDF</Button>
         </div>
       </div>
       
        <div className="print:block hidden text-center mb-4">
-        <h2 className="text-xl font-bold">LAPORAN KEGIATAN</h2>
+        <h2 className="text-xl font-bold">{printTitle}</h2>
         <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
       </div>
 
       <Card className="print:shadow-none print:border-none">
         <CardHeader className="print:hidden">
-          <CardTitle>Daftar Kegiatan</CardTitle>
-          <CardDescription>Klik pada setiap kegiatan untuk melihat daftar laporannya.</CardDescription>
+          <CardTitle>Daftar Laporan</CardTitle>
+          {!activityFilter && <CardDescription>Klik pada setiap kegiatan untuk melihat daftar laporannya.</CardDescription>}
         </CardHeader>
         <CardContent className="print:pt-0">
           {isLoading ? (<div className="space-y-2"><Skeleton className="h-12 w-full"/><Skeleton className="h-12 w-full"/><Skeleton className="h-12 w-full"/></div>)
           : error ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>)
           : (
-            <Accordion type="multiple" className="w-full">
-              {Array.from(reportGroups.entries()).map(([activityId, groupReports]) => (
-                <AccordionItem key={activityId} value={activityId} className="print:border-b-2 print:border-black print:mb-4">
-                  <AccordionTrigger className="hover:no-underline text-base font-semibold print:text-lg">
-                    <div className="flex items-center gap-4">
-                        <span>{groupReports[0].activityName}</span>
-                        <Badge variant="secondary" className="print:hidden">{groupReports.length} Laporan</Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="p-2 print:p-0">
-                    {groupReports.length === 0 ? (
-                        <p className="text-sm text-muted-foreground px-4 py-6 text-center">Belum ada laporan untuk kegiatan ini.</p>
-                    ) : (
-                        <div className="space-y-3 print:space-y-1">
-                            {groupReports.map(report => (
-                                <Card key={report.id} className="p-4 hover:shadow-md transition-shadow print:shadow-none print:border-none print:p-0 print:mb-2">
-                                    <CardHeader className="p-0 mb-2 print:mb-1">
-                                        <CardTitle className="text-base print:text-sm">{report.title}</CardTitle>
-                                        <CardDescription className="print:text-xs">
-                                            Kegiatan tgl: {report.date ? format(report.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }) : 'N/A'} | 
-                                            Dibuat oleh: {report.createdByDisplayName}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <p className="text-sm whitespace-pre-wrap print:text-xs">{report.content}</p>
-                                    </CardContent>
-                                </Card>
-                            ))}
+            <>
+            {filteredReportGroups.size === 0 && !isLoading && (
+              <Alert variant="default" className="print:hidden">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Informasi</AlertTitle>
+                  <AlertDescription>Belum ada laporan kegiatan yang cocok dengan filter ini.</AlertDescription>
+              </Alert>
+            )}
+            
+            {activityFilter && filteredReportGroups.size > 0 ? (
+                renderReportList(Array.from(filteredReportGroups.values())[0])
+            ) : (
+                <Accordion type="multiple" className="w-full">
+                {Array.from(filteredReportGroups.entries()).map(([activityId, groupReports]) => (
+                    <AccordionItem key={activityId} value={activityId} className="print:border-b-2 print:border-black print:mb-4">
+                    <AccordionTrigger className="hover:no-underline text-base font-semibold print:text-lg">
+                        <div className="flex items-center gap-4">
+                            <span>{groupReports[0].activityName}</span>
+                            <Badge variant="secondary" className="print:hidden">{groupReports.length} Laporan</Badge>
                         </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-              {reportGroups.size === 0 && !isLoading && (
-                 <Alert variant="default" className="print:hidden">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Informasi</AlertTitle>
-                    <AlertDescription>Belum ada laporan kegiatan yang dibuat oleh pembina manapun.</AlertDescription>
-                </Alert>
-              )}
-            </Accordion>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-2 print:p-0">
+                        {groupReports.length === 0 ? (
+                            <p className="text-sm text-muted-foreground px-4 py-6 text-center">Belum ada laporan untuk kegiatan ini.</p>
+                        ) : (
+                            renderReportList(groupReports)
+                        )}
+                    </AccordionContent>
+                    </AccordionItem>
+                ))}
+                </Accordion>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

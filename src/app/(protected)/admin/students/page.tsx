@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Filter, ChevronLeft, ChevronRight, Download, FileUp } from "lucide-react";
-import { addStudent, getStudents, deleteStudent, addActivityLog } from '@/lib/firestoreService';
+import { addStudent, getStudents, deleteStudent, addActivityLog, updateStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -215,10 +215,10 @@ export default function AdminManageStudentsPage() {
       return;
     }
     const dataToExport = allStudents.map(student => ({
-      Nama: student.nama,
-      NIS: student.nis,
-      Kelas: student.kelas,
-      ID_Siswa: student.id_siswa,
+      nama: student.nama,
+      nis: student.nis,
+      kelas: student.kelas,
+      id_siswa: student.id_siswa,
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -247,12 +247,12 @@ export default function AdminManageStudentsPage() {
       return;
     }
     setIsImporting(true);
-    const reader = new FileReader();
     
     const existingStudents = await getStudents();
-    const existingIdSet = new Set(existingStudents.map(s => s.id_siswa.toLowerCase()));
-    const existingNisSet = new Set(existingStudents.map(s => s.nis));
+    const idSiswaToStudentMap = new Map(existingStudents.map(s => [s.id_siswa.toLowerCase(), s]));
+    const nisToStudentMap = new Map(existingStudents.map(s => [s.nis, s]));
 
+    const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
@@ -274,9 +274,10 @@ export default function AdminManageStudentsPage() {
           return;
         }
 
-        let successCount = 0;
-        let failCount = 0;
+        let addedCount = 0, updatedCount = 0, failCount = 0;
         const errorMessages: string[] = [];
+        const processedNis = new Set<string>();
+        const processedIdSiswa = new Set<string>();
         
         for (const [index, student] of json.entries()) {
           const studentNis = String(student.nis || "").trim();
@@ -285,80 +286,55 @@ export default function AdminManageStudentsPage() {
           const studentKelas = String(student.kelas || "").trim();
           
           if (!studentNama || !studentNis || !studentKelas || !studentIdSiswa) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: Data tidak lengkap. Dilewati.`);
-            continue;
+            failCount++; errorMessages.push(`Baris ${index + 2}: Data tidak lengkap. Dilewati.`); continue;
+          }
+          if (processedNis.has(studentNis) || processedIdSiswa.has(studentIdSiswa)) {
+             failCount++; errorMessages.push(`Baris ${index + 2}: Duplikat NIS/ID di dalam file Excel untuk ${studentNis}/${studentIdSiswa}. Dilewati.`); continue;
           }
 
-          const nisRegex = /^[0-9]+$/;
-          if (studentNis.length < 5 || !nisRegex.test(studentNis)) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: Format NIS salah untuk ${studentNis}. Dilewati.`);
-            continue;
-          }
+          const existingStudent = idSiswaToStudentMap.get(studentIdSiswa) || nisToStudentMap.get(studentNis);
 
-          const idSiswaRegex = /^[a-zA-Z0-9_.-]+$/;
-          if (studentIdSiswa.length < 3 || !idSiswaRegex.test(studentIdSiswa)) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: Format ID Siswa salah untuk ${studentIdSiswa}. Dilewati.`);
-            continue;
+          if (existingStudent) { // UPDATE
+            const updatePayload: Partial<Siswa> = {};
+            if (studentNama !== existingStudent.nama) updatePayload.nama = studentNama;
+            if (studentKelas !== existingStudent.kelas) updatePayload.kelas = studentKelas;
+            if (studentNis !== existingStudent.nis) updatePayload.nis = studentNis; // Allow NIS update if ID matches
+            if (studentIdSiswa.toLowerCase() !== existingStudent.id_siswa.toLowerCase()) updatePayload.id_siswa = studentIdSiswa; // Allow ID update if NIS matches
+            
+            if (Object.keys(updatePayload).length > 0) {
+              try {
+                  await updateStudent(existingStudent.id!, updatePayload);
+                  updatedCount++;
+                  await addActivityLog("Data Siswa Diperbarui (Excel)", `Data untuk ${existingStudent.nama} (${existingStudent.nis}) diperbarui. Perubahan: ${Object.keys(updatePayload).join(', ')} oleh Admin.`, currentAdminProfile.uid, currentAdminProfile.displayName || "Admin");
+              } catch (updateError: any) {
+                  failCount++; errorMessages.push(`Baris ${index + 2}: Gagal update ${studentNama}: ${updateError.message}.`);
+              }
+            }
+          } else { // ADD
+            try {
+              const newStudent: Omit<Siswa, 'id'> = { nama: studentNama, nis: studentNis, kelas: studentKelas, id_siswa: studentIdSiswa };
+              await addStudent(newStudent);
+              await addActivityLog("Siswa Baru Diimpor (Excel)", `Siswa: ${newStudent.nama} (NIS: ${newStudent.nis}) oleh Admin.`, currentAdminProfile.uid, currentAdminProfile.displayName || "Admin");
+              addedCount++;
+            } catch (addError: any) {
+              failCount++; errorMessages.push(`Baris ${index + 2}: Gagal menambah ${studentNama}: ${addError.message}.`);
+            }
           }
-
-          if (existingIdSet.has(studentIdSiswa)) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: ID Siswa ${studentIdSiswa} sudah ada di sistem atau di baris sebelumnya.`);
-            continue;
-          }
-          if (existingNisSet.has(studentNis)) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: NIS ${studentNis} sudah ada di sistem atau di baris sebelumnya.`);
-            continue;
-          }
-
-          try {
-            const newStudent: Omit<Siswa, 'id'> = {
-              nama: studentNama,
-              nis: studentNis,
-              kelas: studentKelas,
-              id_siswa: studentIdSiswa,
-            };
-            await addStudent(newStudent);
-             await addActivityLog(
-              "Siswa Baru Diimpor (Excel)",
-              `Siswa: ${newStudent.nama} (NIS: ${newStudent.nis}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
-              currentAdminProfile.uid,
-              currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
-            );
-            successCount++;
-            existingIdSet.add(studentIdSiswa);
-            existingNisSet.add(studentNis);
-          } catch (error: any) {
-            failCount++;
-            errorMessages.push(`Baris ${index + 2}: Gagal impor ${studentNama}: ${error.message}. Dilewati.`);
-          }
+          processedNis.add(studentNis);
+          processedIdSiswa.add(studentIdSiswa);
         }
 
-        let toastDescription = `${successCount} siswa berhasil diimpor. ${failCount} siswa gagal diimpor.`;
+        let toastDescription = `Berhasil: ${addedCount} ditambahkan, ${updatedCount} diperbarui. Gagal: ${failCount}.`;
         if (failCount > 0) {
-            const firstFewErrors = errorMessages.slice(0, 2).join(' ');
-            toastDescription += ` Penyebab umum adalah duplikat ID/NIS. Contoh error: ${firstFewErrors}...`;
+            toastDescription += ` Penyebab umum adalah duplikat ID/NIS. Lihat konsol untuk detail.`;
         }
         
-        toast({
-          title: "Proses Impor Siswa Selesai",
-          description: toastDescription,
-          duration: failCount > 0 ? 10000 : 5000,
-        });
-
-        if (errorMessages.length > 0) {
-          console.warn("Detail error impor siswa:", errorMessages.join("\n"));
-        }
+        toast({ title: "Proses Impor Selesai", description: toastDescription, duration: failCount > 0 ? 10000 : 5000 });
+        if (errorMessages.length > 0) console.warn("Detail error impor siswa:", errorMessages.join("\n"));
         
         fetchStudents(); 
         setSelectedFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
 
       } catch (error) {
         console.error("Error processing Excel file for students:", error);
@@ -473,8 +449,8 @@ export default function AdminManageStudentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Impor Siswa dari Excel</CardTitle>
-          <CardDescription>Impor banyak data siswa sekaligus menggunakan file Excel. Gunakan template yang disediakan.</CardDescription>
+          <CardTitle>Impor & Perbarui Siswa dari Excel</CardTitle>
+          <CardDescription>Impor data siswa baru atau perbarui data yang ada (misal: untuk kenaikan kelas) menggunakan file Excel. Gunakan template yang disediakan.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -487,12 +463,12 @@ export default function AdminManageStudentsPage() {
             />
             <Button onClick={handleImportStudents} disabled={isImporting || !selectedFile} className="w-full sm:w-auto">
               {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-              {isImporting ? 'Mengimpor...' : 'Impor Siswa'}
+              {isImporting ? 'Memproses...' : 'Impor & Perbarui'}
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
             Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">nama</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">nis</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">kelas</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">id_siswa</code>.
-            Data yang sudah ada (berdasarkan NIS atau ID Siswa) akan dilewati.
+            Jika <code className="bg-muted px-1 py-0.5 rounded text-xs">id_siswa</code> atau <code className="bg-muted px-1 py-0.5 rounded text-xs">nis</code> sudah ada, data siswa tersebut akan diperbarui. Jika belum ada, siswa baru akan ditambahkan.
           </p>
         </CardContent>
       </Card>
@@ -679,4 +655,5 @@ export default function AdminManageStudentsPage() {
     </div>
   );
 }
+
     

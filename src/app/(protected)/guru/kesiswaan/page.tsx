@@ -311,23 +311,21 @@ export default function KesiswaanDashboardPage() {
         <AlertDialog open={!!violationToDelete} onOpenChange={(isOpen) => !isOpen && setViolationToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pelanggaran <span className="font-semibold">{violationToDelete.pelanggaran}</span> oleh siswa <span className="font-semibold">{violationToDelete.namaSiswa}</span>. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setViolationToDelete(null)} disabled={isDeleting}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleViolationDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">{isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       )}
 
-      {reportToModify && (
-          <Dialog open={isReportFormOpen} onOpenChange={setIsReportFormOpen}>
-              <DialogContent className="sm:max-w-[525px]">
-                  <Form {...reportForm}>
-                      <form onSubmit={reportForm.handleSubmit(onReportSubmit)}>
-                          <DialogHeader><DialogTitle>{reportToModify ? 'Edit' : 'Buat'} Laporan Kegiatan</DialogTitle><DialogDescription>Isi detail laporan kegiatan Kesiswaan.</DialogDescription></DialogHeader>
-                          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                              <FormField control={reportForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan</FormLabel><FormControl><Input placeholder="cth: Rapat Organisasi Siswa" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                              <FormField control={reportForm.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                              <FormField control={reportForm.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
-                          </div>
-                          <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan"}</Button></DialogFooter>
-                      </form>
-                  </Form>
-              </DialogContent>
-          </Dialog>
-      )}
+      <Dialog open={isReportFormOpen} onOpenChange={setIsReportFormOpen}>
+          <DialogContent className="sm:max-w-[525px]">
+              <Form {...reportForm}>
+                  <form onSubmit={reportForm.handleSubmit(onReportSubmit)}>
+                      <DialogHeader><DialogTitle>{reportToModify ? 'Edit' : 'Buat'} Laporan Kegiatan</DialogTitle><DialogDescription>Isi detail laporan kegiatan Kesiswaan.</DialogDescription></DialogHeader>
+                      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                          <FormField control={reportForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan</FormLabel><FormControl><Input placeholder="cth: Rapat Organisasi Siswa" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={reportForm.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                          <FormField control={reportForm.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
+                      </div>
+                      <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan"}</Button></DialogFooter>
+                  </form>
+              </Form>
+          </DialogContent>
+      </Dialog>
 
       {reportToModify && (
           <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>

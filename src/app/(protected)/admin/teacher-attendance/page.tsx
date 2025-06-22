@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange, Save, UserCheck, Info as InfoIcon, PieChart } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Users, History, Trash2, Edit, Download, CalendarRange, Save, UserCheck, Info as InfoIcon, PieChart, Printer } from "lucide-react";
 import {
   getAllUsersByRole,
   getAllTeachersDailyAttendanceForPeriod,
@@ -252,22 +252,39 @@ export default function ManageTeacherAttendancePage() {
     toast({ title: "Unduhan Dimulai", description: "File Excel rekap kehadiran bulanan sedang disiapkan." });
   };
 
+  const handlePrint = () => { window.print(); };
+
+  const printTitle = useMemo(() => {
+    const monthLabel = dailyFilterMonth === "all" ? `Tahun ${dailyFilterYear}` : `${MONTHS.find(m => m.value === dailyFilterMonth)?.label || ''} ${dailyFilterYear}`;
+    return `Periode: ${monthLabel}`;
+  }, [dailyFilterYear, dailyFilterMonth]);
+
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4"><Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div></div>
+    <div className="space-y-6 print:space-y-2">
+      <div className="flex items-center gap-4 print:hidden">
+        <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div>
+      </div>
       
-      <Card>
+       <div className="print:block hidden text-center mb-4">
+        <h2 className="text-xl font-bold">REKAPITULASI KEHADIRAN GURU</h2>
+        <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
+        <p className="text-sm">{printTitle}</p>
+      </div>
+
+      <Card className="print:shadow-none print:border-none">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 print:hidden">
             <div><CardTitle>Filter Data</CardTitle><CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription></div>
              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
                 <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
+                <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto" disabled={monthlySummary.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak Rekap</Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="print:hidden">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
             <div><Label htmlFor="filter-daily-teacher">Filter Guru</Label><Select onValueChange={setDailyFilterTeacherUid} value={dailyFilterTeacherUid} disabled={isLoadingTeachers}><SelectTrigger id="filter-daily-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat..." : "Pilih guru..."} /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) : teachers.map(t => (<SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>))}</SelectContent></Select></div>
             <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
@@ -277,12 +294,12 @@ export default function ManageTeacherAttendancePage() {
       </Card>
 
       {dailyFilterMonth !== "all" && (
-        <Card>
-          <CardHeader><CardTitle>Rekapitulasi Kehadiran Bulanan</CardTitle><CardDescription>Ringkasan kehadiran untuk periode {MONTHS.find(m => m.value === dailyFilterMonth)?.label} {dailyFilterYear}. Persentase dihitung berdasarkan total hari kerja (Senin-Jumat) dalam sebulan.</CardDescription></CardHeader>
+        <Card id="rekap-bulanan-card" className="print:shadow-none print:border-none">
+          <CardHeader className="print:hidden"><CardTitle>Rekapitulasi Kehadiran Bulanan</CardTitle><CardDescription>Ringkasan kehadiran untuk periode {MONTHS.find(m => m.value === dailyFilterMonth)?.label} {dailyFilterYear}. Persentase dihitung berdasarkan total hari kerja (Senin-Jumat) dalam sebulan.</CardDescription></CardHeader>
           <CardContent>
             {isLoadingSummary || isLoadingDailyRecords ? (<div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin" /></div>)
-            : monthlySummary.length === 0 ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><PieChart className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Tidak Ada Data Rekap</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada data kehadiran yang tercatat untuk direkap pada bulan ini.</p></div>)
-            : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead className="text-center">Hadir</TableHead><TableHead className="text-center">Izin</TableHead><TableHead className="text-center">Sakit</TableHead><TableHead className="text-center">Alpa</TableHead><TableHead className="text-center">Total Tercatat</TableHead><TableHead className="text-center">Total Hari Kerja</TableHead><TableHead className="text-center font-semibold text-primary">Persentase Hadir</TableHead></TableRow></TableHeader><TableBody>
+            : monthlySummary.length === 0 ? (<div className="text-center p-6 border-2 border-dashed rounded-lg print:hidden"><PieChart className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Tidak Ada Data Rekap</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada data kehadiran yang tercatat untuk direkap pada bulan ini.</p></div>)
+            : (<div className="overflow-x-auto"><Table className="print:text-xs"><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead className="text-center">Hadir</TableHead><TableHead className="text-center">Izin</TableHead><TableHead className="text-center">Sakit</TableHead><TableHead className="text-center">Alpa</TableHead><TableHead className="text-center">Total Tercatat</TableHead><TableHead className="text-center">Total Hari Kerja</TableHead><TableHead className="text-center font-semibold text-primary">Persentase Hadir</TableHead></TableRow></TableHeader><TableBody>
               {monthlySummary.map(s => (<TableRow key={s.teacherUid}>
                 <TableCell className="font-medium">{s.teacherName}</TableCell>
                 <TableCell className="text-center text-green-600 font-medium">{s.Hadir}</TableCell>
@@ -300,7 +317,7 @@ export default function ManageTeacherAttendancePage() {
       )}
 
 
-      <Card>
+      <Card className="print:hidden">
         <CardHeader><CardTitle>Detail Kehadiran Harian (Sesuai Filter)</CardTitle><CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription></CardHeader>
         <CardContent>
           {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
@@ -329,6 +346,27 @@ export default function ManageTeacherAttendancePage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <style jsx global>{`
+        @media print {
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
+          .print\\:hidden { display: none !important; }
+          .print\\:block { display: block !important; }
+          .print\\:space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; margin-bottom: 0 !important; }
+          .print\\:text-center { text-align: center !important; }
+          .print\\:mb-4 { margin-bottom: 1rem !important; }
+          .print\\:shadow-none { box-shadow: none !important; }
+          .print\\:border-none { border: none !important; }
+          .print\\:text-xs table, .print\\:text-xs th, .print\\:text-xs td { font-size: 9pt !important; line-height: 1.2 !important; }
+          .print\\:text-xl { font-size: 1.5rem !important; }
+          .print\\:text-lg { font-size: 1.25rem !important; }
+          .print\\:text-sm { font-size: 0.875rem !important; }
+          table { width: 100%; border-collapse: collapse !important; }
+          th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; }
+          thead { background-color: #f3f4f6 !important; }
+        }
+      `}</style>
+
     </div>
   );
 }

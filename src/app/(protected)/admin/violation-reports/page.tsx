@@ -133,8 +133,8 @@ export default function ViolationReportsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleDownloadExcel} variant="outline"><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
-          <Button onClick={handlePrint} variant="outline"><Printer className="mr-2 h-4 w-4" />Cetak</Button>
+          <Button onClick={handleDownloadExcel} variant="outline" disabled={filteredViolations.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
+          <Button onClick={handlePrint} variant="outline" disabled={filteredViolations.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
         </div>
       </div>
       
@@ -226,4 +226,3 @@ export default function ViolationReportsPage() {
     </div>
   );
 }
-

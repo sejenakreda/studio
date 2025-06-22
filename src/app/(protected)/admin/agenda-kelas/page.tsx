@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, BookCheck, Filter, Download } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, BookCheck, Filter, Download, Printer } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -89,10 +89,20 @@ export default function LaporanAgendaKelasPage() {
         XLSX.writeFile(workbook, "laporan_agenda_kelas.xlsx");
         toast({ title: "Unduhan Dimulai", description: "File Excel sedang disiapkan." });
     };
+    
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const printTitle = useMemo(() => {
+        const teacherName = filterTeacher === "all" ? "Semua Guru" : teachers.find(t => t.uid === filterTeacher)?.displayName || "";
+        const monthLabel = filterMonth === "all" ? `Tahun ${filterYear}` : `${MONTHS.find(m => m.value === filterMonth)?.label || ''} ${filterYear}`;
+        return `Periode: ${monthLabel} - ${teacherName}`;
+    }, [filterYear, filterMonth, filterTeacher, teachers]);
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-6 print:space-y-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
                 <div className="flex items-center gap-4">
                     <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
                     <div>
@@ -103,12 +113,19 @@ export default function LaporanAgendaKelasPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button onClick={handleDownloadExcel} variant="outline"><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
+                    <Button onClick={handleDownloadExcel} variant="outline" disabled={filteredAgendas.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
+                    <Button onClick={handlePrint} variant="outline" disabled={filteredAgendas.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak/PDF</Button>
                 </div>
             </div>
 
-            <Card>
-                <CardHeader>
+            <div className="print:block hidden text-center mb-4">
+                <h2 className="text-xl font-bold">LAPORAN AGENDA KELAS</h2>
+                <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
+                <p className="text-sm">{printTitle}</p>
+            </div>
+
+            <Card className="print:shadow-none print:border-none">
+                <CardHeader className="print:hidden">
                     <CardTitle>Filter Laporan Agenda</CardTitle>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                         <div>
@@ -135,7 +152,7 @@ export default function LaporanAgendaKelasPage() {
                             <p className="mt-1 text-sm text-muted-foreground">Tidak ada data agenda yang cocok dengan filter yang Anda pilih.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Guru</TableHead><TableHead>Kelas</TableHead><TableHead>Mapel</TableHead><TableHead>Siswa Absen</TableHead><TableHead>Pokok Bahasan</TableHead></TableRow></TableHeader>
+                        <div className="overflow-x-auto"><Table className="print:text-xs"><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Guru</TableHead><TableHead>Kelas</TableHead><TableHead>Mapel</TableHead><TableHead>Siswa Absen</TableHead><TableHead>Pokok Bahasan</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {filteredAgendas.map(a => (
                                 <TableRow key={a.id}>
@@ -152,6 +169,26 @@ export default function LaporanAgendaKelasPage() {
                     )}
                 </CardContent>
             </Card>
+            
+            <style jsx global>{`
+                @media print {
+                  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
+                  .print\\:hidden { display: none !important; }
+                  .print\\:block { display: block !important; }
+                  .print\\:space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; margin-bottom: 0 !important; }
+                  .print\\:text-center { text-align: center !important; }
+                  .print\\:mb-4 { margin-bottom: 1rem !important; }
+                  .print\\:shadow-none { box-shadow: none !important; }
+                  .print\\:border-none { border: none !important; }
+                  .print\\:text-xs table, .print\\:text-xs th, .print\\:text-xs td { font-size: 9pt !important; line-height: 1.2 !important; }
+                  .print\\:text-xl { font-size: 1.5rem !important; }
+                  .print\\:text-lg { font-size: 1.25rem !important; }
+                  .print\\:text-sm { font-size: 0.875rem !important; }
+                  table { width: 100%; border-collapse: collapse !important; }
+                  th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; }
+                  thead { background-color: #f3f4f6 !important; }
+                }
+            `}</style>
         </div>
     );
 }

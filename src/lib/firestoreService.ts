@@ -716,6 +716,7 @@ export const getActiveAcademicYears = async (): Promise<string[]> => {
 // --- KKM Settings Service ---
 const KKM_SETTINGS_COLLECTION = 'kkm_settings';
 const generateKkmDocId = (mapel: string, tahun_ajaran: string) => `${mapel.toLowerCase().replace(/[^a-z0-9]/gi, '_')}_${tahun_ajaran.replace('/', '-')}`;
+
 export const getKkmSetting = async (mapel: string, tahun_ajaran: string): Promise<KkmSetting | null> => {
   if (!mapel || !tahun_ajaran) return null;
   const docId = generateKkmDocId(mapel, tahun_ajaran);
@@ -728,6 +729,12 @@ export const setKkmSetting = async (kkmData: Omit<KkmSetting, 'id' | 'updatedAt'
   const docId = generateKkmDocId(kkmData.mapel, kkmData.tahun_ajaran);
   const docRef = doc(db, KKM_SETTINGS_COLLECTION, docId).withConverter(kkmSettingConverter);
   await setDoc(docRef, kkmData, { merge: true });
+};
+export const getAllKkmSettings = async (): Promise<KkmSetting[]> => {
+  const collRef = collection(db, KKM_SETTINGS_COLLECTION).withConverter(kkmSettingConverter);
+  const q = query(collRef, orderBy('mapel', 'asc'), orderBy('tahun_ajaran', 'desc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
 };
 
 // --- Mata Pelajaran Master Service ---

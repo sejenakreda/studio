@@ -100,6 +100,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/protected/admin/students", label: "Kelola Siswa", icon: BookUser },
       { href: "/protected/admin/mapel", label: "Kelola Mapel", icon: ListChecks },
+      { href: "/protected/admin/kkm", label: "Atur KKM", icon: ShieldCheck },
       { href: "/protected/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
       { href: "/protected/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
       { href: "/protected/admin/grades", label: "Semua Nilai", icon: FileText },

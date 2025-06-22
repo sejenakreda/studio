@@ -119,6 +119,7 @@ const navigationStructure: NavGroup[] = [
   // --- Guru Items ---
   { 
     roles: ['guru'],
+    requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
     items: [{ href: "/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
   },
   {
@@ -139,6 +140,7 @@ const navigationStructure: NavGroup[] = [
     groupLabel: "Akademik",
     groupIcon: Edit3,
     roles: ['guru'],
+    requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
     items: [
       { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
       { href: "/guru/grades", label: "Input Nilai", icon: Edit3 },
@@ -159,7 +161,7 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Laporan & Fungsi Khusus",
     groupIcon: Shield,
-    roles: ['admin', 'guru'],
+    roles: ['admin'],
     requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },

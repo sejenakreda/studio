@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -48,21 +48,43 @@ interface NavGroup {
   requiredTugas?: (authContext: ReturnType<typeof useAuth>) => boolean;
 }
 
-const reportableRoles: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
-    { id: 'pembina_osis', label: 'OSIS', icon: Award },
-    { id: 'pembina_eskul_pmr', label: 'Eskul PMR', icon: Award },
-    { id: 'pembina_eskul_paskibra', label: 'Eskul Paskibra', icon: Award },
-    { id: 'pembina_eskul_pramuka', label: 'Eskul Pramuka', icon: Award },
-    { id: 'pembina_eskul_karawitan', label: 'Eskul Karawitan', icon: Award },
-    { id: 'pembina_eskul_pencak_silat', label: 'Eskul Pencak Silat', icon: Award },
-    { id: 'pembina_eskul_volly_ball', label: 'Eskul Volly Ball', icon: Award },
-    { id: 'bk', label: 'Bimbingan Konseling', icon: HeartHandshake },
+const wakasekReportItems: NavMenuItem[] = [
+  { href: "/admin/kegiatan-reports?activity=kesiswaan", label: "Laporan Kesiswaan", icon: Users2 },
+  { href: "/admin/kegiatan-reports?activity=kurikulum", label: "Laporan Kurikulum", icon: Library },
+  { href: "/admin/kegiatan-reports?activity=bendahara", label: "Laporan Bendahara", icon: CircleDollarSign },
+];
+
+const pembinaReportItems: NavMenuItem[] = [
+  { href: "/admin/kegiatan-reports?activity=pembina_osis", label: "Laporan OSIS", icon: Award },
+  { isSeparator: true },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pmr", label: "Eskul PMR", icon: Award },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_paskibra", label: "Eskul Paskibra", icon: Award },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pramuka", label: "Eskul Pramuka", icon: Award },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_karawitan", label: "Eskul Karawitan", icon: Award },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pencak_silat", label: "Eskul Pencak Silat", icon: Award },
+  { href: "/admin/kegiatan-reports?activity=pembina_eskul_volly_ball", label: "Eskul Volly Ball", icon: Award },
+];
+
+const bimbinganKonselingReportItems: NavMenuItem[] = [
+  { href: "/admin/kegiatan-reports?activity=bk", label: "Laporan Kegiatan BK", icon: HeartHandshake },
+];
+
+const tuAndSecurityReportItems: NavMenuItem[] = [
+  { href: "/admin/kegiatan-reports?activity=kepala_tata_usaha", label: "Laporan Kepala TU", icon: Briefcase },
+  { href: "/admin/kegiatan-reports?activity=operator", label: "Laporan Operator", icon: DatabaseZap },
+  { href: "/admin/kegiatan-reports?activity=staf_tu", label: "Laporan Staf TU", icon: Users },
+  { isSeparator: true },
+  { href: "/admin/kegiatan-reports?activity=satpam", label: "Laporan Satpam", icon: ShieldQuestion },
+  { href: "/admin/kegiatan-reports?activity=penjaga_sekolah", label: "Laporan Penjaga Sekolah", icon: ShieldAlert },
+];
+
+const reportableRolesForTU: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
     { id: 'operator', label: 'Operator', icon: DatabaseZap },
-    { id: 'kepala_tata_usaha', label: 'Tata Usaha', icon: Briefcase },
     { id: 'staf_tu', label: 'Staf TU', icon: Users },
     { id: 'satpam', label: 'Satpam', icon: ShieldQuestion },
-    { id: 'penjaga_sekolah', label: 'Penjaga Sekolah', icon: ShieldCheck },
+    { id: 'penjaga_sekolah', label: 'Penjaga Sekolah', icon: ShieldAlert },
 ];
+
 
 const navigationStructure: NavGroup[] = [
   // --- Admin Items ---
@@ -115,6 +137,49 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/school-profile", label: "Profil Sekolah", icon: Building },
     ],
   },
+  
+  // --- GURU - TUGAS TAMBAHAN (ordered by likely importance/power) ---
+  {
+    groupLabel: "Laporan Umum",
+    groupIcon: BarChart3,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: [
+      { href: "/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
+      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
+      { href: "/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
+      { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+    ],
+  },
+  {
+    groupLabel: "Laporan Wakasek",
+    groupIcon: Users,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: wakasekReportItems,
+  },
+  {
+    groupLabel: "Laporan Pembina",
+    groupIcon: Award,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: pembinaReportItems,
+  },
+  {
+    groupLabel: "Laporan Bimbingan Konseling",
+    groupIcon: HeartHandshake,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: bimbinganKonselingReportItems,
+  },
+  {
+    groupLabel: "Laporan Tata Usaha",
+    groupIcon: Briefcase,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: tuAndSecurityReportItems,
+  },
+
 
   // --- Guru Items ---
   { 
@@ -157,23 +222,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
     ],
   },
-  // --- GURU - TUGAS TAMBAHAN (ordered by likely importance/power) ---
-  {
-    groupLabel: "Laporan & Fungsi Khusus",
-    groupIcon: Shield,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: [
-      { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
-      { href: "/admin/violation-reports", label: "Laporan Kesiswaan", icon: Users2 },
-      ...reportableRoles.map(role => ({
-        href: `/admin/kegiatan-reports?activity=${role.id}`,
-        label: `Laporan ${role.label}`,
-        icon: role.icon,
-        isExact: false, 
-      }))
-    ],
-  },
+  
   {
     groupLabel: "Kurikulum",
     groupIcon: Library,
@@ -209,8 +258,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
       { isSeparator: true },
-      ...reportableRoles
-        .filter(role => ['operator', 'staf_tu', 'satpam', 'penjaga_sekolah'].includes(role.id))
+      ...reportableRolesForTU
         .map(role => ({
             href: `/admin/kegiatan-reports?activity=${role.id}`,
             label: `Laporan ${role.label}`,

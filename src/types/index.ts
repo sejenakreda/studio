@@ -191,3 +191,15 @@ export interface PelanggaranSiswa {
   recordedByName: string;
   createdAt: Timestamp;
 }
+
+export interface LaporanKegiatan {
+  id?: string;
+  activityId: TugasTambahan; // e.g., 'pembina_osis'
+  activityName: string; // e.g., 'OSIS'
+  title: string;
+  content: string;
+  date: Timestamp;
+  createdByUid: string;
+  createdByDisplayName: string;
+  createdAt: Timestamp;
+}

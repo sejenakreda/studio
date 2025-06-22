@@ -92,7 +92,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/activity-reports", label: "Laporan Keanggotaan", icon: Users2 },
+      { href: "/admin/kegiatan-reports", label: "Laporan Kegiatan", icon: Award },
     ],
   },
   {
@@ -152,7 +152,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/activity-reports", label: "Laporan Keanggotaan", icon: Users2 },
+      { href: "/admin/kegiatan-reports", label: "Laporan Kegiatan", icon: Award },
     ],
   },
   {

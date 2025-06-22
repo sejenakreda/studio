@@ -24,7 +24,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -417,6 +417,29 @@ const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
   }
 };
 
+const laporanKegiatanConverter: FirestoreDataConverter<LaporanKegiatan> = {
+  toFirestore(laporan: Omit<LaporanKegiatan, 'id'>): DocumentData {
+    return {
+      ...laporan,
+      createdAt: laporan.createdAt || serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): LaporanKegiatan {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      activityId: data.activityId,
+      activityName: data.activityName,
+      title: data.title,
+      content: data.content,
+      date: data.date,
+      createdByUid: data.createdByUid,
+      createdByDisplayName: data.createdByDisplayName,
+      createdAt: data.createdAt,
+    };
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';
@@ -607,7 +630,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef);
+  const docSnap = await getDoc(docRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -854,5 +877,35 @@ export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
 
 export const deletePelanggaran = async (pelanggaranId: string): Promise<void> => {
   const docRef = doc(db, PELANGGARAN_COLLECTION, pelanggaranId);
+  await deleteDoc(docRef);
+};
+
+
+// --- Laporan Kegiatan Service ---
+const LAPORAN_KEGIATAN_COLLECTION = 'laporan_kegiatan';
+
+export const addLaporanKegiatan = async (data: Omit<LaporanKegiatan, 'id' | 'createdAt'>): Promise<LaporanKegiatan> => {
+  const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
+  const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+  const docRef = await addDoc(collRef, dataToSave);
+  return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() };
+};
+
+export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
+  const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
+  const q = query(collRef, where('activityId', '==', activityId), orderBy('date', 'desc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
+  const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
+  const q = query(collRef, orderBy('date', 'desc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
+
+export const deleteLaporanKegiatan = async (laporanId: string): Promise<void> => {
+  const docRef = doc(db, LAPORAN_KEGIATAN_COLLECTION, laporanId);
   await deleteDoc(docRef);
 };

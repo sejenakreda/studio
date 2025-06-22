@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -31,7 +32,7 @@ export default function ProtectedLayout({
           if (isAdminRoute) {
             // If user is a guru on an admin route, check if they are Headmaster
             if (isKepalaSekolah) {
-              const allowedRoutes = ['/admin/reports', '/admin/grades', '/admin/violation-reports', '/admin/activity-reports'];
+              const allowedRoutes = ['/admin/reports', '/admin/grades', '/admin/violation-reports', '/admin/kegiatan-reports'];
               // Headmaster is allowed on the dashboard itself, and on the allowed report routes.
               const isAllowed = pathname === '/admin' || allowedRoutes.some(route => pathname.startsWith(route));
               if (!isAllowed) {

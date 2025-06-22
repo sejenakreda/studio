@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
     BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, 
-    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building, FileWarning, Users2
+    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building, FileWarning, Users2, Award
 } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
@@ -92,7 +92,7 @@ export default function AdminDashboardPage() {
         { title: "Kelola Guru", description: "Tambah atau edit data profil guru.", href: "/admin/teachers", icon: Users, color: "text-blue-500" },
         { title: "Laporan Sistem", description: "Statistik dan laporan umum sistem.", href: "/admin/reports", icon: BarChart3, color: "text-rose-500" },
         { title: "Laporan Pelanggaran", description: "Lihat dan ekspor data pelanggaran.", href: "/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
-        { title: "Laporan Keanggotaan", description: "Lihat daftar anggota OSIS & Eskul.", href: "/admin/activity-reports", icon: Users2, color: "text-teal-500" },
+        { title: "Laporan Kegiatan", description: "Lihat laporan dari Pembina & Kesiswaan.", href: "/admin/kegiatan-reports", icon: Award, color: "text-teal-500" },
       ]
     },
     {

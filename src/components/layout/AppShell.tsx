@@ -50,33 +50,33 @@ interface NavGroup {
 }
 
 const wakasekReportItems: NavMenuItem[] = [
-  { href: "/admin/kegiatan-reports?activity=kesiswaan", label: "Laporan Kesiswaan", icon: Users2 },
-  { href: "/admin/kegiatan-reports?activity=kurikulum", label: "Laporan Kurikulum", icon: Library },
-  { href: "/admin/kegiatan-reports?activity=bendahara", label: "Laporan Bendahara", icon: CircleDollarSign },
+  { href: "/protected/admin/kegiatan-reports?activity=kesiswaan", label: "Laporan Kesiswaan", icon: Users2 },
+  { href: "/protected/admin/kegiatan-reports?activity=kurikulum", label: "Laporan Kurikulum", icon: Library },
+  { href: "/protected/admin/kegiatan-reports?activity=bendahara", label: "Laporan Bendahara", icon: CircleDollarSign },
 ];
 
 const pembinaReportItems: NavMenuItem[] = [
-  { href: "/admin/kegiatan-reports?activity=pembina_osis", label: "Laporan OSIS", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_osis", label: "Laporan OSIS", icon: Award },
   { isSeparator: true },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pmr", label: "Eskul PMR", icon: Award },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_paskibra", label: "Eskul Paskibra", icon: Award },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pramuka", label: "Eskul Pramuka", icon: Award },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_karawitan", label: "Eskul Karawitan", icon: Award },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_pencak_silat", label: "Eskul Pencak Silat", icon: Award },
-  { href: "/admin/kegiatan-reports?activity=pembina_eskul_volly_ball", label: "Eskul Volly Ball", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_pmr", label: "Eskul PMR", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_paskibra", label: "Eskul Paskibra", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_pramuka", label: "Eskul Pramuka", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_karawitan", label: "Eskul Karawitan", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_pencak_silat", label: "Eskul Pencak Silat", icon: Award },
+  { href: "/protected/admin/kegiatan-reports?activity=pembina_eskul_volly_ball", label: "Eskul Volly Ball", icon: Award },
 ];
 
 const bimbinganKonselingReportItems: NavMenuItem[] = [
-  { href: "/admin/kegiatan-reports?activity=bk", label: "Laporan Kegiatan BK", icon: HeartHandshake },
+  { href: "/protected/admin/kegiatan-reports?activity=bk", label: "Laporan Kegiatan BK", icon: HeartHandshake },
 ];
 
 const tuAndSecurityReportItems: NavMenuItem[] = [
-  { href: "/admin/kegiatan-reports?activity=kepala_tata_usaha", label: "Laporan Kepala TU", icon: Briefcase },
-  { href: "/admin/kegiatan-reports?activity=operator", label: "Laporan Operator", icon: DatabaseZap },
-  { href: "/admin/kegiatan-reports?activity=staf_tu", label: "Laporan Staf TU", icon: Users },
+  { href: "/protected/admin/kegiatan-reports?activity=kepala_tata_usaha", label: "Laporan Kepala TU", icon: Briefcase },
+  { href: "/protected/admin/kegiatan-reports?activity=operator", label: "Laporan Operator", icon: DatabaseZap },
+  { href: "/protected/admin/kegiatan-reports?activity=staf_tu", label: "Laporan Staf TU", icon: Users },
   { isSeparator: true },
-  { href: "/admin/kegiatan-reports?activity=satpam", label: "Laporan Satpam", icon: ShieldQuestion },
-  { href: "/admin/kegiatan-reports?activity=penjaga_sekolah", label: "Laporan Penjaga Sekolah", icon: ShieldAlert },
+  { href: "/protected/admin/kegiatan-reports?activity=satpam", label: "Laporan Satpam", icon: ShieldQuestion },
+  { href: "/protected/admin/kegiatan-reports?activity=penjaga_sekolah", label: "Laporan Penjaga Sekolah", icon: ShieldAlert },
 ];
 
 const reportableRolesForTU: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
@@ -91,18 +91,18 @@ const navigationStructure: NavGroup[] = [
   // --- Admin Items ---
   { 
     roles: ['admin'],
-    items: [{ href: "/admin", label: "Dasbor Admin", icon: Home, isExact: true }],
+    items: [{ href: "/protected/admin", label: "Dasbor Admin", icon: Home, isExact: true }],
   },
   {
     groupLabel: "Akademik & Penilaian",
     groupIcon: BookCopy,
     roles: ['admin'],
     items: [
-      { href: "/admin/students", label: "Kelola Siswa", icon: BookUser },
-      { href: "/admin/mapel", label: "Kelola Mapel", icon: ListChecks },
-      { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
-      { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
-      { href: "/admin/grades", label: "Semua Nilai", icon: FileText },
+      { href: "/protected/admin/students", label: "Kelola Siswa", icon: BookUser },
+      { href: "/protected/admin/mapel", label: "Kelola Mapel", icon: ListChecks },
+      { href: "/protected/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
+      { href: "/protected/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
+      { href: "/protected/admin/grades", label: "Semua Nilai", icon: FileText },
     ],
   },
   {
@@ -110,7 +110,7 @@ const navigationStructure: NavGroup[] = [
     groupIcon: Users,
     roles: ['admin'],
     items: [
-       { href: "/admin/teachers", label: "Kelola Guru", icon: Users },
+       { href: "/protected/admin/teachers", label: "Kelola Guru", icon: Users },
     ],
   },
    {
@@ -118,7 +118,7 @@ const navigationStructure: NavGroup[] = [
     groupIcon: Megaphone,
     roles: ['admin'],
     items: [
-      { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
+      { href: "/protected/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
     ],
   },
   {
@@ -126,7 +126,7 @@ const navigationStructure: NavGroup[] = [
     groupIcon: Settings,
     roles: ['admin'],
     items: [
-      { href: "/admin/school-profile", label: "Profil Sekolah", icon: Building },
+      { href: "/protected/admin/school-profile", label: "Profil Sekolah", icon: Building },
     ],
   },
   
@@ -134,21 +134,21 @@ const navigationStructure: NavGroup[] = [
   { 
     roles: ['guru'],
     requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
-    items: [{ href: "/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
+    items: [{ href: "/protected/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
   },
   {
     groupLabel: "Informasi Sekolah",
     groupIcon: Building,
     roles: ['guru'],
     items: [
-      { href: "/guru/school-profile", label: "Profil Sekolah", icon: Building }
+      { href: "/protected/guru/school-profile", label: "Profil Sekolah", icon: Building }
     ],
   },
   {
     groupLabel: "Komunikasi",
     groupIcon: Megaphone,
     roles: ['guru'],
-    items: [{ href: "/guru/announcements", label: "Pengumuman", icon: Megaphone }],
+    items: [{ href: "/protected/guru/announcements", label: "Pengumuman", icon: Megaphone }],
   },
   {
     groupLabel: "Akademik",
@@ -156,10 +156,10 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
     items: [
-      { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
-      { href: "/guru/grades", label: "Input Nilai", icon: Edit3 },
-      { href: "/guru/agenda-kelas", label: "Agenda Kelas", icon: CalendarPlus },
-      { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
+      { href: "/protected/guru/students", label: "Daftar Siswa", icon: BookUser },
+      { href: "/protected/guru/grades", label: "Input Nilai", icon: Edit3 },
+      { href: "/protected/guru/agenda-kelas", label: "Agenda Kelas", icon: CalendarPlus },
+      { href: "/protected/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
     ],
   },
   {
@@ -167,8 +167,8 @@ const navigationStructure: NavGroup[] = [
     groupIcon: UserCheck,
     roles: ['guru'],
     items: [
-      { href: "/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
-      { href: "/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
+      { href: "/protected/guru/attendance", label: "Catat Kehadiran Harian", icon: UserCheck },
+      { href: "/protected/guru/rekap-kehadiran-saya", label: "Rekap Kehadiran Saya", icon: FileClock },
     ],
   },
   
@@ -179,7 +179,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isKurikulum }) => isKurikulum,
     items: [
-      { href: "/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
+      { href: "/protected/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
     ],
   },
   {
@@ -188,7 +188,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isKesiswaan }) => isKesiswaan,
     items: [
-      { href: "/guru/kesiswaan", label: "Dasbor Kesiswaan", icon: Home },
+      { href: "/protected/guru/kesiswaan", label: "Dasbor Kesiswaan", icon: Home },
     ],
   },
   {
@@ -197,7 +197,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isBendahara }) => isBendahara,
     items: [
-      { href: "/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
+      { href: "/protected/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
     ],
   },
   {
@@ -206,7 +206,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
     items: [
-       { href: "/guru/pembina", label: "Dasbor Pembina", icon: Home },
+       { href: "/protected/guru/pembina", label: "Dasbor Pembina", icon: Home },
     ],
   },
   {
@@ -215,7 +215,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isBk }) => isBk,
     items: [
-      { href: "/guru/bk", label: "Dasbor BK", icon: Home },
+      { href: "/protected/guru/bk", label: "Dasbor BK", icon: Home },
     ],
   },
   {
@@ -224,11 +224,11 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
     items: [
-      { href: "/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
+      { href: "/protected/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
       { isSeparator: true },
       ...reportableRolesForTU
         .map(role => ({
-            href: `/admin/kegiatan-reports?activity=${role.id}`,
+            href: `/protected/admin/kegiatan-reports?activity=${role.id}`,
             label: `Laporan ${role.label}`,
             icon: role.icon,
             isExact: false,
@@ -241,7 +241,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isOperator }) => isOperator,
     items: [
-      { href: "/guru/operator", label: "Dasbor Operator", icon: Home },
+      { href: "/protected/guru/operator", label: "Dasbor Operator", icon: Home },
     ],
   },
    {
@@ -250,7 +250,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isStafTu }) => isStafTu,
     items: [
-       { href: "/guru/staf-tu", label: "Laporan Staf TU", icon: Home },
+       { href: "/protected/guru/staf-tu", label: "Laporan Staf TU", icon: Home },
     ],
   },
   {
@@ -259,7 +259,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isSatpam }) => isSatpam,
     items: [
-       { href: "/guru/satpam", label: "Laporan Satpam", icon: Home },
+       { href: "/protected/guru/satpam", label: "Laporan Satpam", icon: Home },
     ],
   },
    {
@@ -268,7 +268,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isPenjagaSekolah }) => isPenjagaSekolah,
     items: [
-       { href: "/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
+       { href: "/protected/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
     ],
   },
 
@@ -279,10 +279,10 @@ const navigationStructure: NavGroup[] = [
     roles: ['admin', 'guru'],
     requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
     items: [
-      { href: "/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
-      { href: "/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
-      { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
-      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
+      { href: "/protected/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
+      { href: "/protected/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
+      { href: "/protected/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+      { href: "/protected/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
     ],
   },
   {
@@ -335,7 +335,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         try {
           const allFetchedAnnouncements = await getAllPengumuman(); 
 
-          if (pathname === '/guru/announcements') {
+          if (pathname === '/protected/guru/announcements') {
             if (allFetchedAnnouncements.length > 0 && allFetchedAnnouncements[0].createdAt) {
               const newestTimestamp = allFetchedAnnouncements[0].createdAt.toMillis();
               localStorage.setItem(lastSeenKey, newestTimestamp.toString());
@@ -474,7 +474,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
         <SidebarHeader className="p-4 border-b">
           <Link 
-            href={userProfile?.role === 'admin' ? '/admin' : '/guru'} 
+            href={userProfile?.role === 'admin' ? '/protected/admin' : '/protected/guru'} 
             className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"
             onClick={handleLinkClick}
           >
@@ -537,7 +537,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <Link href={item.href!} className="relative">
                                     {item.icon && <item.icon className="h-4 w-4" />}
                                     <span>{item.label}</span>
-                                    {item.href === "/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
+                                    {item.href === "/protected/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
                                       <SidebarMenuBadge 
                                         className="absolute top-1 right-1 h-4 min-w-[16px] px-1 flex items-center justify-center text-xs"
                                       >

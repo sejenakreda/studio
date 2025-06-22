@@ -195,7 +195,7 @@ export default function ManageSchoolProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4"><Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Admin"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Profil Sekolah</h1><p className="text-muted-foreground">Atur data statistik sekolah yang akan ditampilkan secara publik atau kepada guru.</p></div></div>
+      <div className="flex items-center gap-4"><Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Admin"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Profil Sekolah</h1><p className="text-muted-foreground">Atur data statistik sekolah yang akan ditampilkan secara publik atau kepada guru.</p></div></div>
       <Card>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>

@@ -291,7 +291,7 @@ export default function ManageAllGradesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/admin">
+        <Link href="/protected/admin">
           <Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Admin">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -486,4 +486,3 @@ export default function ManageAllGradesPage() {
     </div>
   );
 }
-

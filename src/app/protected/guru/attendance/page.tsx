@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Timestamp } from 'firebase/firestore';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const attendanceStatusOptions: TeacherDailyAttendanceStatus[] = ['Hadir', 'Izin', 'Sakit', 'Alpa'];
@@ -49,7 +50,6 @@ export default function CatatKehadiranPage() {
     const fetchAttendanceForDate = useCallback(async (date: Date) => {
         if (!userProfile) return;
         setIsLoading(true);
-        setLastSavedRecord(null);
         try {
             const record = await getTeacherDailyAttendanceForDate(userProfile.uid, date);
             if (record) {
@@ -57,6 +57,7 @@ export default function CatatKehadiranPage() {
                 setLastSavedRecord(record);
             } else {
                 form.reset({ status: "Hadir", notes: "" });
+                setLastSavedRecord(null);
             }
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Gagal memuat data kehadiran." });
@@ -71,6 +72,10 @@ export default function CatatKehadiranPage() {
 
     const onSubmit = async (data: AttendanceFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
+        if (lastSavedRecord) {
+             toast({ variant: "default", title: "Informasi", description: "Kehadiran untuk tanggal ini sudah dicatat." });
+             return;
+        }
         setIsSaving(true);
         try {
             const payload: Omit<TeacherDailyAttendance, 'id' | 'recordedAt' | 'updatedAt'> = {
@@ -135,6 +140,16 @@ export default function CatatKehadiranPage() {
                             
                             {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : (
                                 <>
+                                {lastSavedRecord && (
+                                    <Alert variant="default">
+                                        <UserCheck className="h-4 w-4" />
+                                        <AlertTitle className="font-semibold">Kehadiran Sudah Dicatat</AlertTitle>
+                                        <AlertDescription>
+                                            Anda telah mencatat kehadiran sebagai <span className="font-semibold">{lastSavedRecord.status}</span> pada tanggal ini. 
+                                            Data tidak dapat diubah dari halaman ini. Hubungi admin jika perlu perubahan.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
                                  <FormField
                                     control={form.control}
                                     name="status"
@@ -146,10 +161,11 @@ export default function CatatKehadiranPage() {
                                                 onValueChange={field.onChange}
                                                 defaultValue={field.value}
                                                 className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4"
+                                                disabled={!!lastSavedRecord}
                                                 >
                                                 {attendanceStatusOptions.map(status => (
                                                     <FormItem key={status} className="flex items-center space-x-3 space-y-0">
-                                                        <FormControl><RadioGroupItem value={status} /></FormControl>
+                                                        <FormControl><RadioGroupItem value={status} disabled={!!lastSavedRecord} /></FormControl>
                                                         <FormLabel className="font-normal">{status}</FormLabel>
                                                     </FormItem>
                                                 ))}
@@ -169,6 +185,7 @@ export default function CatatKehadiranPage() {
                                                 <Textarea
                                                 placeholder="Tambahkan keterangan untuk Izin, Sakit, atau lainnya..."
                                                 {...field}
+                                                disabled={!!lastSavedRecord}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -179,7 +196,7 @@ export default function CatatKehadiranPage() {
                             )}
                         </CardContent>
                         <CardFooter className="flex-col items-start gap-4">
-                            <Button type="submit" disabled={isSaving || isLoading}>
+                            <Button type="submit" disabled={isSaving || isLoading || !!lastSavedRecord}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 {isSaving ? 'Menyimpan...' : 'Simpan Kehadiran'}
                             </Button>

@@ -269,7 +269,11 @@ export default function PembinaDashboardPage() {
     const [forceRerender, setForceRerender] = useState(0);
 
     const pembinaRoles = useMemo(() => {
-        return userProfile?.tugasTambahan?.filter(t => t.startsWith('pembina_') || t === 'kesiswaan') || [];
+        return userProfile?.tugasTambahan?.filter(t => 
+            t.startsWith('pembina_eskul_') || 
+            t === 'pembina_osis' || 
+            t === 'kesiswaan'
+        ) || [];
     }, [userProfile]);
 
     const fetchData = useCallback(async () => {

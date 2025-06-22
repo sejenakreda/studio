@@ -40,6 +40,12 @@ const stafOptions: { id: TugasTambahan; label: string }[] = [
     { id: 'operator', label: 'Operator' },
     { id: 'bk', label: 'Guru BK' },
     { id: 'kepala_tata_usaha', label: 'Kepala Tata Usaha' },
+    { id: 'staf_tu', label: 'Staf Tata Usaha' },
+];
+
+const keamananOptions: { id: TugasTambahan; label: string }[] = [
+    { id: 'satpam', label: 'Satpam' },
+    { id: 'penjaga_sekolah', label: 'Penjaga Sekolah' },
 ];
 
 const pembinaOptions: { id: TugasTambahan; label: string }[] = [
@@ -377,10 +383,21 @@ export default function EditTeacherPage() {
                     </div>
                     <div className="space-y-6">
                         <div>
-                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Struktural & Staf</h4>
+                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Struktural</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 p-4 border rounded-md">
                                 {renderCheckboxGroup(strukturalOptions)}
+                            </div>
+                        </div>
+                         <div>
+                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Staf</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 p-4 border rounded-md">
                                 {renderCheckboxGroup(stafOptions)}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-muted-foreground mb-2 text-sm">Keamanan</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 p-4 border rounded-md">
+                                {renderCheckboxGroup(keamananOptions)}
                             </div>
                         </div>
                         <div>

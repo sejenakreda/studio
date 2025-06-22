@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Pencil, Trash2, DatabaseZap, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Pencil, Trash2, ShieldAlert, Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -36,10 +36,10 @@ const laporanSchema = z.object({
 
 type LaporanFormData = z.infer<typeof laporanSchema>;
 
-const ACTIVITY_ID = 'operator';
-const ACTIVITY_NAME = 'Operator';
+const ACTIVITY_ID = 'penjaga_sekolah';
+const ACTIVITY_NAME = 'Penjaga Sekolah';
 
-export default function OperatorDashboardPage() {
+export default function PenjagaSekolahDashboardPage() {
   const { userProfile } = useAuth();
   const { toast } = useToast();
 
@@ -90,15 +90,15 @@ export default function OperatorDashboardPage() {
       try {
           if (reportToModify) { // Editing
               await updateLaporanKegiatan(reportToModify.id!, { ...data, date: Timestamp.fromDate(data.date) });
-              await addActivityLog("Laporan Operator Diperbarui", `Laporan "${data.title}" diperbarui oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Operator');
+              await addActivityLog("Laporan Penjaga Sekolah Diperbarui", `Laporan "${data.title}" diperbarui oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Penjaga Sekolah');
               toast({ title: "Sukses", description: "Laporan berhasil diperbarui." });
           } else { // Adding
               await addLaporanKegiatan({
                   activityId: ACTIVITY_ID, activityName: ACTIVITY_NAME, ...data,
                   date: Timestamp.fromDate(data.date),
-                  createdByUid: userProfile.uid, createdByDisplayName: userProfile.displayName || 'Operator',
+                  createdByUid: userProfile.uid, createdByDisplayName: userProfile.displayName || 'Penjaga Sekolah',
               });
-              await addActivityLog("Laporan Operator Dibuat", `Laporan "${data.title}" dibuat oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Operator');
+              await addActivityLog("Laporan Penjaga Sekolah Dibuat", `Laporan "${data.title}" dibuat oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Penjaga Sekolah');
               toast({ title: "Sukses", description: "Laporan berhasil disimpan." });
           }
           form.reset(); setIsFormOpen(false); setReportToModify(null); fetchReports();
@@ -134,9 +134,9 @@ export default function OperatorDashboardPage() {
         <Link href="/guru"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline flex items-center gap-2">
-            <DatabaseZap className="h-8 w-8 text-primary" /> Dasbor Operator
+            <ShieldAlert className="h-8 w-8 text-primary" /> Dasbor Penjaga Sekolah
           </h1>
-          <p className="text-muted-foreground">Catat dan kelola laporan kegiatan Anda sebagai Operator.</p>
+          <p className="text-muted-foreground">Catat dan kelola laporan kegiatan Anda.</p>
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export default function OperatorDashboardPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Laporan Kegiatan Operator</CardTitle>
+              <CardTitle>Laporan Kegiatan</CardTitle>
               <CardDescription>Daftar laporan yang telah Anda buat.</CardDescription>
             </div>
             <Button onClick={() => handleOpenForm()}><PlusCircle className="mr-2 h-4 w-4" /> Buat Laporan Baru</Button>
@@ -172,9 +172,9 @@ export default function OperatorDashboardPage() {
           <DialogContent className="sm:max-w-[525px]">
               <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)}>
-                      <DialogHeader><DialogTitle>{reportToModify ? 'Edit' : 'Buat'} Laporan Operator</DialogTitle><DialogDescription>Isi detail laporan kegiatan Operator.</DialogDescription></DialogHeader>
+                      <DialogHeader><DialogTitle>{reportToModify ? 'Edit' : 'Buat'} Laporan</DialogTitle><DialogDescription>Isi detail laporan kegiatan.</DialogDescription></DialogHeader>
                       <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                          <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan</FormLabel><FormControl><Input placeholder="cth: Sinkronisasi Data Dapodik" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan</FormLabel><FormControl><Input placeholder="cth: Laporan Kebersihan Lingkungan Sekolah" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
                       </div>

@@ -21,14 +21,23 @@ import { Badge } from "@/components/ui/badge";
 
 
 const getActivityName = (activityId: TugasTambahan | string): string => {
-    if (activityId === 'pembina_osis') return 'OSIS';
-    if (activityId === 'kesiswaan') return 'Kesiswaan';
-    return activityId
-        .replace('pembina_eskul_', '')
-        .replace(/_/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+    switch(activityId) {
+        case 'pembina_osis': return 'OSIS';
+        case 'kesiswaan': return 'Kesiswaan';
+        case 'bk': return 'Bimbingan Konseling';
+        case 'kepala_tata_usaha': return 'Tata Usaha';
+        case 'operator': return 'Operator';
+        case 'staf_tu': return 'Staf Tata Usaha';
+        case 'satpam': return 'Satpam';
+        case 'penjaga_sekolah': return 'Penjaga Sekolah';
+        default:
+            return activityId
+                .replace('pembina_eskul_', '')
+                .replace(/_/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+    }
 };
 
 export default function KegiatanReportsPage() {
@@ -109,7 +118,7 @@ export default function KegiatanReportsPage() {
   };
 
   const pageTitle = activityFilter ? `Laporan ${getActivityName(activityFilter)}` : 'Semua Laporan Kegiatan';
-  const pageDescription = activityFilter ? `Menampilkan semua laporan yang dibuat untuk kegiatan ${getActivityName(activityFilter)}.` : 'Lihat semua laporan kegiatan yang dibuat oleh Pembina & Kesiswaan.';
+  const pageDescription = activityFilter ? `Menampilkan semua laporan yang dibuat untuk kegiatan ${getActivityName(activityFilter)}.` : 'Lihat semua laporan kegiatan yang dibuat oleh Pembina & Staf.';
   const printTitle = `LAPORAN KEGIATAN - ${activityFilter ? getActivityName(activityFilter).toUpperCase() : 'SEMUA'}`;
   
   const renderReportList = (reports: LaporanKegiatan[]) => (

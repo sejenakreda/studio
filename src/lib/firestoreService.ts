@@ -544,30 +544,42 @@ export const updateStudentActivity = async (studentId: string, activity: TugasTa
 };
 
 // --- Nilai (Grade) Service ---
-export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: string): Promise<Nilai> => {
-  const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
-  const nilaiToProcess = { ...nilai, teacherUid };
-  const q = query(gradesCollRef,
-    where('teacherUid', '==', teacherUid),
-    where('id_siswa', '==', nilaiToProcess.id_siswa),
-    where('mapel', '==', nilaiToProcess.mapel),
-    where('semester', '==', nilaiToProcess.semester),
-    where('tahun_ajaran', '==', nilaiToProcess.tahun_ajaran),
-    limit(1)
-  );
-  const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) {
-    const existingDoc = querySnapshot.docs[0];
-    const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
-    delete updateData.createdAt;
-    await updateDoc(existingDoc.ref, updateData);
-    return { ...existingDoc.data(), ...updateData, id: existingDoc.id };
-  } else {
-    const dataForAdd = { ...nilaiToProcess, createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
-    const docRef = await addDoc(gradesCollRef, dataForAdd);
-    return { ...dataForAdd, id: docRef.id };
-  }
+export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: string, gradeId?: string): Promise<Nilai> => {
+    const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
+    const nilaiToProcess = { ...nilai, teacherUid };
+
+    if (gradeId) {
+        const docRef = doc(gradesCollRef, gradeId);
+        const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
+        delete updateData.createdAt;
+        await updateDoc(docRef, updateData as DocumentData);
+        const updatedDoc = await getDoc(docRef);
+        return updatedDoc.data()!;
+    }
+    
+    const q = query(gradesCollRef,
+        where('teacherUid', '==', teacherUid),
+        where('id_siswa', '==', nilaiToProcess.id_siswa),
+        where('mapel', '==', nilaiToProcess.mapel),
+        where('semester', '==', nilaiToProcess.semester),
+        where('tahun_ajaran', '==', nilaiToProcess.tahun_ajaran),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        const existingDoc = querySnapshot.docs[0];
+        const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
+        delete updateData.createdAt;
+        await updateDoc(existingDoc.ref, updateData as DocumentData);
+        return { ...existingDoc.data(), ...updateData, id: existingDoc.id };
+    } else {
+        const dataForAdd = { ...nilaiToProcess, createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
+        const docRef = await addDoc(gradesCollRef, dataForAdd);
+        return { ...dataForAdd, id: docRef.id };
+    }
 };
+
 export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran: string, mapel: string, teacherUid: string): Promise<Nilai | null> => {
   const gradesCollRef = collection(db, 'nilai').withConverter(nilaiConverter);
   const q = query(gradesCollRef,
@@ -1018,5 +1030,7 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
+    
 
     

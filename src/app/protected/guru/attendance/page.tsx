@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Save, Loader2, AlertCircle, UserCheck, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, Save, Loader2, UserCheck, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { addOrUpdateTeacherDailyAttendance, getTeacherDailyAttendanceForDate } from '@/lib/firestoreService';
@@ -39,6 +39,7 @@ export default function CatatKehadiranPage() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [lastSavedRecord, setLastSavedRecord] = useState<TeacherDailyAttendance | null>(null);
 
     const form = useForm<AttendanceFormData>({
         resolver: zodResolver(attendanceSchema),
@@ -48,10 +49,12 @@ export default function CatatKehadiranPage() {
     const fetchAttendanceForDate = useCallback(async (date: Date) => {
         if (!userProfile) return;
         setIsLoading(true);
+        setLastSavedRecord(null);
         try {
             const record = await getTeacherDailyAttendanceForDate(userProfile.uid, date);
             if (record) {
                 form.reset({ status: record.status, notes: record.notes || "" });
+                setLastSavedRecord(record);
             } else {
                 form.reset({ status: "Hadir", notes: "" });
             }
@@ -80,6 +83,7 @@ export default function CatatKehadiranPage() {
             };
             await addOrUpdateTeacherDailyAttendance(payload);
             toast({ title: "Sukses", description: "Kehadiran Anda untuk tanggal " + format(selectedDate, "PPP", {locale: indonesiaLocale}) + " berhasil disimpan." });
+            fetchAttendanceForDate(selectedDate); // Refetch to update the 'last updated' time
         } catch (err: any) {
             toast({ variant: "destructive", title: "Gagal Menyimpan", description: err.message });
         } finally {
@@ -174,11 +178,16 @@ export default function CatatKehadiranPage() {
                                 </>
                             )}
                         </CardContent>
-                        <CardFooter>
+                        <CardFooter className="flex-col items-start gap-4">
                             <Button type="submit" disabled={isSaving || isLoading}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 {isSaving ? 'Menyimpan...' : 'Simpan Kehadiran'}
                             </Button>
+                             {lastSavedRecord && (
+                                <p className="text-xs text-muted-foreground">
+                                    Data untuk tanggal ini terakhir diperbarui pada: {format(lastSavedRecord.updatedAt?.toDate() ?? lastSavedRecord.recordedAt.toDate(), "dd MMMM yyyy, HH:mm", { locale: indonesiaLocale })}
+                                </p>
+                            )}
                         </CardFooter>
                     </form>
                 </Form>

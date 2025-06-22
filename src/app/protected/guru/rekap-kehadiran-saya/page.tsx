@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, FileClock, PieChart } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, PieChart } from "lucide-react";
 import { getTeacherDailyAttendanceForMonth } from '@/lib/firestoreService';
 import type { TeacherDailyAttendance } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -147,10 +147,15 @@ export default function RekapKehadiranSayaPage() {
               ) : (
                 <div className="overflow-x-auto border rounded-lg">
                   <Table>
-                    <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Waktu Dicatat</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {records.map(rec => (
-                        <TableRow key={rec.id}><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell>{rec.notes || '-'}</TableCell></TableRow>
+                        <TableRow key={rec.id}>
+                          <TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell>
+                          <TableCell>{rec.status}</TableCell>
+                          <TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "HH:mm") : '-'}</TableCell>
+                          <TableCell>{rec.notes || '-'}</TableCell>
+                        </TableRow>
                       ))}
                     </TableBody>
                   </Table>

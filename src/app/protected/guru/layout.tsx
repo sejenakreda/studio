@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-// This layout ensures that only gurus can access routes under /guru
+// This layout ensures that only gurus can access routes under /protected/guru
 // The actual UI shell is handled by (protected)/layout.tsx -> AppShell
 // This file mostly serves to group guru routes.
 

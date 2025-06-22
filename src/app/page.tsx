@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 
 export default function HomePage() {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, isSatpam, isPenjagaSekolah, isStafTu } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -17,7 +17,15 @@ export default function HomePage() {
         if (userProfile.role === 'admin') {
           router.replace('/admin');
         } else if (userProfile.role === 'guru') {
-          router.replace('/guru');
+          if (isSatpam) {
+            router.replace('/guru/satpam');
+          } else if (isPenjagaSekolah) {
+            router.replace('/guru/penjaga-sekolah');
+          } else if (isStafTu) {
+            router.replace('/guru/staf-tu');
+          } else {
+            router.replace('/guru');
+          }
         } else {
           // Fallback or error if role is undefined
           router.replace('/login');
@@ -26,7 +34,7 @@ export default function HomePage() {
         router.replace('/login');
       }
     }
-  }, [user, userProfile, loading, router]);
+  }, [user, userProfile, loading, router, isSatpam, isPenjagaSekolah, isStafTu]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">

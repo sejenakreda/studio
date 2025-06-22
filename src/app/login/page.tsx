@@ -15,7 +15,7 @@ import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, userProfile, loading: authContextLoading } = useAuth();
+  const { user, userProfile, loading: authContextLoading, isSatpam, isPenjagaSekolah, isStafTu } = useAuth();
 
   useEffect(() => {
     // This effect handles redirection:
@@ -25,7 +25,15 @@ export default function LoginPage() {
       if (userProfile.role === 'admin') {
         router.replace('/admin');
       } else if (userProfile.role === 'guru') {
-        router.replace('/guru');
+        if (isSatpam) {
+          router.replace('/guru/satpam');
+        } else if (isPenjagaSekolah) {
+          router.replace('/guru/penjaga-sekolah');
+        } else if (isStafTu) {
+          router.replace('/guru/staf-tu');
+        } else {
+          router.replace('/guru');
+        }
       } else {
         // Should not happen if AuthContext handles invalid roles by logging out
         console.warn("LoginPage: User has profile but unexpected role:", userProfile.role);
@@ -36,7 +44,7 @@ export default function LoginPage() {
     // If !authContextLoading and !user (meaning truly logged out or initial unauthed state),
     // they stay on the login page, which is correct.
     // If authContextLoading is true, this effect does nothing, waiting for context to settle.
-  }, [user, userProfile, authContextLoading, router]);
+  }, [user, userProfile, authContextLoading, router, isSatpam, isPenjagaSekolah, isStafTu]);
 
 
   return (

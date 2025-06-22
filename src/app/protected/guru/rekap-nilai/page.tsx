@@ -14,6 +14,7 @@ import { getStudents, getGradesForTeacherDisplay, getActiveAcademicYears } from 
 import type { Siswa, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 
 

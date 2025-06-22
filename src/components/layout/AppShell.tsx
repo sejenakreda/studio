@@ -161,7 +161,7 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Laporan & Fungsi Khusus",
     groupIcon: Shield,
-    roles: ['admin'],
+    roles: ['admin', 'guru'],
     requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },

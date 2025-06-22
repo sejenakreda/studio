@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { getStudents, getGradesForTeacherDisplay, getActiveAcademicYears, getWeights, addOrUpdateGrade, addActivityLog, deleteGradeById, getKkmSetting } from '@/lib/firestoreService';
+import { getStudents, getGradesForTeacherDisplay, getActiveAcademicYears, getWeights, addOrUpdateGrade, addActivityLog, deleteGradeById, getKkmSetting, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { Siswa, Nilai, Bobot } from '@/types';
 import { calculateFinalGrade, calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,6 +79,7 @@ export default function InputNilaiPage() {
     const [weights, setWeights] = useState<Bobot | null>(null);
     const [existingGrades, setExistingGrades] = useState<Nilai[]>([]);
     const [kkm, setKkm] = useState<number | null>(null);
+    const [masterMapel, setMasterMapel] = useState<string[]>([]);
     
     const [isLoadingPrerequisites, setIsLoadingPrerequisites] = useState(true);
     const [isLoadingData, setIsLoadingData] = useState(false);
@@ -104,21 +105,50 @@ export default function InputNilaiPage() {
       if (!userProfile) return;
       setIsLoadingPrerequisites(true);
       try {
-        const [fetchedStudents, fetchedYears, fetchedWeights] = await Promise.all([ getStudents(), getActiveAcademicYears(), getWeights() ]);
+        const [fetchedStudents, fetchedYears, fetchedWeights, fetchedMasterMapelList] = await Promise.all([ 
+            getStudents(), 
+            getActiveAcademicYears(), 
+            getWeights(),
+            getMataPelajaranMaster()
+        ]);
         setAllStudents(fetchedStudents || []);
         setActiveYears(fetchedYears.length > 0 ? fetchedYears : [getCurrentAcademicYear()]);
         setWeights(fetchedWeights);
-        if (userProfile.assignedMapel && userProfile.assignedMapel.length > 0 && !selectedMapel) setSelectedMapel(userProfile.assignedMapel[0]);
+        setMasterMapel(fetchedMasterMapelList.map(m => m.namaMapel));
+        
         const uniqueClasses = [...new Set((fetchedStudents || []).map(s => s.kelas).filter(Boolean))].sort();
         if (uniqueClasses.length > 0 && !selectedClass) setSelectedClass(uniqueClasses[0]);
+
       } catch (err) {
         toast({ variant: "destructive", title: "Gagal memuat data awal", description: "Tidak bisa memuat daftar siswa atau pengaturan." });
       } finally {
         setIsLoadingPrerequisites(false);
       }
-    }, [userProfile, toast, selectedMapel, selectedClass]);
+    }, [userProfile, toast, selectedClass]);
 
     useEffect(() => { fetchPrerequisites(); }, [fetchPrerequisites]);
+    
+    const validAssignedMapel = useMemo(() => {
+        if (!userProfile?.assignedMapel || masterMapel.length === 0) {
+            return [];
+        }
+        // Filter the teacher's assigned subjects against the master list
+        return userProfile.assignedMapel.filter(mapel => masterMapel.includes(mapel));
+    }, [userProfile?.assignedMapel, masterMapel]);
+
+    useEffect(() => {
+        // Effect to automatically select the first valid mapel
+        if (validAssignedMapel.length > 0) {
+            // If no mapel is selected yet, or the current one is no longer valid, select the first valid one.
+            if (!selectedMapel || !validAssignedMapel.includes(selectedMapel)) {
+                setSelectedMapel(validAssignedMapel[0]);
+            }
+        } else {
+            // If the teacher has no valid assigned mapel, clear the selection
+            setSelectedMapel("");
+        }
+    }, [validAssignedMapel, selectedMapel]);
+
 
     const fetchDataForTable = useCallback(async () => {
         if (!userProfile || !selectedMapel || !selectedClass || !selectedYear || !selectedSemester) return;
@@ -156,12 +186,12 @@ export default function InputNilaiPage() {
             namaSiswa: student.nama,
             grades: {
                 tugas: grade?.tugas?.join(',') || '',
-                tes: grade?.tes ?? '',
-                pts: grade?.pts ?? '',
-                pas: grade?.pas ?? '',
-                kehadiran: grade?.kehadiran ?? '',
-                eskul: grade?.eskul ?? '',
-                osis: grade?.osis ?? '',
+                tes: grade?.tes ?? undefined,
+                pts: grade?.pts ?? undefined,
+                pas: grade?.pas ?? undefined,
+                kehadiran: grade?.kehadiran ?? undefined,
+                eskul: grade?.eskul ?? undefined,
+                osis: grade?.osis ?? undefined,
             }
         };
       });
@@ -255,12 +285,12 @@ export default function InputNilaiPage() {
                     const studentIndex = currentStudentsInForm.findIndex(s => allStudents.find(as => as.id_siswa === s.id_siswa)?.nis === studentNis);
                     if (studentIndex !== -1) {
                         setValue(`students.${studentIndex}.grades.tugas`, String(row.Tugas ?? ''));
-                        setValue(`students.${studentIndex}.grades.tes`, row.Tes ?? '');
-                        setValue(`students.${studentIndex}.grades.pts`, row.PTS ?? '');
-                        setValue(`students.${studentIndex}.grades.pas`, row.PAS ?? '');
-                        setValue(`students.${studentIndex}.grades.kehadiran`, row.Kehadiran ?? '');
-                        setValue(`students.${studentIndex}.grades.eskul`, row.Eskul ?? '');
-                        setValue(`students.${studentIndex}.grades.osis`, row.OSIS ?? '');
+                        setValue(`students.${studentIndex}.grades.tes`, row.Tes ?? undefined);
+                        setValue(`students.${studentIndex}.grades.pts`, row.PTS ?? undefined);
+                        setValue(`students.${studentIndex}.grades.pas`, row.PAS ?? undefined);
+                        setValue(`students.${studentIndex}.grades.kehadiran`, row.Kehadiran ?? undefined);
+                        setValue(`students.${studentIndex}.grades.eskul`, row.Eskul ?? undefined);
+                        setValue(`students.${studentIndex}.grades.osis`, row.OSIS ?? undefined);
                         updatedCount++;
                     }
                 });
@@ -284,7 +314,17 @@ export default function InputNilaiPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                         <div><Label htmlFor="year-select">Tahun Ajaran</Label><Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger id="year-select"><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select></div>
                         <div><Label htmlFor="semester-select">Semester</Label><Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger id="semester-select"><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select></div>
-                        <div><Label htmlFor="mapel-select">Mata Pelajaran</Label><Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={!userProfile?.assignedMapel?.length}><SelectTrigger id="mapel-select"><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{userProfile?.assignedMapel?.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
+                        <div>
+                            <Label htmlFor="mapel-select">Mata Pelajaran</Label>
+                            <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={validAssignedMapel.length === 0}>
+                                <SelectTrigger id="mapel-select">
+                                    <SelectValue placeholder="Pilih mapel..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {validAssignedMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div><Label htmlFor="class-select">Kelas</Label><Select value={selectedClass} onValueChange={setSelectedClass} disabled={uniqueClasses.length === 0}><SelectTrigger id="class-select"><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent>{uniqueClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
                     </div>
                 </CardHeader>

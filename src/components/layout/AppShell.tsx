@@ -15,12 +15,14 @@ import {
   SidebarFooter,
   SidebarMenuBadge,
   SidebarSeparator, 
+  useSidebar,
+  SidebarMenuSub,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -29,7 +31,6 @@ import { getAllPengumuman } from "@/lib/firestoreService";
 import type { Pengumuman, TugasTambahan } from "@/types";
 import { Timestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
-import { useSidebar } from "@/components/ui/sidebar";
 
 
 interface NavMenuItem {
@@ -138,50 +139,7 @@ const navigationStructure: NavGroup[] = [
     ],
   },
   
-  // --- GURU - TUGAS TAMBAHAN (ordered by likely importance/power) ---
-  {
-    groupLabel: "Laporan Umum",
-    groupIcon: BarChart3,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: [
-      { href: "/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
-      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      { href: "/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
-      { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
-    ],
-  },
-  {
-    groupLabel: "Laporan Wakasek",
-    groupIcon: Users,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: wakasekReportItems,
-  },
-  {
-    groupLabel: "Laporan Pembina",
-    groupIcon: Award,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: pembinaReportItems,
-  },
-  {
-    groupLabel: "Laporan Bimbingan Konseling",
-    groupIcon: HeartHandshake,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: bimbinganKonselingReportItems,
-  },
-  {
-    groupLabel: "Laporan Tata Usaha",
-    groupIcon: Briefcase,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
-    items: tuAndSecurityReportItems,
-  },
-
-
-  // --- Guru Items ---
+  // --- Guru General Items ---
   { 
     roles: ['guru'],
     requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
@@ -223,6 +181,7 @@ const navigationStructure: NavGroup[] = [
     ],
   },
   
+  // --- Guru Special Role Dashboards ---
   {
     groupLabel: "Kurikulum",
     groupIcon: Library,
@@ -251,6 +210,24 @@ const navigationStructure: NavGroup[] = [
     ],
   },
   {
+    groupLabel: "Manajemen Pembina",
+    groupIcon: Award,
+    roles: ['guru'],
+    requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
+    items: [
+       { href: "/guru/pembina", label: "Dasbor Pembina", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Bimbingan Konseling",
+    groupIcon: HeartHandshake,
+    roles: ['guru'],
+    requiredTugas: ({ isBk }) => isBk,
+    items: [
+      { href: "/guru/bk", label: "Dasbor BK", icon: Home },
+    ],
+  },
+  {
     groupLabel: "Tata Usaha",
     groupIcon: Briefcase,
     roles: ['guru'],
@@ -274,24 +251,6 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isOperator }) => isOperator,
     items: [
       { href: "/guru/operator", label: "Dasbor Operator", icon: Home },
-    ],
-  },
-  {
-    groupLabel: "Bimbingan Konseling",
-    groupIcon: HeartHandshake,
-    roles: ['guru'],
-    requiredTugas: ({ isBk }) => isBk,
-    items: [
-      { href: "/guru/bk", label: "Dasbor BK", icon: Home },
-    ],
-  },
-  {
-    groupLabel: "Manajemen Pembina",
-    groupIcon: Award,
-    roles: ['guru'],
-    requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
-    items: [
-       { href: "/guru/pembina", label: "Dasbor Pembina", icon: Home },
     ],
   },
    {
@@ -320,6 +279,47 @@ const navigationStructure: NavGroup[] = [
     items: [
        { href: "/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
     ],
+  },
+
+  // --- REPORTING GROUPS (for Admin & Kepsek) ---
+  {
+    groupLabel: "Laporan Umum",
+    groupIcon: BarChart3,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: [
+      { href: "/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
+      { href: "/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
+      { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+    ],
+  },
+  {
+    groupLabel: "Laporan Wakasek",
+    groupIcon: Users,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: wakasekReportItems,
+  },
+  {
+    groupLabel: "Laporan Pembina",
+    groupIcon: Award,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: pembinaReportItems,
+  },
+  {
+    groupLabel: "Laporan Bimbingan Konseling",
+    groupIcon: HeartHandshake,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: bimbinganKonselingReportItems,
+  },
+  {
+    groupLabel: "Laporan Tata Usaha & Staf",
+    groupIcon: Briefcase,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    items: tuAndSecurityReportItems,
   },
 ];
 
@@ -393,15 +393,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (loading || !userProfile) return [];
 
     return navigationStructure.filter(group => {
-        // Must match user role
         if (!group.roles.includes(userProfile.role)) {
             return false;
         }
-        // If there's a requiredTugas check, it must pass
         if (group.requiredTugas) {
             return group.requiredTugas(authContext);
         }
-        // If no requiredTugas check, it's valid for the role
         return true;
     });
 }, [userProfile, loading, authContext]);
@@ -429,33 +426,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     
     for (const item of allNavItemsFlat) {
         if (!item.href) continue;
-        const itemPath = item.href.split('?')[0];
+        
+        const [itemPath, itemParamsString] = item.href.split('?');
+        
+        if (pathname !== itemPath) {
+            continue;
+        }
 
-        if (pathname === itemPath) {
-            const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-            const currentParams = new URLSearchParams(searchParams.toString());
-            let paramsMatch = true;
-            if (itemParams.size > currentParams.size) { 
+        const itemParams = new URLSearchParams(itemParamsString || '');
+        const currentParams = new URLSearchParams(searchParams.toString());
+        let paramsMatch = true;
+        for (const [key, value] of itemParams.entries()) {
+            if (currentParams.get(key) !== value) {
                 paramsMatch = false;
-            } else {
-                for (const [key, value] of itemParams.entries()) {
-                    if (currentParams.get(key) !== value) {
-                        paramsMatch = false;
-                        break;
-                    }
-                }
-            }
-            if (paramsMatch) {
-                bestMatch = item;
                 break;
             }
         }
-
-        if (pathname.startsWith(itemPath)) {
+        
+        if (paramsMatch) {
             if (!bestMatch || item.href.length > bestMatch!.href!.length) {
                 bestMatch = item;
             }
         }
+    }
+    
+    if (bestMatch) return bestMatch.label;
+    
+    // Fallback for paths that don't exactly match a menu item
+    for (const item of allNavItemsFlat) {
+      if (pathname.startsWith(item.href!.split('?')[0])) {
+         if (!bestMatch || item.href!.length > bestMatch!.href!.length) {
+                bestMatch = item;
+         }
+      }
     }
 
     return bestMatch ? bestMatch.label : (userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru');
@@ -470,28 +473,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   
   const checkIsActive = React.useCallback((item: NavMenuItem) => {
     if (!item.href) return false;
+    
     const currentPath = pathname;
-    const itemPath = item.href.split('?')[0];
-
-    if (item.isExact) {
-      return currentPath === itemPath;
+    const [itemPath, itemParamsString] = item.href.split('?');
+    
+    if (currentPath !== itemPath) {
+        return false;
+    }
+    
+    if (!itemParamsString) {
+        return true;
     }
 
-    if (!currentPath.startsWith(itemPath)) {
-      return false;
-    }
-
-    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+    const itemParams = new URLSearchParams(itemParamsString);
     const currentParams = new URLSearchParams(searchParams.toString());
 
-    if (Array.from(itemParams.keys()).length === 0) {
-      return true;
-    }
-
     for (const [key, value] of itemParams.entries()) {
-      if (currentParams.get(key) !== value) {
-        return false;
-      }
+        if (currentParams.get(key) !== value) {
+            return false;
+        }
     }
     
     return true;
@@ -517,7 +517,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Accordion type="multiple" className="w-full" defaultValue={defaultOpenAccordionItems} key={JSON.stringify(defaultOpenAccordionItems)}>
               {filteredNavGroups.map((group, groupIndex) => (
                 <React.Fragment key={group.groupLabel || group.items[0]?.href || groupIndex}>
-                  {groupIndex > 0 && (!group.groupLabel || !filteredNavGroups[groupIndex-1].groupLabel) && <SidebarSeparator className="my-1"/>}
+                  {groupIndex > 0 && !group.groupLabel && !filteredNavGroups[groupIndex-1].groupLabel && <SidebarSeparator className="my-1"/>}
                   
                   {!group.groupLabel ? (
                     group.items.map((item) => (
@@ -537,17 +537,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     ))
                   ) : (
                     <AccordionItem value={group.groupLabel} className="border-b-0">
-                      <AccordionTrigger 
+                      <AccordionTrigger
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                          "flex w-full items-center justify-between gap-2 rounded-md p-2 text-left text-sm hover:no-underline hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                           "group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
                         )}
                       >
-                        {group.groupIcon && <group.groupIcon className="h-5 w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5" />}
-                        <span className="flex-1 group-data-[collapsible=icon]:hidden">{group.groupLabel}</span>
+                         <div className="flex items-center gap-2">
+                          {group.groupIcon && <group.groupIcon className="h-5 w-5" />}
+                          <span className="flex-1 group-data-[collapsible=icon]:hidden">{group.groupLabel}</span>
+                        </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pb-0">
-                        <SidebarMenu className="ml-4 mt-1 border-l border-sidebar-border pl-3 group-data-[collapsible=icon]:hidden">
+                      <AccordionContent className="p-0">
+                        <SidebarMenuSub>
                           {group.items.map((item, itemIndex) => {
                             if (item.isSeparator) {
                               return <SidebarSeparator key={`sep-${group.groupLabel}-${itemIndex}`} className="my-1 mx-0" />;
@@ -576,7 +578,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               </SidebarMenuItem>
                             );
                            })}
-                        </SidebarMenu>
+                        </SidebarMenuSub>
                       </AccordionContent>
                     </AccordionItem>
                   )}

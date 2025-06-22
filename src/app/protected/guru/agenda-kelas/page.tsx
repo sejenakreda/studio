@@ -140,7 +140,8 @@ export default function AgendaKelasPage() {
         form.reset({
             ...agenda,
             tanggal: agenda.tanggal.toDate(),
-            siswaAbsen: agenda.siswaAbsen.map(s => s.idSiswa)
+            siswaAbsen: agenda.siswaAbsen.map(s => s.idSiswa),
+            refleksi: agenda.refleksi || "",
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };

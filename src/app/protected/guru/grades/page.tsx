@@ -150,7 +150,20 @@ export default function InputNilaiPage() {
     useEffect(() => {
       const studentData: StudentGradeFormData[] = studentsInClass.map(student => {
         const grade = existingGrades.find(g => g.id_siswa === student.id_siswa);
-        return { id_siswa: student.id_siswa, gradeId: grade?.id, namaSiswa: student.nama, grades: { tugas: grade?.tugas?.join(',') || '', tes: grade?.tes, pts: grade?.pts, pas: grade?.pas, kehadiran: grade?.kehadiran, eskul: grade?.eskul, osis: grade?.osis, }};
+        return {
+            id_siswa: student.id_siswa,
+            gradeId: grade?.id,
+            namaSiswa: student.nama,
+            grades: {
+                tugas: grade?.tugas?.join(',') || '',
+                tes: grade?.tes ?? '',
+                pts: grade?.pts ?? '',
+                pas: grade?.pas ?? '',
+                kehadiran: grade?.kehadiran ?? '',
+                eskul: grade?.eskul ?? '',
+                osis: grade?.osis ?? '',
+            }
+        };
       });
       replace(studentData);
     }, [studentsInClass, existingGrades, replace]);
@@ -242,12 +255,12 @@ export default function InputNilaiPage() {
                     const studentIndex = currentStudentsInForm.findIndex(s => allStudents.find(as => as.id_siswa === s.id_siswa)?.nis === studentNis);
                     if (studentIndex !== -1) {
                         setValue(`students.${studentIndex}.grades.tugas`, String(row.Tugas ?? ''));
-                        setValue(`students.${index}.grades.tes`, row.Tes);
-                        setValue(`students.${index}.grades.pts`, row.PTS);
-                        setValue(`students.${index}.grades.pas`, row.PAS);
-                        setValue(`students.${index}.grades.kehadiran`, row.Kehadiran);
-                        setValue(`students.${index}.grades.eskul`, row.Eskul);
-                        setValue(`students.${index}.grades.osis`, row.OSIS);
+                        setValue(`students.${studentIndex}.grades.tes`, row.Tes ?? '');
+                        setValue(`students.${studentIndex}.grades.pts`, row.PTS ?? '');
+                        setValue(`students.${studentIndex}.grades.pas`, row.PAS ?? '');
+                        setValue(`students.${studentIndex}.grades.kehadiran`, row.Kehadiran ?? '');
+                        setValue(`students.${studentIndex}.grades.eskul`, row.Eskul ?? '');
+                        setValue(`students.${studentIndex}.grades.osis`, row.OSIS ?? '');
                         updatedCount++;
                     }
                 });

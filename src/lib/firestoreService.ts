@@ -660,7 +660,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef);
+  const docSnap = await getDoc(docRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -946,7 +946,7 @@ export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): P
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef);
+  const q = query(collRef, orderBy("createdAt", "desc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -982,21 +982,18 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
     const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
     
-    // Simplified query to fetch all agendas in a date range
+    // Simplified query to fetch all agendas in a date range for a specific teacher
     const q = query(coll, 
+        where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate)
+        where('tanggal', '<=', endDate),
     );
     
     const snapshot = await getDocs(q);
-    const allAgendasForMonth = snapshot.docs.map(doc => doc.data());
-    
-    // Filter by teacher on the client side
-    const teacherAgendas = allAgendasForMonth.filter(agenda => agenda.teacherUid === teacherUid);
-
+    const agendas = snapshot.docs.map(doc => doc.data());
     // Sort on the client-side
-    teacherAgendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-    return teacherAgendas;
+    agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    return agendas;
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {

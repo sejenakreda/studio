@@ -49,7 +49,6 @@ interface NavGroup {
 }
 
 const reportableRoles: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
-    { id: 'kesiswaan', label: 'Kesiswaan', icon: Users2 },
     { id: 'pembina_osis', label: 'OSIS', icon: Award },
     { id: 'pembina_eskul_pmr', label: 'Eskul PMR', icon: Award },
     { id: 'pembina_eskul_paskibra', label: 'Eskul Paskibra', icon: Award },
@@ -94,13 +93,11 @@ const navigationStructure: NavGroup[] = [
     ]
   },
   {
-    groupLabel: "Komunikasi & Laporan Umum",
+    groupLabel: "Komunikasi",
     groupIcon: Megaphone,
     roles: ['admin'],
     items: [
       { href: "/admin/announcements", label: "Pengumuman Guru", icon: Megaphone },
-      { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
-      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
     ],
   },
   {
@@ -154,12 +151,12 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Kepala Sekolah",
     groupIcon: Shield,
-    roles: ['admin', 'guru'], // Show for admin and guru
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin, // Visible if user is Kepsek OR Admin
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
-      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
+      { href: "/admin/violation-reports", label: "Laporan Kesiswaan", icon: Users2 },
       { href: "/admin/kegiatan-reports", label: "Semua Laporan Kegiatan", icon: FileText, isExact: true },
       ...reportableRoles.map(role => ({
         href: `/admin/kegiatan-reports?activity=${role.id}`,
@@ -293,14 +290,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    return navigationStructure.filter(group => {
-      if (!group.roles.includes(userProfile.role)) return false;
-      if (group.requiredTugas) {
-        return group.requiredTugas(authContext);
+    const allGroups = [...navigationStructure];
+    const finalGroups: NavGroup[] = [];
+
+    allGroups.forEach(group => {
+      let isVisible = group.roles.includes(userProfile.role);
+      if (isVisible && group.requiredTugas) {
+        isVisible = group.requiredTugas(authContext);
       }
-      return true;
+      
+      if(isVisible) {
+        finalGroups.push(group);
+      }
     });
-  }, [userProfile, loading, authContext]);
+
+    return finalGroups;
+}, [userProfile, loading, authContext]);
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];
@@ -365,7 +370,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent className="flex-1 p-2">
           <ScrollArea className="h-full">
-            <Accordion type="multiple" className="w-full" defaultValue={defaultOpenAccordionItems}>
+            <Accordion type="multiple" className="w-full" defaultValue={defaultOpenAccordionItems} key={JSON.stringify(defaultOpenAccordionItems)}>
               {filteredNavGroups.map((group, groupIndex) => (
                 <React.Fragment key={group.groupLabel || group.items[0]?.href || groupIndex}>
                   {groupIndex > 0 && (!group.groupLabel || !filteredNavGroups[groupIndex-1].groupLabel) && <SidebarSeparator className="my-1"/>}
@@ -404,19 +409,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               <SidebarMenuButton
                                 asChild
                                 isActive={(() => {
-                                    if (item.isExact) return pathname === item.href;
-                                    
                                     const itemPath = item.href.split('?')[0];
-                                    if (pathname !== itemPath) return false;
-
+                                    if (item.isExact) {
+                                      return pathname === itemPath && !searchParams.toString();
+                                    }
+                                    
+                                    if (!pathname.startsWith(itemPath)) return false;
+                                    
                                     const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
                                     const itemActivity = itemParams.get('activity');
                                     
-                                    if (itemActivity) {
-                                      return itemActivity === searchParams.get('activity');
+                                    if(itemActivity) {
+                                      return searchParams.get('activity') === itemActivity;
                                     }
 
-                                    return pathname.startsWith(item.href);
+                                    // if there is an activity param in the URL, but the item has no activity param, it's not a match, unless it's the base page
+                                    if(searchParams.get('activity') && !itemActivity && item.href !== '/admin/kegiatan-reports') return false;
+
+                                    return true;
                                 })()}
                                 size="sm" 
                                 className="h-7"

@@ -50,6 +50,7 @@ interface NavGroup {
 }
 
 const wakasekReportItems: NavMenuItem[] = [
+  { href: "/admin/kegiatan-reports?activity=kesiswaan", label: "Laporan Kesiswaan", icon: Users2 },
   { href: "/admin/kegiatan-reports?activity=kurikulum", label: "Laporan Kurikulum", icon: Library },
   { href: "/admin/kegiatan-reports?activity=bendahara", label: "Laporan Bendahara", icon: CircleDollarSign },
 ];

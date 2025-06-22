@@ -51,21 +51,27 @@ export default function KegiatanReportsPage() {
       }
       groups.get(report.activityId)!.push(report);
     });
-    return groups;
+    // Sort groups by activity name
+    return new Map([...groups.entries()].sort((a, b) => a[1][0].activityName.localeCompare(b[1][0].activityName)));
   }, [reports]);
 
   const handleDownloadExcel = () => {
     const workbook = XLSX.utils.book_new();
     
+    if (reportGroups.size === 0) {
+        toast({ variant: "default", title: "Tidak ada data untuk diunduh." });
+        return;
+    }
+
     reportGroups.forEach((groupReports, activityId) => {
       if (groupReports.length > 0) {
         const sheetName = groupReports[0].activityName.substring(0, 31);
         const dataForExcel = groupReports.map(report => ({
           'Judul Laporan': report.title,
-          'Tanggal Kegiatan': format(report.date.toDate(), "yyyy-MM-dd"),
+          'Tanggal Kegiatan': report.date ? format(report.date.toDate(), "yyyy-MM-dd") : 'N/A',
           'Isi Laporan': report.content,
           'Dibuat Oleh': report.createdByDisplayName,
-          'Tanggal Dibuat': format(report.createdAt.toDate(), "yyyy-MM-dd HH:mm"),
+          'Tanggal Dibuat': report.createdAt ? format(report.createdAt.toDate(), "yyyy-MM-dd HH:mm") : 'N/A',
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const wscols = [ {wch:30}, {wch:15}, {wch:50}, {wch:20}, {wch:20} ];
@@ -74,12 +80,7 @@ export default function KegiatanReportsPage() {
       }
     });
 
-    if (workbook.SheetNames.length === 0) {
-        toast({ variant: "default", title: "Tidak ada data untuk diunduh." });
-        return;
-    }
-
-    XLSX.writeFile(workbook, "laporan_kegiatan_pembina.xlsx");
+    XLSX.writeFile(workbook, "laporan_kegiatan_semua.xlsx");
     toast({ title: "Unduhan Dimulai", description: "File Excel sedang disiapkan." });
   };
   
@@ -95,7 +96,7 @@ export default function KegiatanReportsPage() {
             <p className="text-muted-foreground">Lihat semua laporan kegiatan yang dibuat oleh Pembina & Kesiswaan.</p>
           </div>
         </div>
-        <Button onClick={handleDownloadExcel} variant="outline" disabled={isLoading}><Download className="mr-2 h-4 w-4" />Unduh Semua Laporan</Button>
+        <Button onClick={handleDownloadExcel} variant="outline" disabled={isLoading || reportGroups.size === 0}><Download className="mr-2 h-4 w-4" />Unduh Semua Laporan</Button>
       </div>
 
       <Card>
@@ -110,23 +111,23 @@ export default function KegiatanReportsPage() {
             <Accordion type="multiple" className="w-full">
               {Array.from(reportGroups.entries()).map(([activityId, groupReports]) => (
                 <AccordionItem key={activityId} value={activityId}>
-                  <AccordionTrigger className="hover:no-underline">
+                  <AccordionTrigger className="hover:no-underline text-base font-semibold">
                     <div className="flex items-center gap-4">
-                        <span className="font-semibold text-base">{groupReports[0].activityName}</span>
+                        <span>{groupReports[0].activityName}</span>
                         <Badge variant="secondary">{groupReports.length} Laporan</Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="p-2">
                     {groupReports.length === 0 ? (
                         <p className="text-sm text-muted-foreground px-4 py-6 text-center">Belum ada laporan untuk kegiatan ini.</p>
                     ) : (
                         <div className="space-y-3">
                             {groupReports.map(report => (
-                                <Card key={report.id} className="p-4">
+                                <Card key={report.id} className="p-4 hover:shadow-md transition-shadow">
                                     <CardHeader className="p-0 mb-2">
                                         <CardTitle className="text-base">{report.title}</CardTitle>
                                         <CardDescription>
-                                            Kegiatan tgl: {format(report.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })} | 
+                                            Kegiatan tgl: {report.date ? format(report.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale }) : 'N/A'} | 
                                             Dibuat oleh: {report.createdByDisplayName}
                                         </CardDescription>
                                     </CardHeader>
@@ -140,7 +141,7 @@ export default function KegiatanReportsPage() {
                   </AccordionContent>
                 </AccordionItem>
               ))}
-              {reportGroups.size === 0 && (
+              {reportGroups.size === 0 && !isLoading && (
                  <Alert variant="default">
                     <Info className="h-4 w-4" />
                     <AlertTitle>Informasi</AlertTitle>

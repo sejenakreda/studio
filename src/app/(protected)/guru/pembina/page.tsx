@@ -54,7 +54,7 @@ type LaporanFormData = z.infer<typeof laporanSchema>;
 interface MemberManagementProps {
     activityId: TugasTambahan;
     allStudents: Siswa[];
-    onDataChange: () => void; // Generic callback for when data is changed
+    onDataChange: () => void;
 }
 
 function MemberManagement({ activityId, allStudents, onDataChange }: MemberManagementProps) {
@@ -67,7 +67,7 @@ function MemberManagement({ activityId, allStudents, onDataChange }: MemberManag
     const members = useMemo(() => allStudents.filter(s => s.kegiatan?.includes(activityId)), [allStudents, activityId]);
     const nonMembers = useMemo(() => {
         const memberIds = new Set(members.map(m => m.id));
-        return allStudents.filter(s => !memberIds.has(s.id));
+        return allStudents.filter(s => !memberIds.has(s.id!));
     }, [allStudents, members]);
 
     const handleAddMember = async (student: Siswa) => {
@@ -143,8 +143,11 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
             try {
                 const reports = await getLaporanKegiatanByActivity(activityId);
                 setLaporanList(reports);
-            } catch (error) { toast({ variant: "destructive", title: "Error", description: "Gagal memuat laporan kegiatan." }); }
-            finally { setIsLoading(false); }
+            } catch (error) {
+                toast({ variant: "destructive", title: "Error", description: "Gagal memuat laporan kegiatan." });
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchReports();
     }, [activityId, toast, onDataChange]);
@@ -161,8 +164,11 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
             await addActivityLog("Laporan Kegiatan Dibuat", `Laporan "${data.title}" untuk ${getActivityName(activityId)} dibuat oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Pembina');
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil disimpan." });
             form.reset(); setIsFormOpen(false); onDataChange();
-        } catch (error: any) { toast({ variant: "destructive", title: "Gagal Menyimpan", description: error.message });
-        } finally { setIsSubmitting(false); }
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Gagal Menyimpan", description: error.message });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
     const handleDeleteReport = async () => {
@@ -171,25 +177,69 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
         try {
             await deleteLaporanKegiatan(reportToDelete.id);
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil dihapus." });
-            setReportToDelete(null); onDataChange();
-        } catch (error: any) { toast({ variant: "destructive", title: "Gagal Hapus", description: error.message });
-        } finally { setIsSubmitting(false); }
+            setReportToDelete(null);
+            onDataChange();
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Gagal Hapus", description: error.message });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div>
-            <div className="flex justify-end mb-4"><Dialog open={isFormOpen} onOpenChange={setIsFormOpen}><DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Buat Laporan Baru</Button></DialogTrigger>
-                <DialogContent className="sm:max-w-[525px]"><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)}><DialogHeader><DialogTitle>Form Laporan Kegiatan</DialogTitle><DialogDescription>Isi detail agenda atau laporan kegiatan yang telah dilaksanakan.</DialogDescription></DialogHeader>
-                    <div className="grid gap-4 py-4"><FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan/Agenda</FormLabel><FormControl><Input placeholder="cth: Rapat Persiapan Lomba 17an" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian Agenda</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
-                    </div><DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan Laporan"}</Button></DialogFooter>
-                </form></Form></DialogContent>
-            </Dialog>
-            <div className="border rounded-md"><Table><TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Tanggal</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
-                <TableBody>{isLoading ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>) : laporanList.length === 0 ? (<TableRow><TableCell colSpan={3} className="text-center h-24">Belum ada laporan.</TableCell></TableRow>) : (laporanList.map((laporan) => (<TableRow key={laporan.id}><TableCell className="font-medium max-w-sm truncate" title={laporan.title}>{laporan.title}</TableCell><TableCell>{format(laporan.date.toDate(), "dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setReportToDelete(laporan)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>)))}</TableBody>
-            </Table></div>
-             {reportToDelete && (<AlertDialog open={!!reportToDelete} onOpenChange={() => setReportToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Ini akan menghapus laporan <span className="font-semibold">{reportToDelete.title}</span>. Tindakan ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteReport} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/80">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
+            <div className="flex justify-end mb-4">
+                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Buat Laporan Baru</Button></DialogTrigger>
+                    <DialogContent className="sm:max-w-[525px]">
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)}>
+                                <DialogHeader>
+                                    <DialogTitle>Form Laporan Kegiatan</DialogTitle>
+                                    <DialogDescription>Isi detail agenda atau laporan kegiatan yang telah dilaksanakan.</DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan/Agenda</FormLabel><FormControl><Input placeholder="cth: Rapat Persiapan Lomba 17an" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian Agenda</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose>
+                                    <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan Laporan"}</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+            <div className="border rounded-md">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Judul</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>) : laporanList.length === 0 ? (<TableRow><TableCell colSpan={3} className="text-center h-24">Belum ada laporan.</TableCell></TableRow>) : (laporanList.map((laporan) => (<TableRow key={laporan.id}><TableCell className="font-medium max-w-sm truncate" title={laporan.title}>{laporan.title}</TableCell><TableCell>{format(laporan.date.toDate(), "dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setReportToDelete(laporan)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>)))}
+                    </TableBody>
+                </Table>
+            </div>
+            {reportToDelete && (
+                <AlertDialog open={!!reportToDelete} onOpenChange={() => setReportToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                            <AlertDialogDescription>Ini akan menghapus laporan <span className="font-semibold">{reportToDelete.title}</span>. Tindakan ini tidak dapat diurungkan.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isSubmitting}>Batal</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteReport} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/80">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Ya, Hapus</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
         </div>
     );
 }
@@ -211,9 +261,12 @@ export default function PembinaDashboardPage() {
         try {
             const studentList = await getStudents();
             setAllStudents(studentList);
-            setForceRerender(prev => prev + 1); // Force re-render of children
-        } catch (err: any) { setError("Gagal memuat data siswa.");
-        } finally { setIsLoading(false); }
+            setForceRerender(prev => prev + 1);
+        } catch (err: any) {
+            setError("Gagal memuat data siswa.");
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
     useEffect(() => {

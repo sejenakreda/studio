@@ -98,11 +98,20 @@ export default function EditTeacherPage() {
         getMataPelajaranMaster()
       ]);
       
+      const masterMapelNames = fetchedMasterMapel.map(m => m.namaMapel);
+      setMasterMapelList(fetchedMasterMapel || []);
+      
       if (fetchedTeacher && fetchedTeacher.role === 'guru') {
         setTeacherData(fetchedTeacher);
+
+        // Filter assigned mapel to only include those that exist in the master list
+        const validAssignedMapel = (fetchedTeacher.assignedMapel || []).filter(mapel => 
+            masterMapelNames.includes(mapel)
+        );
+
         form.reset({
           displayName: fetchedTeacher.displayName || "",
-          assignedMapel: fetchedTeacher.assignedMapel || [],
+          assignedMapel: validAssignedMapel,
           tugasTambahan: fetchedTeacher.tugasTambahan || [],
         });
       } else {
@@ -110,7 +119,6 @@ export default function EditTeacherPage() {
         toast({ variant: "destructive", title: "Error", description: "Data guru tidak ditemukan." });
         router.push('/protected/admin/teachers');
       }
-      setMasterMapelList(fetchedMasterMapel || []);
     } catch (error) {
       console.error("Error fetching initial data for edit teacher:", error);
       setFetchError("Gagal memuat data guru atau daftar mapel. Silakan coba lagi.");
@@ -434,3 +442,5 @@ export default function EditTeacherPage() {
     </div>
   );
 }
+
+    

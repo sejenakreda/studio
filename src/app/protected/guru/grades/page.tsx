@@ -9,7 +9,8 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, AlertCircle, Edit3, Filter, Info } from "lucide-react";
@@ -184,10 +185,10 @@ export default function InputNilaiPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/> Filter Data Siswa</CardTitle>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-                        <FormItem><FormLabel>Tahun Ajaran</FormLabel><Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select></FormItem>
-                        <FormItem><FormLabel>Semester</FormLabel><Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select></FormItem>
-                        <FormItem><FormLabel>Mata Pelajaran</FormLabel><Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={!userProfile?.assignedMapel?.length}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{userProfile?.assignedMapel?.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></FormItem>
-                        <FormItem><FormLabel>Kelas</FormLabel><Select value={selectedClass} onValueChange={setSelectedClass} disabled={uniqueClasses.length === 0}><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent>{uniqueClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></FormItem>
+                        <div className="space-y-2"><Label>Tahun Ajaran</Label><Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="space-y-2"><Label>Semester</Label><Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="space-y-2"><Label>Mata Pelajaran</Label><Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={!userProfile?.assignedMapel?.length}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{userProfile?.assignedMapel?.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="space-y-2"><Label>Kelas</Label><Select value={selectedClass} onValueChange={setSelectedClass} disabled={uniqueClasses.length === 0}><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent>{uniqueClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
                     </div>
                 </CardHeader>
                 <CardContent>

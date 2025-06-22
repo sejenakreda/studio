@@ -50,7 +50,6 @@ interface NavGroup {
 }
 
 const wakasekReportItems: NavMenuItem[] = [
-  { href: "/admin/kegiatan-reports?activity=kesiswaan", label: "Laporan Kesiswaan", icon: Users2 },
   { href: "/admin/kegiatan-reports?activity=kurikulum", label: "Laporan Kurikulum", icon: Library },
   { href: "/admin/kegiatan-reports?activity=bendahara", label: "Laporan Bendahara", icon: CircleDollarSign },
 ];
@@ -282,6 +281,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/reports", label: "Statistik Sistem", icon: BarChart3 },
       { href: "/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
       { href: "/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
+      { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
     ],
   },
   {
@@ -397,42 +397,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const checkIsActive = React.useCallback((item: NavMenuItem) => {
     if (!item.href) return false;
     
+    // Split href into path and query parameters
     const [itemPath, itemParamsString] = item.href.split('?');
+    const itemParams = new URLSearchParams(itemParamsString || '');
     
-    // For exact matches like the dashboard home page.
-    if (item.isExact) {
-        return pathname === itemPath;
+    // Check if base paths match
+    if (pathname !== itemPath) {
+      return false;
     }
+    
+    // If there are no query params in the link, it's a match
+    if (itemParams.toString() === '') {
+      return true;
+    }
+    
+    // If there are query params, they must all match the current URL's params
+    const currentParams = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of itemParams.entries()) {
+      if (currentParams.get(key) !== value) {
+        return false;
+      }
+    }
+    
+    return true;
 
-    // For links with query parameters, we need the path and all its params to match.
-    if (itemParamsString) {
-        if (pathname !== itemPath) {
-            return false;
-        }
-        const itemParams = new URLSearchParams(itemParamsString);
-        const currentParams = new URLSearchParams(searchParams.toString());
-        // Every param in the link must be present and have the same value in the URL
-        for (const [key, value] of itemParams.entries()) {
-            if (currentParams.get(key) !== value) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
-    // For general links without query params, check if the current path starts with the item's path.
-    // This is good for highlighting a parent menu item like "/guru/students" on "/guru/students/report/123"
-    // To avoid incorrect matches (e.g. /a matching /abc), we check for a trailing slash or exact length.
-    if (pathname.startsWith(itemPath)) {
-        if (pathname.length === itemPath.length) {
-            return true;
-        }
-        if (pathname[itemPath.length] === '/') {
-            return true;
-        }
-    }
-    
-    return false;
   }, [pathname, searchParams]);
 
   const defaultOpenAccordionItems = React.useMemo(() => {
@@ -458,9 +446,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
         }
     }
+    
+    // Fallback if no specific route is matched (e.g. on a nested, non-menu page)
+    if (!bestMatch) {
+       for (const item of allNavItemsFlat) {
+          if (item.href && pathname.startsWith(item.href)) {
+             if (!bestMatch || item.href!.length > bestMatch.href!.length) {
+                bestMatch = item;
+            }
+          }
+       }
+    }
 
     return bestMatch ? bestMatch.label : (userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru');
-  }, [checkIsActive, filteredNavGroups, userProfile, loading]);
+  }, [checkIsActive, filteredNavGroups, userProfile, loading, pathname]);
 
 
   const handleLinkClick = () => {
@@ -491,6 +490,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   
                   {!group.groupLabel ? (
                     group.items.map((item) => (
+                      item.isSeparator ? <SidebarSeparator key={`sep-item-${groupIndex}`} className="my-1"/> :
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
                           asChild

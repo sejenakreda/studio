@@ -1017,20 +1017,38 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
     const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
 
+    // The query is simplified to avoid needing a custom composite index.
+    // We will sort the results on the client-side within this function.
     const q = query(coll, 
         where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate),
-        orderBy('tanggal', 'desc')
+        where('tanggal', '<=', endDate)
+        // orderBy('tanggal', 'desc') // This is removed to prevent the index error.
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data());
+    const agendas = snapshot.docs.map(doc => doc.data());
+    
+    // We sort here instead of in the query.
+    return agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
 };
 
-export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
+export const getAllAgendas = async (year: number, month: number | null): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const q = query(coll, orderBy("tanggal", "desc"));
+    const qConstraints = [];
+    
+    let startDate: Timestamp, endDate: Timestamp;
+    if (month && month >= 1 && month <= 12) {
+      startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+      endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+    } else {
+      startDate = Timestamp.fromDate(new Date(year, 0, 1));
+      endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
+    }
+    qConstraints.push(where('tanggal', '>=', startDate));
+    qConstraints.push(where('tanggal', '<=', endDate));
+
+    const q = query(coll, ...qConstraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
 };

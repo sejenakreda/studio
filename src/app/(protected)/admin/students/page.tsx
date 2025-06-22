@@ -130,9 +130,10 @@ export default function AdminManageStudentsPage() {
       return;
     }
     try {
-      // Fetch current students list again to ensure no race conditions if allStudents state is stale
       const currentStudentList = await getStudents();
-      const existingStudentById = currentStudentList.find(s => s.id_siswa === data.id_siswa); 
+      const lowercasedId = data.id_siswa.toLowerCase();
+
+      const existingStudentById = currentStudentList.find(s => s.id_siswa.toLowerCase() === lowercasedId); 
       if (existingStudentById) {
         form.setError("id_siswa", { type: "manual", message: "ID Siswa ini sudah digunakan." });
         toast({ variant: "destructive", title: "Error Validasi", description: "ID Siswa ini sudah digunakan." });
@@ -147,10 +148,10 @@ export default function AdminManageStudentsPage() {
         return;
       }
 
-      await addStudent(data);
+      await addStudent({ ...data, id_siswa: lowercasedId });
       await addActivityLog(
         "Siswa Baru Ditambahkan (Manual)",
-        `Siswa: ${data.nama} (NIS: ${data.nis}, Kelas: ${data.kelas}, ID: ${data.id_siswa}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
+        `Siswa: ${data.nama} (NIS: ${data.nis}, Kelas: ${data.kelas}, ID: ${lowercasedId}) oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
         currentAdminProfile.uid,
         currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
       );
@@ -187,7 +188,7 @@ export default function AdminManageStudentsPage() {
       toast({ title: "Sukses", description: `Siswa ${studentToDelete.nama} dan semua nilainya berhasil dihapus.` });
       setStudentToDelete(null);
       fetchStudents();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting student:", error);
       toast({ variant: "destructive", title: "Error Hapus", description: "Gagal menghapus siswa." });
     } finally {
@@ -247,7 +248,10 @@ export default function AdminManageStudentsPage() {
     }
     setIsImporting(true);
     const reader = new FileReader();
-    const currentStudentList = await getStudents(); // Fetch fresh list before loop
+    
+    const existingStudents = await getStudents();
+    const existingIdSet = new Set(existingStudents.map(s => s.id_siswa.toLowerCase()));
+    const existingNisSet = new Set(existingStudents.map(s => s.nis));
 
     reader.onload = async (e) => {
       try {
@@ -276,7 +280,7 @@ export default function AdminManageStudentsPage() {
         
         for (const [index, student] of json.entries()) {
           const studentNis = String(student.nis || "").trim();
-          const studentIdSiswa = String(student.id_siswa || "").trim();
+          const studentIdSiswa = String(student.id_siswa || "").trim().toLowerCase();
           const studentNama = String(student.nama || "").trim();
           const studentKelas = String(student.kelas || "").trim();
           
@@ -300,17 +304,14 @@ export default function AdminManageStudentsPage() {
             continue;
           }
 
-          // Check against list that includes already-processed items from this file
-          const existingStudentById = currentStudentList.find(s => s.id_siswa === studentIdSiswa);
-          if (existingStudentById) {
+          if (existingIdSet.has(studentIdSiswa)) {
             failCount++;
-            errorMessages.push(`Baris ${index + 2}: ID Siswa ${studentIdSiswa} sudah ada. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: ID Siswa ${studentIdSiswa} sudah ada di sistem atau di baris sebelumnya.`);
             continue;
           }
-          const existingStudentByNis = currentStudentList.find(s => s.nis === studentNis);
-          if (existingStudentByNis) {
+          if (existingNisSet.has(studentNis)) {
             failCount++;
-            errorMessages.push(`Baris ${index + 2}: NIS ${studentNis} sudah ada. Dilewati.`);
+            errorMessages.push(`Baris ${index + 2}: NIS ${studentNis} sudah ada di sistem atau di baris sebelumnya.`);
             continue;
           }
 
@@ -329,16 +330,23 @@ export default function AdminManageStudentsPage() {
               currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
             );
             successCount++;
-            currentStudentList.push({ ...newStudent, id: 'temp-id-' + successCount }); // Add to local list to prevent re-adding if file has duplicates
+            existingIdSet.add(studentIdSiswa);
+            existingNisSet.add(studentNis);
           } catch (error: any) {
             failCount++;
             errorMessages.push(`Baris ${index + 2}: Gagal impor ${studentNama}: ${error.message}. Dilewati.`);
           }
         }
 
+        let toastDescription = `${successCount} siswa berhasil diimpor. ${failCount} siswa gagal diimpor.`;
+        if (failCount > 0) {
+            const firstFewErrors = errorMessages.slice(0, 2).join(' ');
+            toastDescription += ` Penyebab umum adalah duplikat ID/NIS. Contoh error: ${firstFewErrors}...`;
+        }
+        
         toast({
           title: "Proses Impor Siswa Selesai",
-          description: `${successCount} siswa berhasil diimpor. ${failCount} siswa gagal diimpor. ${failCount > 0 ? 'Lihat konsol untuk detail error.' : ''}`,
+          description: toastDescription,
           duration: failCount > 0 ? 10000 : 5000,
         });
 
@@ -438,7 +446,7 @@ export default function AdminManageStudentsPage() {
                     <FormControl>
                       <Input placeholder="cth: ayu_lestari_01" {...field} />
                     </FormControl>
-                    <FormDesc>ID unik untuk siswa, bisa berupa kombinasi nama dan angka.</FormDesc>
+                    <FormDesc>ID unik untuk siswa (huruf kecil), bisa berupa kombinasi nama dan angka.</FormDesc>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -491,7 +499,7 @@ export default function AdminManageStudentsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-wrap">
             <div>
               <CardTitle>Daftar Siswa Terdaftar</CardTitle>
               <CardDescription>Berikut adalah daftar semua siswa.</CardDescription>

@@ -63,7 +63,7 @@ export default function LaporanAgendaKelasPage() {
             if (agendaDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && agendaDate.getMonth() !== filterMonth - 1) return false;
             return true;
-        });
+        }).sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
     }, [agendas, filterTeacher, filterYear, filterMonth]);
     
     const handleDownloadExcel = () => {

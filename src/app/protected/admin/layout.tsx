@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-// This layout ensures that only admins can access routes under /admin
+// This layout ensures that only admins can access routes under /protected/admin
 // The actual UI shell is handled by (protected)/layout.tsx -> AppShell
 // This file mostly serves to group admin routes and can be used for
 // admin-specific context providers or further layout refinements if needed.

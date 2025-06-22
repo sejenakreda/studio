@@ -1,3 +1,4 @@
+
 "use client";
 
 import { signOut } from "firebase/auth";
@@ -41,7 +42,7 @@ export function UserNav() {
     return names[0].substring(0, 2);
   };
   
-  const dashboardPath = isAdmin ? "/admin" : isGuru ? "/guru" : "/";
+  const dashboardPath = isAdmin ? "/protected/admin" : isGuru ? "/protected/guru" : "/";
 
   return (
     <DropdownMenu>

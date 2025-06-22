@@ -132,7 +132,9 @@ export default function ManageTeacherAttendancePage() {
       const allRecordsForPeriod = await getAllTeachersDailyAttendanceForPeriod(dailyFilterYear, monthQueryValue);
       let records = dailyFilterTeacherUid === "all" ? allRecordsForPeriod : allRecordsForPeriod.filter(rec => rec.teacherUid === dailyFilterTeacherUid);
       setDailyRecords(records.sort((a, b) => {
-        const dateComparison = b.date.toMillis() - a.date.toMillis();
+        const dateA = a.date?.toDate() ?? new Date(0);
+        const dateB = b.date?.toDate() ?? new Date(0);
+        const dateComparison = dateB.getTime() - dateA.getTime();
         if (dateComparison !== 0) return dateComparison;
         return (a.teacherName || "").localeCompare(b.teacherName || "");
       }));

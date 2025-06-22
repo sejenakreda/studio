@@ -62,7 +62,12 @@ export default function KegiatanReportsPage() {
       groups.get(report.activityId)!.push(report);
     });
     // Sort groups by activity name
-    return new Map([...groups.entries()].sort((a, b) => a[1][0].activityName.localeCompare(b[1][0].activityName)));
+    const sortedEntries = Array.from(groups.entries()).sort((a, b) => {
+        const nameA = a[1][0]?.activityName || '';
+        const nameB = b[1][0]?.activityName || '';
+        return nameA.localeCompare(nameB);
+    });
+    return new Map(sortedEntries);
   }, [reports, activityFilter]);
 
   const handleDownloadExcel = () => {
@@ -170,7 +175,7 @@ export default function KegiatanReportsPage() {
                     <AccordionItem key={activityId} value={activityId} className="print:border-b-2 print:border-black print:mb-4">
                     <AccordionTrigger className="hover:no-underline text-base font-semibold print:text-lg">
                         <div className="flex items-center gap-4">
-                            <span>{groupReports[0].activityName}</span>
+                            <span>{groupReports[0]?.activityName || activityId}</span>
                             <Badge variant="secondary" className="print:hidden">{groupReports.length} Laporan</Badge>
                         </div>
                     </AccordionTrigger>

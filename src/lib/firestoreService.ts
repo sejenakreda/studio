@@ -985,11 +985,13 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     const q = query(coll, 
         where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate),
-        orderBy('tanggal', 'desc')
+        where('tanggal', '<=', endDate)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data());
+    const agendas = snapshot.docs.map(doc => doc.data());
+    // Sort on the client-side to avoid needing a composite index
+    agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    return agendas;
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {

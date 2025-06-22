@@ -35,7 +35,7 @@ export default function ProtectedLayout({
                 '/admin/violation-reports', 
                 '/admin/kegiatan-reports',
                 '/admin/agenda-kelas',
-                '/admin/teacher-attendance', // Added this line
+                '/admin/teacher-attendance',
               ];
               const isAllowed = (isKepalaSekolah && pathname === '/admin') || allowedRoutes.some(route => pathname.startsWith(route));
               if (!isAllowed) {

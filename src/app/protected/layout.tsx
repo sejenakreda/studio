@@ -12,7 +12,7 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, userProfile, loading, isKepalaSekolah, isKepalaTataUsaha } = useAuth();
+  const { user, userProfile, loading, isKepalaSekolah, isKepalaTataUsaha, isKesiswaan } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -28,22 +28,28 @@ export default function ProtectedLayout({
           if (isGuruRoute) router.replace('/protected/admin');
         } else if (userProfile.role === 'guru') {
           if (isAdminRoute) {
-            if (isKepalaSekolah || isKepalaTataUsaha) {
-              const allowedAdminRoutesForKepsek = [
-                '/protected/admin/reports', 
-                '/protected/admin/grades', 
-                '/protected/admin/violation-reports', 
-                '/protected/admin/kegiatan-reports',
-                '/protected/admin/agenda-kelas',
-                '/protected/admin/teacher-attendance',
-                '/protected/admin/school-profile', // Kepsek should see this too
-              ];
-              // Kepsek can see the main admin dashboard and any route starting with the allowed paths
-              const isAllowed = pathname === '/protected/admin' || allowedAdminRoutesForKepsek.some(route => pathname.startsWith(route));
-              if (!isAllowed) {
-                router.replace('/protected/guru');
-              }
-            } else {
+            let isAllowed = false;
+
+            // Define allowed routes for special roles
+            const allowedForSpecialRoles = [
+              '/protected/admin/reports', 
+              '/protected/admin/grades', 
+              '/protected/admin/kegiatan-reports',
+              '/protected/admin/agenda-kelas',
+              '/protected/admin/teacher-attendance',
+              '/protected/admin/school-profile',
+            ];
+
+            if (isKepalaSekolah) {
+              // Kepala Sekolah can access the main admin dashboard and a wide range of reports
+              isAllowed = pathname === '/protected/admin' || allowedForSpecialRoles.some(route => pathname.startsWith(route)) || pathname.startsWith('/protected/admin/violation-reports');
+            } else if (isKesiswaan) {
+              // Kesiswaan can only access violation reports
+              isAllowed = pathname.startsWith('/protected/admin/violation-reports');
+            }
+            // Other roles like KepalaTataUsaha are not given access to any /protected/admin routes by default here.
+
+            if (!isAllowed) {
               router.replace('/protected/guru');
             }
           }
@@ -52,7 +58,7 @@ export default function ProtectedLayout({
         }
       }
     }
-  }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKepalaTataUsaha]);
+  }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKesiswaan]);
 
   if (loading || !user || !userProfile) {
     return (
@@ -80,7 +86,7 @@ export default function ProtectedLayout({
   }
 
   const isAdminRoute = pathname.startsWith('/protected/admin');
-  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKepalaTataUsaha) {
+  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKesiswaan) {
     return (
          <div className="flex min-h-screen w-full items-center justify-center">
             <p>Mengalihkan...</p>

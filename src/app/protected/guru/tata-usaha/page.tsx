@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -44,19 +43,6 @@ export default function TataUsahaDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground">Buat dan kelola laporan kegiatan Anda sebagai Kepala TU.</p>
-                    </CardContent>
-                </Card>
-           </Link>
-            <Link href="/protected/admin/violation-reports">
-                <Card className="hover:bg-primary/5 hover:border-primary cursor-pointer h-full">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <FileWarning className="h-5 w-5 text-primary"/>
-                            Laporan Pelanggaran
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground">Lihat dan ekspor data pelanggaran siswa yang dicatat oleh Kesiswaan dan BK.</p>
                     </CardContent>
                 </Card>
            </Link>

@@ -1,11 +1,10 @@
-
 "use client";
 
 import React from 'react';
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Users2, ShieldAlert, FileWarning } from "lucide-react";
 
 export default function KesiswaanDashboardPage() {
   return (
@@ -55,6 +54,19 @@ export default function KesiswaanDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground">Catat dan kelola data pelanggaran siswa.</p>
+                    </CardContent>
+                </Card>
+           </Link>
+           <Link href="/protected/admin/violation-reports">
+                <Card className="hover:bg-primary/5 hover:border-primary cursor-pointer h-full">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <FileWarning className="h-5 w-5 text-primary"/>
+                            Laporan Pelanggaran
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">Lihat dan ekspor semua data pelanggaran yang tercatat.</p>
                     </CardContent>
                 </Card>
            </Link>

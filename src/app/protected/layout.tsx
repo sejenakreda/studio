@@ -46,8 +46,11 @@ export default function ProtectedLayout({
             } else if (isKesiswaan) {
               // Kesiswaan can only access violation reports
               isAllowed = pathname.startsWith('/protected/admin/violation-reports');
+            } else if (isKepalaTataUsaha) {
+              // Kepala TU can only access the activity reports of their staff
+              isAllowed = pathname.startsWith('/protected/admin/kegiatan-reports');
             }
-            // Other roles like KepalaTataUsaha are not given access to any /protected/admin routes by default here.
+
 
             if (!isAllowed) {
               router.replace('/protected/guru');
@@ -58,7 +61,7 @@ export default function ProtectedLayout({
         }
       }
     }
-  }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKesiswaan]);
+  }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKesiswaan, isKepalaTataUsaha]);
 
   if (loading || !user || !userProfile) {
     return (
@@ -86,7 +89,7 @@ export default function ProtectedLayout({
   }
 
   const isAdminRoute = pathname.startsWith('/protected/admin');
-  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKesiswaan) {
+  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKesiswaan && !isKepalaTataUsaha) {
     return (
          <div className="flex min-h-screen w-full items-center justify-center">
             <p>Mengalihkan...</p>

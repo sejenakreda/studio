@@ -103,7 +103,6 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
       { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
       { href: "/admin/grades", label: "Semua Nilai", icon: FileText },
-      { href: "/admin/agenda-kelas", label: "Laporan Agenda Kelas", icon: BookCheck },
     ],
   },
   {
@@ -115,14 +114,6 @@ const navigationStructure: NavGroup[] = [
     ],
   },
    {
-    groupLabel: "Kehadiran Guru",
-    groupIcon: CalendarCheck,
-    roles: ['admin'],
-    items: [
-       { href: "/admin/teacher-attendance", label: "Kelola Rekap Kehadiran", icon: CalendarCheck },
-    ]
-  },
-  {
     groupLabel: "Komunikasi",
     groupIcon: Megaphone,
     roles: ['admin'],
@@ -403,18 +394,54 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
 }, [userProfile, loading, authContext]);
 
+  const checkIsActive = React.useCallback((item: NavMenuItem) => {
+    if (!item.href) return false;
+    
+    const [itemPath, itemParamsString] = item.href.split('?');
+    
+    // For exact matches like the dashboard home page.
+    if (item.isExact) {
+        return pathname === itemPath;
+    }
+
+    // For links with query parameters, we need the path and all its params to match.
+    if (itemParamsString) {
+        if (pathname !== itemPath) {
+            return false;
+        }
+        const itemParams = new URLSearchParams(itemParamsString);
+        const currentParams = new URLSearchParams(searchParams.toString());
+        // Every param in the link must be present and have the same value in the URL
+        for (const [key, value] of itemParams.entries()) {
+            if (currentParams.get(key) !== value) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // For general links without query params, check if the current path starts with the item's path.
+    // This is good for highlighting a parent menu item like "/guru/students" on "/guru/students/report/123"
+    // To avoid incorrect matches (e.g. /a matching /abc), we check for a trailing slash or exact length.
+    if (pathname.startsWith(itemPath)) {
+        if (pathname.length === itemPath.length) {
+            return true;
+        }
+        if (pathname[itemPath.length] === '/') {
+            return true;
+        }
+    }
+    
+    return false;
+  }, [pathname, searchParams]);
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];
 
     return filteredNavGroups
-      .filter(group => group.groupLabel && group.items.some(item => {
-          if (!item.href) return false;
-          const itemPath = item.href.split('?')[0];
-          return pathname.startsWith(itemPath);
-      }))
+      .filter(group => group.groupLabel && group.items.some(item => checkIsActive(item)))
       .map(group => group.groupLabel!);
-  }, [pathname, filteredNavGroups, loading, userProfile]);
+  }, [filteredNavGroups, loading, userProfile, checkIsActive]);
 
 
   const currentPageLabel = React.useMemo(() => {
@@ -425,44 +452,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     let bestMatch: NavMenuItem | null = null;
     
     for (const item of allNavItemsFlat) {
-        if (!item.href) continue;
-        
-        const [itemPath, itemParamsString] = item.href.split('?');
-        
-        if (pathname !== itemPath) {
-            continue;
-        }
-
-        const itemParams = new URLSearchParams(itemParamsString || '');
-        const currentParams = new URLSearchParams(searchParams.toString());
-        let paramsMatch = true;
-        for (const [key, value] of itemParams.entries()) {
-            if (currentParams.get(key) !== value) {
-                paramsMatch = false;
-                break;
-            }
-        }
-        
-        if (paramsMatch) {
-            if (!bestMatch || item.href.length > bestMatch!.href!.length) {
+        if (checkIsActive(item)) {
+            if (!bestMatch || item.href!.length > bestMatch.href!.length) {
                 bestMatch = item;
             }
         }
-    }
-    
-    if (bestMatch) return bestMatch.label;
-    
-    // Fallback for paths that don't exactly match a menu item
-    for (const item of allNavItemsFlat) {
-      if (pathname.startsWith(item.href!.split('?')[0])) {
-         if (!bestMatch || item.href!.length > bestMatch!.href!.length) {
-                bestMatch = item;
-         }
-      }
     }
 
     return bestMatch ? bestMatch.label : (userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru');
-  }, [pathname, searchParams, filteredNavGroups, userProfile, loading]);
+  }, [checkIsActive, filteredNavGroups, userProfile, loading]);
 
 
   const handleLinkClick = () => {
@@ -471,34 +469,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
   
-  const checkIsActive = React.useCallback((item: NavMenuItem) => {
-    if (!item.href) return false;
-    
-    const currentPath = pathname;
-    const [itemPath, itemParamsString] = item.href.split('?');
-    
-    if (currentPath !== itemPath) {
-        return false;
-    }
-    
-    if (!itemParamsString) {
-        return true;
-    }
-
-    const itemParams = new URLSearchParams(itemParamsString);
-    const currentParams = new URLSearchParams(searchParams.toString());
-
-    for (const [key, value] of itemParams.entries()) {
-        if (currentParams.get(key) !== value) {
-            return false;
-        }
-    }
-    
-    return true;
-
-  }, [pathname, searchParams]);
-
-
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">

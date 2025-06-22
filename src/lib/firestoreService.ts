@@ -634,7 +634,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(docRef);
+  const docSnap = await getDoc(userDocRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -915,11 +915,9 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  // Remove orderBy to avoid needing a composite index
   const q = query(collRef, where('activityId', '==', activityId));
   const querySnapshot = await getDocs(q);
   const reports = querySnapshot.docs.map(doc => doc.data());
-  // Sort on the client
   return reports.sort((a, b) => b.date.toMillis() - a.date.toMillis());
 };
 

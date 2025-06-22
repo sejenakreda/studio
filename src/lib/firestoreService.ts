@@ -998,9 +998,9 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const q = query(coll);
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data());
+    const q = query(coll, orderBy("tanggal", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data());
 };
 
 export const deleteAgenda = async (id: string): Promise<void> => {

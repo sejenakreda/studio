@@ -965,23 +965,12 @@ export const deleteLaporanKegiatan = async (laporanId: string): Promise<void> =>
 // --- Agenda Kelas Service ---
 const AGENDA_KELAS_COLLECTION = 'agenda_kelas';
 
-export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'createdAt' | 'updatedAt'>): Promise<AgendaKelas> => {
+export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'createdAt' | 'updatedAt'>, docIdToUpdate?: string): Promise<AgendaKelas> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
     
-    // Check for existing doc based on a unique combination
-    const q = query(coll, 
-        where('teacherUid', '==', data.teacherUid),
-        where('tanggal', '==', data.tanggal),
-        where('kelas', '==', data.kelas),
-        where('mapel', '==', data.mapel),
-        where('jamKe', '==', data.jamKe),
-        limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
+    if (docIdToUpdate) {
         // Update existing document
-        const docRef = querySnapshot.docs[0].ref;
+        const docRef = doc(coll, docIdToUpdate);
         await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
         const updatedSnap = await getDoc(docRef);
         return updatedSnap.data() as AgendaKelas;
@@ -1001,8 +990,7 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
         where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
         where('tanggal', '<=', endDate),
-        orderBy('tanggal', 'desc'),
-        orderBy('createdAt', 'desc')
+        orderBy('tanggal', 'desc')
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data());
@@ -1010,7 +998,7 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const q = query(coll, orderBy('tanggal', 'desc'), orderBy('createdAt', 'desc'));
+    const q = query(coll, orderBy('tanggal', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data());
 };

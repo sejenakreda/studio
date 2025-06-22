@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, PlusCircle, Loader2, AlertCircle, BookOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, PlusCircle, Loader2, AlertCircle, BookOpen, Trash2, Info } from "lucide-react";
 import { addMataPelajaranMaster, getMataPelajaranMaster, deleteMataPelajaranMaster, addActivityLog } from '@/lib/firestoreService';
 import type { MataPelajaranMaster } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -202,7 +202,7 @@ export default function ManageMataPelajaranPage() {
             </div>
           ) : mapelList.length === 0 && !fetchError ? (
             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Mata Pelajaran</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Belum ada mata pelajaran yang terdaftar. Silakan tambahkan menggunakan formulir di atas.

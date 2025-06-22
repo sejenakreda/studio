@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, ShieldCheck, Info } from "lucide-react";
 import { 
     getMataPelajaranMaster, 
     getActiveAcademicYears, 
@@ -204,7 +204,11 @@ export default function ManageKkmPage() {
           ) : fetchError ? (
             <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>
           ) : allKkmSettings.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Belum ada KKM yang diatur.</p>
+            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
+                <Info className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada KKM</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Belum ada KKM yang diatur. Silakan tambahkan menggunakan formulir di atas.</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>

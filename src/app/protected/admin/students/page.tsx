@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Filter, ChevronLeft, ChevronRight, Download, FileUp } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Filter, ChevronLeft, ChevronRight, Download, FileUp, Info } from "lucide-react";
 import { addStudent, getStudents, deleteStudent, addActivityLog, updateStudent } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -505,10 +505,10 @@ export default function AdminManageStudentsPage() {
                 )}
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Button onClick={handleDownloadStudentTemplate} variant="outline" className="flex-1 sm:flex-initial">
-                        <Download className="mr-2 h-4 w-4" /> Unduh Template
+                        <Download className="mr-2 h-4 w-4" /> Unduh Template Impor
                     </Button>
                     <Button onClick={handleExportStudentsData} variant="outline" className="flex-1 sm:flex-initial">
-                        <Download className="mr-2 h-4 w-4" /> Ekspor Siswa
+                        <Download className="mr-2 h-4 w-4" /> Ekspor Semua Siswa
                     </Button>
                 </div>
             </div>
@@ -537,17 +537,15 @@ export default function AdminManageStudentsPage() {
             </div>
           ) : allStudents.length === 0 && !fetchError ? (
              <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">
-                Belum Ada Siswa
-              </h3>
+              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Siswa</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Belum ada siswa yang terdaftar. Silakan tambahkan siswa baru menggunakan formulir di atas.
+                Belum ada siswa yang terdaftar. Silakan tambahkan menggunakan formulir di atas.
               </p>
             </div>
           ) : filteredStudents.length === 0 && selectedClass !== "all" ? (
             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Filter className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">
                 Tidak Ada Siswa di Kelas {selectedClass}
               </h3>

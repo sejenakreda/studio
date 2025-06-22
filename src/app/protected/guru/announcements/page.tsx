@@ -91,7 +91,7 @@ export default function GuruAnnouncementsPage() {
             </div>
           ) : announcements.length === 0 && !fetchError ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Megaphone className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Pengumuman</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Saat ini belum ada pengumuman yang diterbitkan oleh Admin.

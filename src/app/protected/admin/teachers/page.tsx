@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Download, FileUp } from "lucide-react";
+import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Download, FileUp, Info } from "lucide-react";
 import { 
   getAllUsersByRole, 
   createUserProfile as createUserProfileFirestore, 
@@ -542,7 +542,7 @@ export default function ManageTeachersPage() {
             </div>
           ) : teachers.length === 0 && !fetchError ? (
             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-2 text-sm font-medium text-foreground">
                 Belum Ada Guru
               </h3>

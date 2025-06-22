@@ -281,15 +281,14 @@ export default function StudentReportPage() {
                 <p className="mb-16">Naringgul, ........................... {new Date().getFullYear()}</p>
                 <p>Wali Kelas</p>
                 <br/><br/><br/>
-                <p className="border-b border-black w-48 ml-auto"></p>
-                {/* <p>NIP. ....................................</p> */}
+                <p className="border-b border-black w-48 ml-auto">(....................................)</p>
             </div>
         </div>
          <div className="mt-12 text-center">
             <p>Kepala Sekolah SMA PGRI Naringgul</p>
             <br/><br/><br/><br/>
             <p className="font-bold border-b border-black w-60 mx-auto">ASEP RISMAN KOMARA, S.Pd.</p>
-            <p>NUPTK. 1234567890123456</p>
+            <p>NUPTK. ................................</p>
          </div>
       </div>
 

@@ -103,21 +103,6 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
     ],
   },
-   {
-    groupLabel: "Laporan Kegiatan",
-    groupIcon: FileText,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isAdmin, isKepalaSekolah }) => isAdmin || isKepalaSekolah,
-    items: [
-      { href: "/admin/kegiatan-reports", label: "Semua Laporan", icon: BarChart3, isExact: true },
-      ...reportableRoles.map(role => ({
-        href: `/admin/kegiatan-reports?activity=${role.id}`,
-        label: `Laporan ${role.label}`,
-        icon: role.icon,
-        isExact: false, 
-      }))
-    ]
-  },
   {
     groupLabel: "Pengaturan Umum",
     groupIcon: Settings,
@@ -169,13 +154,19 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Kepala Sekolah",
     groupIcon: Shield,
-    roles: ['guru'],
-    requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah,
+    roles: ['admin', 'guru'], // Show for admin and guru
+    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin, // Visible if user is Kepsek OR Admin
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
       { href: "/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
-      // The dynamic "Laporan Kegiatan" group will cover this now.
+      { href: "/admin/kegiatan-reports", label: "Semua Laporan Kegiatan", icon: FileText, isExact: true },
+      ...reportableRoles.map(role => ({
+        href: `/admin/kegiatan-reports?activity=${role.id}`,
+        label: `Laporan ${role.label}`,
+        icon: role.icon,
+        isExact: false, 
+      }))
     ],
   },
   {
@@ -315,13 +306,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (loading || !userProfile) return [];
     
     const currentActivity = searchParams.get('activity');
-    if (pathname === '/admin/kegiatan-reports' && currentActivity) {
-      return ['Laporan Kegiatan'];
+    if (pathname.startsWith('/admin/kegiatan-reports') && currentActivity) {
+      return ['Kepala Sekolah'];
     }
 
     return filteredNavGroups
       .filter(group => group.groupLabel && group.items.some(item =>
-        item.isExact ? pathname === item.href : pathname.startsWith(item.href)
+        item.isExact ? pathname === item.href : pathname.startsWith(item.href.split('?')[0])
       ))
       .map(group => group.groupLabel!);
   }, [pathname, searchParams, filteredNavGroups, loading, userProfile]);
@@ -376,7 +367,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ScrollArea className="h-full">
             <Accordion type="multiple" className="w-full" defaultValue={defaultOpenAccordionItems}>
               {filteredNavGroups.map((group, groupIndex) => (
-                <React.Fragment key={`navgroup-${group.groupLabel || group.items[0]?.href || groupIndex}`}>
+                <React.Fragment key={group.groupLabel || group.items[0]?.href || groupIndex}>
                   {groupIndex > 0 && (!group.groupLabel || !filteredNavGroups[groupIndex-1].groupLabel) && <SidebarSeparator className="my-1"/>}
                   
                   {!group.groupLabel ? (

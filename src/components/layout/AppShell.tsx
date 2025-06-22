@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -260,7 +259,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isStafTu }) => isStafTu,
     items: [
-       { href: "/protected/guru/staf-tu", label: "Laporan Staf TU", icon: Home },
+       { href: "/protected/guru/staf-tu", label: "Dasbor Staf TU", icon: Home },
        { href: "/protected/guru/laporan-kegiatan?context=staf_tu", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
@@ -270,7 +269,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isSatpam }) => isSatpam,
     items: [
-       { href: "/protected/guru/satpam", label: "Laporan Satpam", icon: Home },
+       { href: "/protected/guru/satpam", label: "Dasbor Satpam", icon: Home },
        { href: "/protected/guru/laporan-kegiatan?context=satpam", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
@@ -280,7 +279,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isPenjagaSekolah }) => isPenjagaSekolah,
     items: [
-       { href: "/protected/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
+       { href: "/protected/guru/penjaga-sekolah", label: "Dasbor Penjaga", icon: Home },
        { href: "/protected/guru/laporan-kegiatan?context=penjaga_sekolah", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },

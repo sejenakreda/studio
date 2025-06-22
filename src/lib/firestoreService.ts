@@ -1012,43 +1012,28 @@ export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'cre
 
 export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    
-    // Create date range for the query
-    const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-    const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
 
-    // The query is simplified to avoid needing a custom composite index.
-    // We will sort the results on the client-side within this function.
+    // Query only by teacherUid to avoid composite index requirement.
     const q = query(coll, 
-        where('teacherUid', '==', teacherUid),
-        where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate)
-        // orderBy('tanggal', 'desc') // This is removed to prevent the index error.
+        where('teacherUid', '==', teacherUid)
     );
     
     const snapshot = await getDocs(q);
-    const agendas = snapshot.docs.map(doc => doc.data());
+    const allAgendas = snapshot.docs.map(doc => doc.data());
+
+    // Filter by date on the client-side.
+    const filteredAgendas = allAgendas.filter(agenda => {
+        const agendaDate = agenda.tanggal.toDate();
+        return agendaDate.getFullYear() === year && agendaDate.getMonth() === (month - 1);
+    });
     
-    // We sort here instead of in the query.
-    return agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    // Sort the filtered results.
+    return filteredAgendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
 };
 
-export const getAllAgendas = async (year: number, month: number | null): Promise<AgendaKelas[]> => {
+export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const qConstraints = [];
-    
-    let startDate: Timestamp, endDate: Timestamp;
-    if (month && month >= 1 && month <= 12) {
-      startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-      endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
-    } else {
-      startDate = Timestamp.fromDate(new Date(year, 0, 1));
-      endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
-    }
-    qConstraints.push(where('tanggal', '>=', startDate));
-    qConstraints.push(where('tanggal', '<=', endDate));
-
-    const q = query(coll, ...qConstraints);
+    const q = query(coll);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
 };

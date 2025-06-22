@@ -55,6 +55,7 @@ const reportableRoles: { id: TugasTambahan; label: string; icon: React.ElementTy
     { id: 'pembina_eskul_karawitan', label: 'Eskul Karawitan', icon: Award },
     { id: 'pembina_eskul_pencak_silat', label: 'Eskul Pencak Silat', icon: Award },
     { id: 'pembina_eskul_volly_ball', label: 'Eskul Volly Ball', icon: Award },
+    { id: 'bk', label: 'Bimbingan Konseling', icon: HeartHandshake },
 ];
 
 const navigationStructure: NavGroup[] = [
@@ -296,25 +297,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    
-    const validNavGroups: NavGroup[] = [];
-    
-    for (const group of navigationStructure) {
-        if (!group.roles.includes(userProfile.role)) {
-            continue;
-        }
-
-        if (group.requiredTugas) {
-            if (!group.requiredTugas(authContext)) {
-                continue;
-            }
-        }
-        
-        validNavGroups.push(group);
-    }
-
-    return validNavGroups;
-
+    return navigationStructure.filter(group => {
+      if (!group.roles.includes(userProfile.role)) return false;
+      if (group.requiredTugas) {
+        return group.requiredTugas(authContext);
+      }
+      return true;
+    });
   }, [userProfile, loading, authContext]);
 
 
@@ -345,7 +334,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
             const currentParams = new URLSearchParams(searchParams.toString());
             let paramsMatch = true;
-            if (itemParams.size !== currentParams.size) {
+            if (itemParams.size > currentParams.size) { // Item can have fewer params, but not more
                 paramsMatch = false;
             } else {
                 for (const [key, value] of itemParams.entries()) {
@@ -356,7 +345,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }
             }
             if (paramsMatch) {
-                return item.label; // Exact match found
+                bestMatch = item;
+                break; // Found a good enough match
             }
         }
 
@@ -379,35 +369,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
   
   const checkIsActive = React.useCallback((item: NavMenuItem) => {
-    const itemPath = item.href.split('?')[0];
     const currentPath = pathname;
+    const itemPath = item.href.split('?')[0];
 
+    // Handle exact matches first
     if (item.isExact) {
-        return currentPath === itemPath;
+      return currentPath === itemPath;
+    }
+
+    // Handle non-exact matches: path must start with item's path
+    if (!currentPath.startsWith(itemPath)) {
+      return false;
+    }
+
+    // Now handle query parameters
+    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+    const currentParams = new URLSearchParams(searchParams.toString());
+
+    // If the menu item has no query params, it's active as long as path matches.
+    if (Array.from(itemParams.keys()).length === 0) {
+      return true;
+    }
+
+    // If the menu item has query params, all of its params must exist and match in the current URL.
+    for (const [key, value] of itemParams.entries()) {
+      if (currentParams.get(key) !== value) {
+        return false;
+      }
     }
     
-    // Non-exact matches: check if current path starts with item path
-    if (currentPath.startsWith(itemPath)) {
-        // If it's a parent route, like /admin/students for /admin/students/edit/123
-        if(currentPath !== itemPath) return true;
-
-        // If paths are the same, compare query params for specificity
-        const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-        const currentParams = new URLSearchParams(searchParams.toString());
-
-        if (itemParams.size === 0) {
-            // If the menu item has no params, it's active.
-            return true;
-        }
-
-        // The item has params, check if all of them match the current URL's params
-        for (const [key, value] of itemParams.entries()) {
-            if (currentParams.get(key) !== value) return false;
-        }
-        return true;
-    }
-
-    return false;
+    return true;
 
   }, [pathname, searchParams]);
 

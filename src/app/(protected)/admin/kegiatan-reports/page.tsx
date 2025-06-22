@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 const getActivityName = (activityId: TugasTambahan | string): string => {
     if (activityId === 'pembina_osis') return 'OSIS';
     if (activityId === 'kesiswaan') return 'Kesiswaan';
+    if (activityId === 'bk') return 'Bimbingan Konseling';
     return activityId
         .replace('pembina_eskul_', '')
         .replace(/_/g, ' ')
@@ -133,7 +134,7 @@ export default function KegiatanReportsPage() {
   
   return (
     <div className="space-y-6 print:space-y-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden sticky top-0 bg-background/80 backdrop-blur-sm pt-2 pb-4 -mt-2 -mx-4 px-4 z-10">
         <div className="flex items-center gap-4">
           <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>

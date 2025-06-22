@@ -32,9 +32,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Timestamp } from 'firebase/firestore';
 
 
-const getActivityName = (activityId: TugasTambahan): string => {
+const getActivityName = (activityId: TugasTambahan | string): string => {
     if (activityId === 'pembina_osis') return 'OSIS';
     if (activityId === 'kesiswaan') return 'Kesiswaan';
+    if (activityId === 'bk') return 'Bimbingan Konseling';
     return activityId
         .replace('pembina_eskul_', '')
         .replace(/_/g, ' ')

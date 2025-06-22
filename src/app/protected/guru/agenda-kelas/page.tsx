@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Timestamp } from 'firebase/firestore';
 
 
 const agendaSchema = z.object({
@@ -115,7 +116,7 @@ export default function AgendaKelasPage() {
             teacherName: userProfile.displayName || "Guru",
             kelas: data.kelas,
             mapel: data.mapel,
-            tanggal: data.tanggal as any,
+            tanggal: Timestamp.fromDate(data.tanggal),
             jamKe: data.jamKe,
             tujuanPembelajaran: data.tujuanPembelajaran,
             pokokBahasan: data.pokokBahasan,

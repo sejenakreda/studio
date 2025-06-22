@@ -18,6 +18,7 @@ import { getStudents, addPelanggaran, addActivityLog } from '@/lib/firestoreServ
 import type { Siswa } from '@/types';
 import { Combobox } from '@/components/ui/combobox';
 import { format } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 const pelanggaranSchema = z.object({
   id_siswa: z.string({ required_error: "Siswa harus dipilih." }).min(1, "Siswa harus dipilih."),
@@ -77,7 +78,7 @@ export default function CatatPelanggaranPage() {
                 id_siswa: selectedStudent.id_siswa,
                 namaSiswa: selectedStudent.nama,
                 kelasSiswa: selectedStudent.kelas,
-                tanggal: data.tanggal as any,
+                tanggal: Timestamp.fromDate(data.tanggal),
                 pelanggaran: data.pelanggaran,
                 poin: data.poin,
                 catatan: data.catatan || "",
@@ -192,3 +193,5 @@ export default function CatatPelanggaranPage() {
         </div>
     )
 }
+
+    

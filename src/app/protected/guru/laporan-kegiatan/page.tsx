@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Timestamp } from 'firebase/firestore';
 
 const laporanSchema = z.object({
   title: z.string().min(5, "Judul minimal 5 karakter").max(150, "Maksimal 150 karakter"),
@@ -142,7 +143,7 @@ export default function LaporanKegiatanPage() {
     
     try {
         if (editingReport) {
-            await updateLaporanKegiatan(editingReport.id!, { title: data.title, content: data.content, date: data.date as any });
+            await updateLaporanKegiatan(editingReport.id!, { title: data.title, content: data.content, date: Timestamp.fromDate(data.date) });
             await addActivityLog(`Laporan Kegiatan Diperbarui`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil diperbarui." });
         } else {
@@ -151,7 +152,7 @@ export default function LaporanKegiatanPage() {
                 activityName: getActivityName(selectedActivity),
                 title: data.title,
                 content: data.content,
-                date: data.date as any,
+                date: Timestamp.fromDate(data.date),
                 createdByUid: userProfile.uid,
                 createdByDisplayName: userProfile.displayName!,
             };
@@ -285,3 +286,5 @@ export default function LaporanKegiatanPage() {
     </div>
   );
 }
+
+    

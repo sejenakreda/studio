@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, AlertCircle, BarChartHorizontalBig, Filter, Download, Info } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
-import { getStudents, getGradesForTeacherDisplay, getActiveAcademicYears } from '@/lib/firestoreService';
+import { getStudents, getGradesForTeacherDisplay, getActiveAcademicYears, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { Siswa, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +29,7 @@ export default function RekapNilaiPage() {
     const [students, setStudents] = useState<Siswa[]>([]);
     const [grades, setGrades] = useState<Nilai[]>([]);
     const [activeYears, setActiveYears] = useState<string[]>([]);
+    const [masterMapel, setMasterMapel] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     // Filter states
@@ -41,15 +42,14 @@ export default function RekapNilaiPage() {
       if (!userProfile) return;
       setIsLoading(true);
       try {
-        const [fetchedStudents, fetchedYears] = await Promise.all([
+        const [fetchedStudents, fetchedYears, fetchedMasterMapelList] = await Promise.all([
           getStudents(),
           getActiveAcademicYears(),
+          getMataPelajaranMaster(),
         ]);
         setStudents(fetchedStudents);
         setActiveYears(fetchedYears);
-        if (userProfile.assignedMapel && userProfile.assignedMapel.length > 0) {
-            setSelectedMapel(userProfile.assignedMapel[0]);
-        }
+        setMasterMapel(fetchedMasterMapelList.map(m => m.namaMapel));
       } catch (err) {
         toast({ variant: "destructive", title: "Gagal memuat data awal." });
       } finally {
@@ -60,6 +60,18 @@ export default function RekapNilaiPage() {
     useEffect(() => {
         fetchPrerequisites();
     }, [fetchPrerequisites]);
+    
+    const validAssignedMapel = useMemo(() => {
+        if (!userProfile?.assignedMapel || masterMapel.length === 0) return [];
+        return userProfile.assignedMapel.filter(mapel => masterMapel.includes(mapel));
+    }, [userProfile?.assignedMapel, masterMapel]);
+
+    useEffect(() => {
+        if (validAssignedMapel.length > 0 && !selectedMapel) {
+            setSelectedMapel(validAssignedMapel[0]);
+        }
+    }, [validAssignedMapel, selectedMapel]);
+
 
     const fetchDataForTable = useCallback(async () => {
         if (!userProfile || !selectedMapel || !selectedYear || !selectedSemester) {
@@ -140,7 +152,7 @@ export default function RekapNilaiPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                         <Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>
                         <Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select>
-                        <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={!userProfile?.assignedMapel?.length}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{userProfile?.assignedMapel?.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                        <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={validAssignedMapel.length === 0}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{validAssignedMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
                         <Select value={selectedClass} onValueChange={setSelectedClass} disabled={uniqueClasses.length === 0}><SelectTrigger><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{uniqueClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </CardHeader>

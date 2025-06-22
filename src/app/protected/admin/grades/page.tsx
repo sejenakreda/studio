@@ -9,13 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, Trash2 } from "lucide-react";
+import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById, addActivityLog } from '@/lib/firestoreService';
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from '@/context/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AdminGradeView extends Nilai {
   namaSiswa?: string;
@@ -36,10 +47,13 @@ const ITEMS_PER_PAGE = 15;
 
 export default function ManageAllGradesPage() {
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [allGradesData, setAllGradesData] = useState<AdminGradeView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
+  const [gradeToDelete, setGradeToDelete] = useState<AdminGradeView | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [selectableYears, setSelectableYears] = useState<string[]>([]);
@@ -220,6 +234,36 @@ export default function ManageAllGradesPage() {
     { key: 'nilai_akhir', label: 'Nilai Akhir', className: 'text-primary' },
   ];
 
+  const handleDeleteConfirmation = (grade: AdminGradeView) => {
+    setGradeToDelete(grade);
+  };
+
+  const handleActualDelete = async () => {
+    if (!gradeToDelete || !gradeToDelete.id || !userProfile) {
+      toast({ variant: "destructive", title: "Error", description: "Data tidak lengkap untuk penghapusan." });
+      setGradeToDelete(null);
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteGradeById(gradeToDelete.id);
+      await addActivityLog(
+        "Nilai Dihapus (Admin)",
+        `Nilai mapel ${gradeToDelete.mapel} untuk siswa ${gradeToDelete.namaSiswa} (NIS: ${gradeToDelete.nisSiswa}) dihapus oleh Admin: ${userProfile.displayName || userProfile.email}`,
+        userProfile.uid,
+        userProfile.displayName || userProfile.email || "Admin"
+      );
+      toast({ title: "Sukses", description: `Nilai untuk ${gradeToDelete.namaSiswa} berhasil dihapus.` });
+      setGradeToDelete(null);
+      fetchData(); // Refetch data
+    } catch (error: any) {
+      console.error("Error deleting grade:", error);
+      toast({ variant: "destructive", title: "Error Hapus", description: "Gagal menghapus nilai." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   const memoizedTableRows = useMemo(() => {
     return paginatedGrades.map((grade) => (
@@ -238,9 +282,22 @@ export default function ManageAllGradesPage() {
         <TableCell>{Number(grade.eskul || 0).toFixed(2)}</TableCell>
         <TableCell>{Number(grade.osis || 0).toFixed(2)}</TableCell>
         <TableCell className="font-semibold text-primary">{Number(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
+        <TableCell className="text-right">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => handleDeleteConfirmation(grade)}
+            disabled={isDeleting && gradeToDelete?.id === grade.id}
+            title={"Hapus Nilai"}
+          >
+            {isDeleting && gradeToDelete?.id === grade.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            <span className="sr-only">Hapus Nilai</span>
+          </Button>
+        </TableCell>
       </TableRow>
     ));
-  }, [paginatedGrades]);
+  }, [paginatedGrades, isDeleting, gradeToDelete]);
 
   const handleDownloadExcel = () => {
     if (filteredAndSortedGrades.length === 0) {
@@ -445,6 +502,7 @@ export default function ManageAllGradesPage() {
                           </div>
                         </TableHead>
                       ))}
+                      <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -483,6 +541,30 @@ export default function ManageAllGradesPage() {
           )}
         </CardContent>
       </Card>
+      {gradeToDelete && (
+        <AlertDialog open={!!gradeToDelete} onOpenChange={(isOpen) => !isOpen && setGradeToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Anda Yakin Ingin Menghapus Data Nilai Ini?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini akan menghapus data nilai <span className="font-semibold">{gradeToDelete.mapel}</span> untuk siswa <span className="font-semibold">{gradeToDelete.namaSiswa}</span> (TA {gradeToDelete.tahun_ajaran}, Semester {gradeToDelete.semester}).
+                Tindakan ini tidak dapat diurungkan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setGradeToDelete(null)} disabled={isDeleting}>Batal</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleActualDelete}
+                disabled={isDeleting}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Ya, Hapus Nilai
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

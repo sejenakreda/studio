@@ -1,7 +1,6 @@
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Nilai, Bobot } from "@/types";
+import type { Nilai, Bobot, TugasTambahan } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -99,3 +98,36 @@ export function getWorkdaysInMonth(year: number, month: number): number {
 
   return workdays;
 }
+
+export const getActivityName = (activityId: TugasTambahan | string): string => {
+    const nameMap: Record<TugasTambahan, string> = {
+        pembina_osis: 'OSIS',
+        kesiswaan: 'Kesiswaan',
+        kurikulum: 'Kurikulum',
+        bendahara: 'Bendahara',
+        bk: 'Bimbingan Konseling',
+        kepala_sekolah: 'Kepala Sekolah',
+        kepala_tata_usaha: 'Kepala Tata Usaha',
+        operator: 'Operator',
+        staf_tu: 'Staf Tata Usaha',
+        satpam: 'Satpam',
+        penjaga_sekolah: 'Penjaga Sekolah',
+        pembina_eskul_pmr: 'Ekstrakurikuler PMR',
+        pembina_eskul_paskibra: 'Ekstrakurikuler Paskibra',
+        pembina_eskul_pramuka: 'Ekstrakurikuler Pramuka',
+        pembina_eskul_karawitan: 'Ekstrakurikuler Karawitan',
+        pembina_eskul_pencak_silat: 'Ekstrakurikuler Pencak Silat',
+        pembina_eskul_volly_ball: 'Ekstrakurikuler Volly Ball'
+    };
+
+    if (activityId in nameMap) {
+        return nameMap[activityId as TugasTambahan];
+    }
+    
+    // Fallback for any other potential string, though it should match TugasTambahan
+    return activityId
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};

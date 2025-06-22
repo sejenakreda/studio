@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -18,20 +17,8 @@ import { getAllLaporanKegiatan } from '@/lib/firestoreService';
 import type { LaporanKegiatan, TugasTambahan } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { getActivityName } from '@/lib/utils';
 
-
-const getActivityName = (activityId: TugasTambahan | string): string => {
-    if (activityId === 'pembina_osis') return 'OSIS';
-    if (activityId === 'kesiswaan') return 'Kesiswaan';
-    if (activityId === 'bk') return 'Bimbingan Konseling';
-    if (activityId === 'kepala_tata_usaha') return 'Tata Usaha';
-    return activityId
-        .replace('pembina_eskul_', '')
-        .replace(/_/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-};
 
 export default function KegiatanReportsPage() {
   const { toast } = useToast();
@@ -111,7 +98,7 @@ export default function KegiatanReportsPage() {
   };
 
   const pageTitle = activityFilter ? `Laporan ${getActivityName(activityFilter)}` : 'Semua Laporan Kegiatan';
-  const pageDescription = activityFilter ? `Menampilkan semua laporan yang dibuat untuk kegiatan ${getActivityName(activityFilter)}.` : 'Lihat semua laporan kegiatan yang dibuat oleh Pembina & Kesiswaan.';
+  const pageDescription = activityFilter ? `Menampilkan semua laporan yang dibuat untuk kegiatan ${getActivityName(activityFilter)}.` : 'Lihat semua laporan kegiatan yang dibuat oleh Pembina & Staf.';
   const printTitle = `LAPORAN KEGIATAN - ${activityFilter ? getActivityName(activityFilter).toUpperCase() : 'SEMUA'}`;
   
   const renderReportList = (reports: LaporanKegiatan[]) => (
@@ -224,15 +211,11 @@ export default function KegiatanReportsPage() {
           .print\\:space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem !important; margin-bottom: 0 !important; }
           .print\\:border-b-2 { border-bottom-width: 2px !important; }
           .print\\:border-black { border-color: #000 !important; }
-          .accordion-content[data-state="closed"] {
-             display: none !important;
-          }
-          .accordion-content[data-state="open"] {
-             display: block !important;
-          }
-           .accordion-trigger > svg {
-            display: none !important;
-          }
+          .accordion-content[data-state="closed"] { display: none !important; }
+          .accordion-content[data-state="open"] { display: block !important; }
+          .accordion-trigger > svg { display: none !important; }
+          tr { break-inside: avoid !important; }
+          .page-break { break-after: page; }
         }
       `}</style>
     </div>

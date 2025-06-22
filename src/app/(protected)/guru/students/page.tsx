@@ -163,7 +163,6 @@ export default function ViewStudentsPage() {
                       <TableHead>Nama Siswa</TableHead>
                       <TableHead>NIS</TableHead>
                       <TableHead>Kelas</TableHead>
-                      <TableHead>ID Siswa</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -173,7 +172,6 @@ export default function ViewStudentsPage() {
                         <TableCell className="font-medium">{student.nama}</TableCell>
                         <TableCell>{student.nis}</TableCell>
                         <TableCell>{student.kelas}</TableCell>
-                        <TableCell>{student.id_siswa}</TableCell>
                         <TableCell className="text-right space-x-1">
                           <Link href={`/guru/students/report/${student.id}`} passHref>
                             <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Lihat Rapor">

@@ -187,6 +187,7 @@ export default function LaporanAgendaKelasPage() {
                   table { width: 100%; border-collapse: collapse !important; }
                   th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; }
                   thead { background-color: #f3f4f6 !important; }
+                  tr { break-inside: avoid !important; }
                 }
             `}</style>
         </div>

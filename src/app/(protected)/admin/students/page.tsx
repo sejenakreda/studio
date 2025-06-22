@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -41,10 +40,10 @@ const studentSchema = z.object({
 type StudentFormData = z.infer<typeof studentSchema>;
 
 interface StudentImportData {
-  nama: string;
-  nis: string;
-  kelas: string;
-  id_siswa: string;
+  "Nama Siswa": string;
+  "NIS": string;
+  "Kelas": string;
+  "ID Siswa": string;
 }
 
 const ITEMS_PER_PAGE = 15;
@@ -198,7 +197,7 @@ export default function AdminManageStudentsPage() {
 
   const handleDownloadStudentTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ["nama", "nis", "kelas", "id_siswa"],
+      ["Nama Siswa", "NIS", "Kelas", "ID Siswa"],
       ["Contoh Nama Siswa", "1234567890", "X-1", "contoh_id_siswa_01"],
     ]);
     const workbook = XLSX.utils.book_new();
@@ -215,10 +214,10 @@ export default function AdminManageStudentsPage() {
       return;
     }
     const dataToExport = allStudents.map(student => ({
-      nama: student.nama,
-      nis: student.nis,
-      kelas: student.kelas,
-      id_siswa: student.id_siswa,
+      "Nama Siswa": student.nama,
+      "NIS": student.nis,
+      "Kelas": student.kelas,
+      "ID Siswa": student.id_siswa,
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -267,9 +266,12 @@ export default function AdminManageStudentsPage() {
           return;
         }
 
-        const firstRow = json[0];
-        if (!firstRow || !('nama' in firstRow) || !('nis' in firstRow) || !('kelas' in firstRow) || !('id_siswa' in firstRow)) {
-          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai. Harap gunakan template (nama, nis, kelas, id_siswa)." });
+        const headers = Object.keys(json[0] || {});
+        const expectedHeaders = ["Nama Siswa", "NIS", "Kelas", "ID Siswa"];
+        const hasAllHeaders = expectedHeaders.every(h => headers.includes(h));
+
+        if (!hasAllHeaders) {
+          toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai. Harap gunakan template (${expectedHeaders.join(', ')}).` });
           setIsImporting(false);
           return;
         }
@@ -279,11 +281,11 @@ export default function AdminManageStudentsPage() {
         const processedNis = new Set<string>();
         const processedIdSiswa = new Set<string>();
         
-        for (const [index, student] of json.entries()) {
-          const studentNis = String(student.nis || "").trim();
-          const studentIdSiswa = String(student.id_siswa || "").trim().toLowerCase();
-          const studentNama = String(student.nama || "").trim();
-          const studentKelas = String(student.kelas || "").trim();
+        for (const [index, row] of json.entries()) {
+          const studentNama = String(row["Nama Siswa"] || "").trim();
+          const studentNis = String(row["NIS"] || "").trim();
+          const studentKelas = String(row["Kelas"] || "").trim();
+          const studentIdSiswa = String(row["ID Siswa"] || "").trim().toLowerCase();
           
           if (!studentNama || !studentNis || !studentKelas || !studentIdSiswa) {
             failCount++; errorMessages.push(`Baris ${index + 2}: Data tidak lengkap. Dilewati.`); continue;
@@ -298,8 +300,8 @@ export default function AdminManageStudentsPage() {
             const updatePayload: Partial<Siswa> = {};
             if (studentNama !== existingStudent.nama) updatePayload.nama = studentNama;
             if (studentKelas !== existingStudent.kelas) updatePayload.kelas = studentKelas;
-            if (studentNis !== existingStudent.nis) updatePayload.nis = studentNis; // Allow NIS update if ID matches
-            if (studentIdSiswa.toLowerCase() !== existingStudent.id_siswa.toLowerCase()) updatePayload.id_siswa = studentIdSiswa; // Allow ID update if NIS matches
+            if (studentNis !== existingStudent.nis) updatePayload.nis = studentNis;
+            if (studentIdSiswa.toLowerCase() !== existingStudent.id_siswa.toLowerCase()) updatePayload.id_siswa = studentIdSiswa;
             
             if (Object.keys(updatePayload).length > 0) {
               try {
@@ -467,8 +469,8 @@ export default function AdminManageStudentsPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">nama</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">nis</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">kelas</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">id_siswa</code>.
-            Jika <code className="bg-muted px-1 py-0.5 rounded text-xs">id_siswa</code> atau <code className="bg-muted px-1 py-0.5 rounded text-xs">nis</code> sudah ada, data siswa tersebut akan diperbarui. Jika belum ada, siswa baru akan ditambahkan.
+             Pastikan file Excel Anda memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">Nama Siswa</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">NIS</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">Kelas</code>, dan <code className="bg-muted px-1 py-0.5 rounded text-xs">ID Siswa</code>.
+            Jika <code className="bg-muted px-1 py-0.5 rounded text-xs">ID Siswa</code> atau <code className="bg-muted px-1 py-0.5 rounded text-xs">NIS</code> sudah ada di sistem, data siswa tersebut akan diperbarui. Jika belum ada, siswa baru akan ditambahkan.
           </p>
         </CardContent>
       </Card>
@@ -655,5 +657,3 @@ export default function AdminManageStudentsPage() {
     </div>
   );
 }
-
-    

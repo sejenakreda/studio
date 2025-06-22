@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -37,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getActivityName } from '@/lib/utils';
 
 const addTeacherSchema = z.object({
   displayName: z.string().min(3, "Nama tampilan minimal 3 karakter"),
@@ -47,11 +47,11 @@ const addTeacherSchema = z.object({
 type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
 interface TeacherImportData {
-  displayName: string;
-  email: string;
-  password?: string;
-  assignedMapel?: string;
-  tugasTambahan?: string; 
+  "Nama Tampilan": string;
+  "Email": string;
+  "Password": string;
+  "Mapel Ditugaskan"?: string;
+  "Tugas Tambahan"?: string; 
 }
 
 const availableTugasTambahan: TugasTambahan[] = [
@@ -188,7 +188,7 @@ export default function ManageTeachersPage() {
 
   const handleDownloadTeacherTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ["displayName", "email", "password", "assignedMapel", "tugasTambahan"],
+      ["Nama Tampilan", "Email", "Password", "Mapel Ditugaskan", "Tugas Tambahan"],
       ["Contoh Nama Guru", "contoh@email.com", "password123", "Matematika,Bahasa Indonesia", "kurikulum,pembina_osis"], 
     ]);
     const workbook = XLSX.utils.book_new();
@@ -209,10 +209,10 @@ export default function ManageTeachersPage() {
       return;
     }
     const dataToExport = teachers.map(teacher => ({
-      NamaTampilan: teacher.displayName,
-      Email: teacher.email,
-      MapelDitugaskan: teacher.assignedMapel?.join(', ') || '',
-      TugasTambahan: teacher.tugasTambahan?.filter(tugas => tugas !== 'pembina_eskul').join(', ') || '',
+      "Nama Tampilan": teacher.displayName,
+      "Email": teacher.email,
+      "Mapel Ditugaskan": teacher.assignedMapel?.join(', ') || '',
+      "Tugas Tambahan": teacher.tugasTambahan?.map(t => getActivityName(t)).join(', ') || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -259,9 +259,10 @@ export default function ManageTeachersPage() {
           return;
         }
 
-        const firstRow = json[0];
-        if (!firstRow || !('displayName' in firstRow) || !('email' in firstRow) || !('password' in firstRow)) {
-          toast({ variant: "destructive", title: "Format File Salah", description: "Header kolom di file Excel tidak sesuai (min: displayName, email, password)." });
+        const headers = Object.keys(json[0] || {});
+        const expectedHeaders = ["Nama Tampilan", "Email", "Password"];
+        if (!expectedHeaders.every(h => headers.includes(h))) {
+          toast({ variant: "destructive", title: "Format File Salah", description: `Header kolom di file Excel tidak sesuai (min: ${expectedHeaders.join(', ')}).` });
           setIsImporting(false);
           return;
         }
@@ -269,13 +270,12 @@ export default function ManageTeachersPage() {
         let successCount = 0;
         let failCount = 0;
         const errorMessages: string[] = [];
-        let anyInvalidMapelDetected = false;
         let anyInvalidTugasDetected = false;
 
         for (const [index, teacher] of json.entries()) {
-          const teacherEmail = String(teacher.email || "").trim();
-          const teacherPassword = String(teacher.password || "");
-          const teacherDisplayName = String(teacher.displayName || "").trim();
+          const teacherEmail = String(teacher["Email"] || "").trim();
+          const teacherPassword = String(teacher["Password"] || "");
+          const teacherDisplayName = String(teacher["Nama Tampilan"] || "").trim();
           
           if (!teacherDisplayName || !teacherEmail || !teacherPassword) {
             failCount++;
@@ -295,16 +295,14 @@ export default function ManageTeachersPage() {
             continue;
           }
 
-          // Handle assignedMapel (assuming they are already in the master list)
           let finalAssignedMapel: string[] = [];
-          if (teacher.assignedMapel && typeof teacher.assignedMapel === 'string') {
-            finalAssignedMapel = teacher.assignedMapel.split(',').map(m => m.trim()).filter(Boolean);
+          if (teacher["Mapel Ditugaskan"] && typeof teacher["Mapel Ditugaskan"] === 'string') {
+            finalAssignedMapel = teacher["Mapel Ditugaskan"].split(',').map(m => m.trim()).filter(Boolean);
           }
 
-          // Handle tugasTambahan
           let finalTugasTambahan: TugasTambahan[] = [];
-          if (teacher.tugasTambahan && typeof teacher.tugasTambahan === 'string') {
-            const importedTugasArray = teacher.tugasTambahan.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+          if (teacher["Tugas Tambahan"] && typeof teacher["Tugas Tambahan"] === 'string') {
+            const importedTugasArray = teacher["Tugas Tambahan"].split(',').map(t => t.trim().toLowerCase().replace(/ /g, '_')).filter(Boolean);
             const validTugas: TugasTambahan[] = [];
             const invalidTugas: string[] = [];
 
@@ -498,7 +496,7 @@ export default function ManageTeachersPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pastikan file Excel memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">displayName</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">password</code>, dan opsional <code className="bg-muted px-1 py-0.5 rounded text-xs">assignedMapel</code> serta <code className="bg-muted px-1 py-0.5 rounded text-xs">tugasTambahan</code> (pisahkan dengan koma).
+            Pastikan file Excel memiliki kolom: <code className="bg-muted px-1 py-0.5 rounded text-xs">Nama Tampilan</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">Email</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">Password</code>, dan opsional <code className="bg-muted px-1 py-0.5 rounded text-xs">Mapel Ditugaskan</code> serta <code className="bg-muted px-1 py-0.5 rounded text-xs">Tugas Tambahan</code> (pisahkan dengan koma).
             Data yang sudah ada (berdasarkan email) akan dilewati.
           </p>
         </CardContent>
@@ -565,7 +563,7 @@ export default function ManageTeachersPage() {
                 </TableHeader>
                 <TableBody>
                   {teachers.map((teacher) => {
-                    const cleanedTugas = teacher.tugasTambahan?.filter(tugas => tugas !== 'pembina_eskul');
+                    const cleanedTugas = teacher.tugasTambahan?.map(t => getActivityName(t));
                     return (
                       <TableRow key={teacher.uid}>
                         <TableCell className="font-medium">{teacher.displayName || 'N/A'}</TableCell>
@@ -578,7 +576,7 @@ export default function ManageTeachersPage() {
                         </TableCell>
                         <TableCell className="text-xs max-w-[200px] truncate" title={cleanedTugas?.join(', ') || 'Tidak ada'}>
                           {cleanedTugas && cleanedTugas.length > 0
-                            ? cleanedTugas.join(', ').replace(/_/g, ' ')
+                            ? cleanedTugas.join(', ')
                             : <span className="italic text-muted-foreground">Tidak ada</span>
                           }
                         </TableCell>
@@ -639,4 +637,3 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
-    

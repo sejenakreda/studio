@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -30,19 +29,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Timestamp } from 'firebase/firestore';
+import { getActivityName } from '@/lib/utils';
 
-
-const getActivityName = (activityId: TugasTambahan | string): string => {
-    if (activityId === 'pembina_osis') return 'OSIS';
-    if (activityId === 'kesiswaan') return 'Kesiswaan';
-    if (activityId === 'bk') return 'Bimbingan Konseling';
-    return activityId
-        .replace('pembina_eskul_', '')
-        .replace(/_/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-};
 
 const laporanSchema = z.object({
     title: z.string().min(5, "Judul minimal 5 karakter").max(100, "Judul maksimal 100 karakter"),

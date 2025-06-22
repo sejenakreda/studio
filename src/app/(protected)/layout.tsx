@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -29,15 +28,17 @@ export default function ProtectedLayout({
         } else if (userProfile.role === 'guru') {
           if (isAdminRoute) {
             if (isKepalaSekolah || isKepalaTataUsaha) {
-              const allowedRoutes = [
+              const allowedAdminRoutesForKepsek = [
                 '/admin/reports', 
                 '/admin/grades', 
                 '/admin/violation-reports', 
                 '/admin/kegiatan-reports',
                 '/admin/agenda-kelas',
                 '/admin/teacher-attendance',
+                '/admin/school-profile', // Kepsek should see this too
               ];
-              const isAllowed = (isKepalaSekolah && pathname === '/admin') || allowedRoutes.some(route => pathname.startsWith(route));
+              // Kepsek can see the main admin dashboard and any route starting with the allowed paths
+              const isAllowed = pathname === '/admin' || allowedAdminRoutesForKepsek.some(route => pathname.startsWith(route));
               if (!isAllowed) {
                 router.replace('/guru');
               }

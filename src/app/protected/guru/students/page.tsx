@@ -57,10 +57,14 @@ export default function ViewStudentsPage() {
   }, [selectedClass]);
 
   const filteredStudents = useMemo(() => {
-    if (selectedClass === "all") {
-      return allStudents;
-    }
-    return allStudents.filter(student => student.kelas === selectedClass);
+    let studentsToFilter = selectedClass === "all"
+      ? [...allStudents]
+      : allStudents.filter(student => student.kelas === selectedClass);
+
+    // Sort students alphabetically by name
+    studentsToFilter.sort((a, b) => a.nama.localeCompare(b.nama));
+
+    return studentsToFilter;
   }, [allStudents, selectedClass]);
 
   const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);

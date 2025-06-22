@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -372,4 +371,3 @@ export default function ManageTeacherAttendancePage() {
     </div>
   );
 }
-    

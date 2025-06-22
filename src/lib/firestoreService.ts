@@ -24,7 +24,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -442,6 +442,34 @@ const laporanKegiatanConverter: FirestoreDataConverter<LaporanKegiatan> = {
       updatedAt: data.updatedAt,
     };
   }
+};
+
+const agendaKelasConverter: FirestoreDataConverter<AgendaKelas> = {
+    toFirestore(agenda: Omit<AgendaKelas, 'id'>): DocumentData {
+        return {
+            ...agenda,
+            createdAt: agenda.createdAt || serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        };
+    },
+    fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): AgendaKelas {
+        const data = snapshot.data(options)!;
+        return {
+            id: snapshot.id,
+            teacherUid: data.teacherUid,
+            teacherName: data.teacherName,
+            kelas: data.kelas,
+            mapel: data.mapel,
+            tanggal: data.tanggal,
+            jamKe: data.jamKe,
+            tujuanPembelajaran: data.tujuanPembelajaran,
+            pokokBahasan: data.pokokBahasan,
+            siswaAbsen: data.siswaAbsen || [],
+            refleksi: data.refleksi,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+        };
+    }
 };
 
 
@@ -931,4 +959,63 @@ export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
 export const deleteLaporanKegiatan = async (laporanId: string): Promise<void> => {
   const docRef = doc(db, LAPORAN_KEGIATAN_COLLECTION, laporanId);
   await deleteDoc(docRef);
+};
+
+
+// --- Agenda Kelas Service ---
+const AGENDA_KELAS_COLLECTION = 'agenda_kelas';
+
+export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'createdAt' | 'updatedAt'>): Promise<AgendaKelas> => {
+    const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
+    
+    // Check for existing doc based on a unique combination
+    const q = query(coll, 
+        where('teacherUid', '==', data.teacherUid),
+        where('tanggal', '==', data.tanggal),
+        where('kelas', '==', data.kelas),
+        where('mapel', '==', data.mapel),
+        where('jamKe', '==', data.jamKe),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+        // Update existing document
+        const docRef = querySnapshot.docs[0].ref;
+        await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+        const updatedSnap = await getDoc(docRef);
+        return updatedSnap.data() as AgendaKelas;
+    } else {
+        // Add new document
+        const docRef = await addDoc(coll, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        const newSnap = await getDoc(docRef);
+        return newSnap.data() as AgendaKelas;
+    }
+};
+
+export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
+    const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
+    const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+    const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
+    const q = query(coll, 
+        where('teacherUid', '==', teacherUid),
+        where('tanggal', '>=', startDate),
+        where('tanggal', '<=', endDate),
+        orderBy('tanggal', 'desc'),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data());
+};
+
+export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
+    const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
+    const q = query(coll, orderBy('tanggal', 'desc'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data());
+};
+
+export const deleteAgenda = async (id: string): Promise<void> => {
+    const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
+    await deleteDoc(docRef);
 };

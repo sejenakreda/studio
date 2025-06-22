@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -20,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -75,6 +74,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
       { href: "/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
       { href: "/admin/grades", label: "Semua Nilai", icon: FileText },
+      { href: "/admin/agenda-kelas", label: "Laporan Agenda Kelas", icon: BookCheck },
     ],
   },
   {
@@ -136,6 +136,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/guru/students", label: "Daftar Siswa", icon: BookUser },
       { href: "/guru/grades", label: "Input Nilai", icon: Edit3 },
+      { href: "/guru/agenda-kelas", label: "Agenda Kelas", icon: CalendarPlus },
       { href: "/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
     ],
   },
@@ -150,7 +151,7 @@ const navigationStructure: NavGroup[] = [
   },
   // --- GURU - TUGAS TAMBAHAN (ordered by likely importance/power) ---
   {
-    groupLabel: "Kepala Sekolah",
+    groupLabel: "Kepala Sekolah & Laporan",
     groupIcon: Shield,
     roles: ['admin', 'guru'],
     requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
@@ -296,32 +297,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
   
-  const filteredNavGroups = React.useMemo(() => {
+ const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    
-    // Create a new array for the filtered groups
-    const allowedGroups: NavGroup[] = [];
-    
-    for (const group of navigationStructure) {
-        // Check if the user's role is included in the group's roles
+
+    return navigationStructure.filter(group => {
+        // Must match user role
         if (!group.roles.includes(userProfile.role)) {
-            continue;
+            return false;
         }
-
-        // Check for required tugas (special roles/assignments)
+        // If there's a requiredTugas check, it must pass
         if (group.requiredTugas) {
-            // If the requiredTugas function returns false, skip this group
-            if (!group.requiredTugas(authContext)) {
-                continue;
-            }
+            return group.requiredTugas(authContext);
         }
-
-        // If all checks pass, add the group to the allowed list
-        allowedGroups.push(group);
-    }
-    
-    return allowedGroups;
-  }, [userProfile, loading, authContext]);
+        // If no requiredTugas check, it's valid for the role
+        return true;
+    });
+}, [userProfile, loading, authContext]);
 
 
   const defaultOpenAccordionItems = React.useMemo(() => {
@@ -346,12 +337,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     for (const item of allNavItemsFlat) {
         const itemPath = item.href.split('?')[0];
 
-        // Perfect match on path and all query params
         if (pathname === itemPath) {
             const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
             const currentParams = new URLSearchParams(searchParams.toString());
             let paramsMatch = true;
-            if (itemParams.size > currentParams.size) { // Item can have fewer params, but not more
+            if (itemParams.size > currentParams.size) { 
                 paramsMatch = false;
             } else {
                 for (const [key, value] of itemParams.entries()) {
@@ -363,11 +353,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
             if (paramsMatch) {
                 bestMatch = item;
-                break; // Found a good enough match
+                break;
             }
         }
 
-        // Check for best partial match (longest path prefix)
         if (pathname.startsWith(itemPath)) {
             if (!bestMatch || item.href.length > bestMatch.href.length) {
                 bestMatch = item;
@@ -389,26 +378,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const currentPath = pathname;
     const itemPath = item.href.split('?')[0];
 
-    // Handle exact matches first
     if (item.isExact) {
       return currentPath === itemPath;
     }
 
-    // Handle non-exact matches: path must start with item's path
     if (!currentPath.startsWith(itemPath)) {
       return false;
     }
 
-    // Now handle query parameters
     const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
     const currentParams = new URLSearchParams(searchParams.toString());
 
-    // If the menu item has no query params, it's active as long as path matches.
     if (Array.from(itemParams.keys()).length === 0) {
       return true;
     }
 
-    // If the menu item has query params, all of its params must exist and match in the current URL.
     for (const [key, value] of itemParams.entries()) {
       if (currentParams.get(key) !== value) {
         return false;

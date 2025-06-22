@@ -205,3 +205,19 @@ export interface LaporanKegiatan {
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
+
+export interface AgendaKelas {
+  id?: string;
+  teacherUid: string;
+  teacherName: string;
+  kelas: string;
+  mapel: string;
+  tanggal: Timestamp;
+  jamKe: string;
+  tujuanPembelajaran: string;
+  pokokBahasan: string;
+  siswaAbsen: { idSiswa: string; namaSiswa: string }[];
+  refleksi: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}

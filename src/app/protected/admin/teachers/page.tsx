@@ -396,7 +396,7 @@ export default function ManageTeachersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/admin">
+        <Link href="/protected/admin">
           <Button variant="outline" size="icon" aria-label="Kembali ke Dasbor Admin">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -582,7 +582,7 @@ export default function ManageTeachersPage() {
                           }
                         </TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Link href={`/admin/teachers/edit/${teacher.uid}`} passHref>
+                          <Link href={`/protected/admin/teachers/edit/${teacher.uid}`} passHref>
                             <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" title="Edit Guru & Mapel">
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edit</span>

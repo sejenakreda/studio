@@ -124,7 +124,7 @@ export default function ViolationReportsPage() {
     <div className="space-y-6 print:space-y-2">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
         <div className="flex items-center gap-4">
-          <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline flex items-center gap-2">
               <FileWarning className="h-8 w-8 text-primary" /> Laporan Pelanggaran Siswa

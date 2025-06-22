@@ -86,7 +86,7 @@ export default function EditTeacherPage() {
       setIsLoadingData(false);
       setFetchError("ID Guru tidak valid.");
       toast({ variant: "destructive", title: "Error", description: "ID Guru tidak ditemukan." });
-      router.push('/admin/teachers'); 
+      router.push('/protected/admin/teachers'); 
       return;
     }
     setIsLoadingData(true);
@@ -108,7 +108,7 @@ export default function EditTeacherPage() {
       } else {
         setFetchError("Data guru tidak ditemukan atau peran tidak sesuai.");
         toast({ variant: "destructive", title: "Error", description: "Data guru tidak ditemukan." });
-        router.push('/admin/teachers');
+        router.push('/protected/admin/teachers');
       }
       setMasterMapelList(fetchedMasterMapel || []);
     } catch (error) {
@@ -165,7 +165,7 @@ export default function EditTeacherPage() {
       );
 
       toast({ title: "Sukses", description: "Data guru " + data.displayName + " berhasil diperbarui." });
-      router.push('/admin/teachers');
+      router.push('/protected/admin/teachers');
     } catch (error: any) {
       console.error("Error updating teacher:", error);
       toast({ variant: "destructive", title: "Error", description: "Gagal memperbarui data guru. Silakan coba lagi." });
@@ -236,7 +236,7 @@ export default function EditTeacherPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/admin/teachers">
+          <Link href="/protected/admin/teachers">
             <Button variant="outline" size="icon" aria-label="Kembali ke Daftar Guru">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -248,7 +248,7 @@ export default function EditTeacherPage() {
           <AlertTitle>Gagal Memuat</AlertTitle>
           <AlertDescription>{fetchError || "Data guru tidak ditemukan. Silakan kembali dan coba lagi."}</AlertDescription>
         </Alert>
-        <Button onClick={() => router.push('/admin/teachers')}>Kembali ke Daftar Guru</Button>
+        <Button onClick={() => router.push('/protected/admin/teachers')}>Kembali ke Daftar Guru</Button>
       </div>
     );
   }
@@ -256,7 +256,7 @@ export default function EditTeacherPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/admin/teachers">
+        <Link href="/protected/admin/teachers">
           <Button variant="outline" size="icon" aria-label="Kembali ke Daftar Guru">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -322,7 +322,7 @@ export default function EditTeacherPage() {
                             <AlertTitle>Belum Ada Master Mapel</AlertTitle>
                             <AlertDescription>
                                 Belum ada mata pelajaran yang terdaftar di sistem. Silakan tambahkan terlebih dahulu melalui menu "Kelola Mapel".
-                                <Link href="/admin/mapel" className="ml-2 text-primary hover:underline">
+                                <Link href="/protected/admin/mapel" className="ml-2 text-primary hover:underline">
                                     Kelola Mapel Sekarang
                                 </Link>
                             </AlertDescription>

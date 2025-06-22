@@ -263,7 +263,7 @@ export default function ManageTeacherAttendancePage() {
   return (
     <div className="space-y-6 print:space-y-2">
       <div className="flex items-center gap-4 print:hidden">
-        <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div>
       </div>
       

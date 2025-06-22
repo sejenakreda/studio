@@ -24,6 +24,7 @@ const getActivityName = (activityId: TugasTambahan | string): string => {
     if (activityId === 'pembina_osis') return 'OSIS';
     if (activityId === 'kesiswaan') return 'Kesiswaan';
     if (activityId === 'bk') return 'Bimbingan Konseling';
+    if (activityId === 'kepala_tata_usaha') return 'Tata Usaha';
     return activityId
         .replace('pembina_eskul_', '')
         .replace(/_/g, ' ')

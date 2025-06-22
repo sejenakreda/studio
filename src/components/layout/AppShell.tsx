@@ -56,6 +56,7 @@ const reportableRoles: { id: TugasTambahan; label: string; icon: React.ElementTy
     { id: 'pembina_eskul_pencak_silat', label: 'Eskul Pencak Silat', icon: Award },
     { id: 'pembina_eskul_volly_ball', label: 'Eskul Volly Ball', icon: Award },
     { id: 'bk', label: 'Bimbingan Konseling', icon: HeartHandshake },
+    { id: 'kepala_tata_usaha', label: 'Tata Usaha', icon: Briefcase },
 ];
 
 const navigationStructure: NavGroup[] = [
@@ -297,13 +298,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    return navigationStructure.filter(group => {
-      if (!group.roles.includes(userProfile.role)) return false;
-      if (group.requiredTugas) {
-        return group.requiredTugas(authContext);
-      }
-      return true;
-    });
+    
+    // Create a new array for the filtered groups
+    const allowedGroups: NavGroup[] = [];
+    
+    for (const group of navigationStructure) {
+        // Check if the user's role is included in the group's roles
+        if (!group.roles.includes(userProfile.role)) {
+            continue;
+        }
+
+        // Check for required tugas (special roles/assignments)
+        if (group.requiredTugas) {
+            // If the requiredTugas function returns false, skip this group
+            if (!group.requiredTugas(authContext)) {
+                continue;
+            }
+        }
+
+        // If all checks pass, add the group to the allowed list
+        allowedGroups.push(group);
+    }
+    
+    return allowedGroups;
   }, [userProfile, loading, authContext]);
 
 

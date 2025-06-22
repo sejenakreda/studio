@@ -36,6 +36,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const agendaSchema = z.object({
@@ -176,16 +178,59 @@ export default function AgendaKelasPage() {
                             </div>
                             <FormField control={form.control} name="pokokBahasan" render={({ field }) => (<FormItem><FormLabel>Pokok Bahasan</FormLabel><FormControl><Textarea placeholder="Materi yang diajarkan..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="tujuanPembelajaran" render={({ field }) => (<FormItem><FormLabel>Tujuan Pembelajaran</FormLabel><FormControl><Textarea placeholder="Tujuan yang ingin dicapai..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="siswaAbsen" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Siswa Tidak Hadir (Opsional)</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} multiple disabled={!selectedKelas}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder={!selectedKelas ? "Pilih kelas dulu" : "Pilih siswa yang absen..."} /></SelectTrigger></FormControl>
-                                        <SelectContent>{studentsInSelectedClass.map(s => <SelectItem key={s.id_siswa} value={s.id_siswa}>{s.nama}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
+                             <FormField
+                                control={form.control}
+                                name="siswaAbsen"
+                                render={() => (
+                                    <FormItem>
+                                        <FormLabel>Siswa Tidak Hadir (Opsional)</FormLabel>
+                                        {!selectedKelas ? (
+                                            <div className="p-3 border rounded-md text-sm text-muted-foreground bg-muted/50">Pilih kelas terlebih dahulu untuk menampilkan daftar siswa.</div>
+                                        ) : studentsInSelectedClass.length === 0 ? (
+                                            <div className="p-3 border rounded-md text-sm text-muted-foreground bg-muted/50">Tidak ada siswa yang terdaftar di kelas ini.</div>
+                                        ) : (
+                                            <ScrollArea className="h-40 w-full rounded-md border p-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {studentsInSelectedClass.map((item) => (
+                                                <FormField
+                                                    key={item.id_siswa}
+                                                    control={form.control}
+                                                    name="siswaAbsen"
+                                                    render={({ field }) => {
+                                                    return (
+                                                        <FormItem
+                                                        key={item.id_siswa}
+                                                        className="flex flex-row items-start space-x-3 space-y-0"
+                                                        >
+                                                        <FormControl>
+                                                            <Checkbox
+                                                            checked={field.value?.includes(item.id_siswa)}
+                                                            onCheckedChange={(checked) => {
+                                                                return checked
+                                                                ? field.onChange([...(field.value || []), item.id_siswa])
+                                                                : field.onChange(
+                                                                    (field.value || []).filter(
+                                                                        (value) => value !== item.id_siswa
+                                                                    )
+                                                                    );
+                                                            }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormLabel className="font-normal">
+                                                            {item.nama}
+                                                        </FormLabel>
+                                                        </FormItem>
+                                                    );
+                                                    }}
+                                                />
+                                                ))}
+                                            </div>
+                                            </ScrollArea>
+                                        )}
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
                             <FormField control={form.control} name="refleksi" render={({ field }) => (<FormItem><FormLabel>Refleksi (Opsional)</FormLabel><FormControl><Textarea placeholder="Catatan refleksi setelah mengajar..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                         </CardContent>
                         <CardFooter className="gap-2">
@@ -248,3 +293,4 @@ export default function AgendaKelasPage() {
     );
 }
 
+    

@@ -17,9 +17,10 @@ import { useAuth } from '@/context/AuthContext';
 import { getStudents, addPelanggaran, addActivityLog } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { Combobox } from '@/components/ui/combobox';
+import { format } from 'date-fns';
 
 const pelanggaranSchema = z.object({
-  id_siswa: z.string({ required_error: "Siswa harus dipilih." }),
+  id_siswa: z.string({ required_error: "Siswa harus dipilih." }).min(1, "Siswa harus dipilih."),
   tanggal: z.date({ required_error: "Tanggal harus diisi." }),
   pelanggaran: z.string().min(5, "Deskripsi pelanggaran minimal 5 karakter").max(200, "Maksimal 200 karakter"),
   poin: z.coerce.number().min(1, "Poin minimal 1").max(100, "Poin maksimal 100"),
@@ -37,6 +38,7 @@ export default function CatatPelanggaranPage() {
     const form = useForm<PelanggaranFormData>({
         resolver: zodResolver(pelanggaranSchema),
         defaultValues: {
+            id_siswa: "",
             tanggal: new Date(),
             pelanggaran: "",
             poin: 1,
@@ -86,7 +88,6 @@ export default function CatatPelanggaranPage() {
             await addActivityLog("Pelanggaran Siswa Dicatat", `Siswa: ${selectedStudent.nama}, Pelanggaran: ${data.pelanggaran} (Poin: ${data.poin}) oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
             toast({ title: "Sukses", description: "Catatan pelanggaran berhasil disimpan." });
             form.reset();
-            form.setValue("tanggal", new Date());
 
         } catch (err: any) {
              toast({ variant: "destructive", title: "Gagal Menyimpan", description: err.message });

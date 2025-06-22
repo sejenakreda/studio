@@ -59,6 +59,11 @@ export default function LaporanKegiatanPage() {
 
   const form = useForm<LaporanFormData>({
     resolver: zodResolver(laporanSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+      date: new Date(),
+    }
   });
 
   const reportableActivities = useMemo(() => {
@@ -115,7 +120,7 @@ export default function LaporanKegiatanPage() {
             await addActivityLog(`Laporan Kegiatan Ditambahkan`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil disimpan." });
         }
-        form.reset({ title: "", content: "" });
+        form.reset();
         setEditingReport(null);
         fetchReports();
     } catch (err: any) {
@@ -188,7 +193,7 @@ export default function LaporanKegiatanPage() {
             </CardContent>
             <CardFooter className="gap-2">
               <Button type="submit" disabled={isSubmitting || !selectedActivity}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}{editingReport ? 'Simpan Perubahan' : 'Tambah Laporan'}</Button>
-              {editingReport && (<Button variant="outline" onClick={() => { setEditingReport(null); form.reset({ title: "", content: "" }); }}>Batal Edit</Button>)}
+              {editingReport && (<Button variant="outline" onClick={() => { setEditingReport(null); form.reset(); }}>Batal Edit</Button>)}
             </CardFooter>
           </form>
         </Form>

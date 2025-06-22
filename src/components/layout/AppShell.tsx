@@ -181,7 +181,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKurikulum }) => isKurikulum,
     items: [
       { href: "/protected/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=kurikulum", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -192,7 +192,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/protected/guru/kesiswaan", label: "Dasbor Kesiswaan", icon: Home },
       { href: "/protected/guru/pelanggaran-siswa", label: "Catat Pelanggaran", icon: ShieldAlert },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=kesiswaan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -202,7 +202,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isBendahara }) => isBendahara,
     items: [
       { href: "/protected/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=keuangan", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -212,7 +212,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isPembinaOsis, isPembinaEskul }) => isPembinaOsis || isPembinaEskul,
     items: [
        { href: "/protected/guru/pembina", label: "Dasbor Pembina", icon: Home },
-       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+       { href: "/protected/guru/laporan-kegiatan?context=pembina", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -223,7 +223,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/protected/guru/bk", label: "Dasbor BK", icon: Home },
       { href: "/protected/guru/pelanggaran-siswa", label: "Catat Pelanggaran", icon: ShieldAlert },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=bk", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -233,7 +233,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
     items: [
       { href: "/protected/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Saya", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=tu", label: "Laporan Saya", icon: BookCheck },
       { isSeparator: true },
       ...reportableRolesForTU
         .map(role => ({
@@ -251,7 +251,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isOperator }) => isOperator,
     items: [
       { href: "/protected/guru/operator", label: "Dasbor Operator", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=operator", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
    {
@@ -261,7 +261,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isStafTu }) => isStafTu,
     items: [
        { href: "/protected/guru/staf-tu", label: "Laporan Staf TU", icon: Home },
-       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+       { href: "/protected/guru/laporan-kegiatan?context=staf_tu", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
   {
@@ -271,7 +271,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isSatpam }) => isSatpam,
     items: [
        { href: "/protected/guru/satpam", label: "Laporan Satpam", icon: Home },
-       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+       { href: "/protected/guru/laporan-kegiatan?context=satpam", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
    {
@@ -281,7 +281,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isPenjagaSekolah }) => isPenjagaSekolah,
     items: [
        { href: "/protected/guru/penjaga-sekolah", label: "Laporan Penjaga", icon: Home },
-       { href: "/protected/guru/laporan-kegiatan", label: "Laporan Kegiatan", icon: BookCheck },
+       { href: "/protected/guru/laporan-kegiatan?context=penjaga_sekolah", label: "Laporan Kegiatan", icon: BookCheck },
     ],
   },
 

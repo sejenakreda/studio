@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
+import { useSearchParams } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,6 +48,8 @@ type LaporanFormData = z.infer<typeof laporanSchema>;
 export default function LaporanKegiatanPage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const searchParams = useSearchParams();
+  const context = searchParams.get('context');
   
   const [selectedActivity, setSelectedActivity] = useState<TugasTambahan | null>(null);
   const [reports, setReports] = useState<LaporanKegiatan[]>([]);
@@ -67,19 +70,55 @@ export default function LaporanKegiatanPage() {
   });
 
   const reportableActivities = useMemo(() => {
-    return userProfile?.tugasTambahan?.filter(tugas => 
+    if (!userProfile?.tugasTambahan) return [];
+
+    const allReportableRoles = userProfile.tugasTambahan.filter(tugas => 
         tugas.startsWith('pembina_') || ['kesiswaan', 'kurikulum', 'bendahara', 'bk', 'operator', 'staf_tu', 'satpam', 'penjaga_sekolah', 'kepala_tata_usaha'].includes(tugas)
-    ) || [];
-  }, [userProfile]);
+    );
+    
+    if (!context) return allReportableRoles;
+
+    switch (context) {
+        case 'pembina':
+            return allReportableRoles.filter(t => t.startsWith('pembina_'));
+        case 'tu':
+            return allReportableRoles.filter(t => t === 'kepala_tata_usaha');
+        case 'kurikulum':
+            return allReportableRoles.filter(t => t === 'kurikulum');
+        case 'kesiswaan':
+            return allReportableRoles.filter(t => t === 'kesiswaan');
+        case 'keuangan':
+            return allReportableRoles.filter(t => t === 'bendahara');
+        case 'bk':
+            return allReportableRoles.filter(t => t === 'bk');
+        case 'operator':
+            return allReportableRoles.filter(t => t === 'operator');
+        case 'staf_tu':
+            return allReportableRoles.filter(t => t === 'staf_tu');
+        case 'satpam':
+            return allReportableRoles.filter(t => t === 'satpam');
+        case 'penjaga_sekolah':
+            return allReportableRoles.filter(t => t === 'penjaga_sekolah');
+        default:
+            return allReportableRoles;
+    }
+  }, [userProfile, context]);
   
   useEffect(() => {
-      if (reportableActivities.length > 0 && !selectedActivity) {
-          setSelectedActivity(reportableActivities[0]);
-      }
+    if (reportableActivities.length > 0) {
+        if (!selectedActivity || !reportableActivities.includes(selectedActivity)) {
+            setSelectedActivity(reportableActivities[0]);
+        }
+    } else {
+        setSelectedActivity(null);
+    }
   }, [reportableActivities, selectedActivity]);
 
   const fetchReports = useCallback(async () => {
-    if (!selectedActivity) return;
+    if (!selectedActivity) {
+        setReports([]);
+        return;
+    };
     setIsLoading(true);
     setError(null);
     try {

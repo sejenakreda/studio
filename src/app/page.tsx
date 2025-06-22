@@ -18,11 +18,11 @@ export default function HomePage() {
           router.replace('/protected/admin');
         } else if (userProfile.role === 'guru') {
           if (isSatpam) {
-            router.replace('/protected/guru/satpam');
+            router.replace('/protected/guru/laporan-kegiatan?context=satpam');
           } else if (isPenjagaSekolah) {
-            router.replace('/protected/guru/penjaga-sekolah');
+            router.replace('/protected/guru/laporan-kegiatan?context=penjaga_sekolah');
           } else if (isStafTu) {
-            router.replace('/protected/guru/staf-tu');
+            router.replace('/protected/guru/laporan-kegiatan?context=staf_tu');
           } else {
             router.replace('/protected/guru');
           }

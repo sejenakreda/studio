@@ -162,7 +162,14 @@ export default function ManageTeacherAttendancePage() {
           summaryMap.set(rec.teacherUid, { teacherUid: rec.teacherUid, teacherName: rec.teacherName || rec.teacherUid, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 });
         }
         const teacherSummary = summaryMap.get(rec.teacherUid)!;
-        if(teacherSummary[rec.status] !== undefined) teacherSummary[rec.status]++; else teacherSummary.Alpa++;
+        
+        switch (rec.status) {
+            case 'Hadir': teacherSummary.Hadir++; break;
+            case 'Izin': teacherSummary.Izin++; break;
+            case 'Sakit': teacherSummary.Sakit++; break;
+            case 'Alpa': teacherSummary.Alpa++; break;
+            default: teacherSummary.Alpa++; break; // Fallback for unexpected status
+        }
         teacherSummary.TotalTercatat++;
       });
       

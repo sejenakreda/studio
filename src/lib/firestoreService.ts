@@ -925,9 +925,23 @@ export const updatePelanggaran = async (id: string, data: Partial<Omit<Pelanggar
   await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
 };
 
-export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
+export const getAllPelanggaran = async (year: number, month?: number | null): Promise<PelanggaranSiswa[]> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-  const q = query(collRef);
+  
+  const qConstraints = [];
+  
+  let startDate: Timestamp, endDate: Timestamp;
+  if (month && month >= 1 && month <= 12) {
+    startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+    endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+  } else {
+    startDate = Timestamp.fromDate(new Date(year, 0, 1));
+    endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
+  }
+  qConstraints.push(where('tanggal', '>=', startDate));
+  qConstraints.push(where('tanggal', '<=', endDate));
+
+  const q = query(collRef, ...qConstraints);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -999,24 +1013,19 @@ export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'cre
 export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
     
-    // Query only by teacherUid to avoid composite index requirement.
+    // Create date range for the query
+    const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+    const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+
     const q = query(coll, 
-        where('teacherUid', '==', teacherUid)
+        where('teacherUid', '==', teacherUid),
+        where('tanggal', '>=', startDate),
+        where('tanggal', '<=', endDate),
+        orderBy('tanggal', 'desc')
     );
     
     const snapshot = await getDocs(q);
-    const allAgendas = snapshot.docs.map(doc => doc.data());
-
-    // Filter by year and month on the client.
-    const filteredAgendas = allAgendas.filter(agenda => {
-        const agendaDate = agenda.tanggal.toDate();
-        return agendaDate.getFullYear() === year && (agendaDate.getMonth() + 1) === month;
-    });
-
-    // Sort the filtered results.
-    filteredAgendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-    
-    return filteredAgendas;
+    return snapshot.docs.map(doc => doc.data());
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
@@ -1030,7 +1039,3 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
-
-    
-
-    

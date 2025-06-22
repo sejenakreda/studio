@@ -419,9 +419,12 @@ const pelanggaranConverter: FirestoreDataConverter<PelanggaranSiswa> = {
 
 const laporanKegiatanConverter: FirestoreDataConverter<LaporanKegiatan> = {
   toFirestore(laporan: Omit<LaporanKegiatan, 'id'>): DocumentData {
+    const data: Partial<LaporanKegiatan> = { ...laporan };
+    delete data.id;
     return {
-      ...laporan,
-      createdAt: laporan.createdAt || serverTimestamp(),
+      ...data,
+      createdAt: data.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
   },
   fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): LaporanKegiatan {
@@ -436,6 +439,7 @@ const laporanKegiatanConverter: FirestoreDataConverter<LaporanKegiatan> = {
       createdByUid: data.createdByUid,
       createdByDisplayName: data.createdByDisplayName,
       createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   }
 };
@@ -884,11 +888,19 @@ export const deletePelanggaran = async (pelanggaranId: string): Promise<void> =>
 // --- Laporan Kegiatan Service ---
 const LAPORAN_KEGIATAN_COLLECTION = 'laporan_kegiatan';
 
-export const addLaporanKegiatan = async (data: Omit<LaporanKegiatan, 'id' | 'createdAt'>): Promise<LaporanKegiatan> => {
+export const addLaporanKegiatan = async (data: Omit<LaporanKegiatan, 'id' | 'createdAt' | 'updatedAt'>): Promise<LaporanKegiatan> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+  const dataToSave = { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() } as Omit<LaporanKegiatan, 'id'>;
   const docRef = await addDoc(collRef, dataToSave);
-  return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now() };
+  return { ...dataToSave, id: docRef.id, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+};
+
+export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<LaporanKegiatan, 'id' | 'createdAt' | 'activityId' | 'activityName' | 'createdByUid' | 'createdByDisplayName' >>): Promise<void> => {
+  const docRef = doc(db, LAPORAN_KEGIATAN_COLLECTION, id);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
 };
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {

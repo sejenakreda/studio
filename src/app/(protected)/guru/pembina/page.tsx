@@ -14,13 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Award, Loader2, AlertCircle, Users, UserPlus, Trash2, Search, BookOpen, PlusCircle, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, Award, Loader2, AlertCircle, Users, UserPlus, Trash2, Search, BookOpen, PlusCircle, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getStudents, updateStudentActivity, addActivityLog, getLaporanKegiatanByActivity, addLaporanKegiatan, deleteLaporanKegiatan } from '@/lib/firestoreService';
+import { getStudents, updateStudentActivity, addActivityLog, getLaporanKegiatanByActivity, addLaporanKegiatan, deleteLaporanKegiatan, updateLaporanKegiatan } from '@/lib/firestoreService';
 import type { Siswa, TugasTambahan, LaporanKegiatan } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -66,7 +66,7 @@ function MemberManagement({ activityId, allStudents, onDataChange }: MemberManag
 
     const members = useMemo(() => allStudents.filter(s => s.kegiatan?.includes(activityId)), [allStudents, activityId]);
     const nonMembers = useMemo(() => {
-        const memberIds = new Set(members.map(m => m.id));
+        const memberIds = new Set(members.map(m => m.id!));
         return allStudents.filter(s => !memberIds.has(s.id!));
     }, [allStudents, members]);
 
@@ -134,8 +134,13 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [reportToDelete, setReportToDelete] = useState<LaporanKegiatan | null>(null);
-    const form = useForm<LaporanFormData>({ resolver: zodResolver(laporanSchema), defaultValues: { title: "", date: new Date(), content: "" } });
+    const [reportToModify, setReportToModify] = useState<LaporanKegiatan | null>(null);
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    
+    const form = useForm<LaporanFormData>({ 
+        resolver: zodResolver(laporanSchema), 
+        defaultValues: { title: "", date: new Date(), content: "" } 
+    });
 
     useEffect(() => {
         const fetchReports = async () => {
@@ -143,8 +148,8 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
             try {
                 const reports = await getLaporanKegiatanByActivity(activityId);
                 setLaporanList(reports);
-            } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Gagal memuat laporan kegiatan." });
+            } catch (error: any) {
+                toast({ variant: "destructive", title: "Error", description: `Gagal memuat laporan: ${error.message}` });
             } finally {
                 setIsLoading(false);
             }
@@ -152,18 +157,34 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
         fetchReports();
     }, [activityId, toast, onDataChange]);
 
+    const handleOpenForm = (laporan?: LaporanKegiatan) => {
+        setReportToModify(laporan || null);
+        if (laporan) {
+            form.reset({ title: laporan.title, content: laporan.content, date: laporan.date.toDate() });
+        } else {
+            form.reset({ title: "", content: "", date: new Date() });
+        }
+        setIsFormOpen(true);
+    };
+
     const onSubmit = async (data: LaporanFormData) => {
         if (!userProfile) return;
         setIsSubmitting(true);
         try {
-            await addLaporanKegiatan({
-                activityId, activityName: getActivityName(activityId), ...data,
-                date: Timestamp.fromDate(data.date),
-                createdByUid: userProfile.uid, createdByDisplayName: userProfile.displayName || 'Pembina',
-            });
-            await addActivityLog("Laporan Kegiatan Dibuat", `Laporan "${data.title}" untuk ${getActivityName(activityId)} dibuat oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Pembina');
-            toast({ title: "Sukses", description: "Laporan kegiatan berhasil disimpan." });
-            form.reset(); setIsFormOpen(false); onDataChange();
+            if (reportToModify) { // Editing existing report
+                await updateLaporanKegiatan(reportToModify.id!, { ...data, date: Timestamp.fromDate(data.date) });
+                await addActivityLog("Laporan Kegiatan Diperbarui", `Laporan "${data.title}" untuk ${getActivityName(activityId)} diperbarui oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Pembina');
+                toast({ title: "Sukses", description: "Laporan kegiatan berhasil diperbarui." });
+            } else { // Adding new report
+                await addLaporanKegiatan({
+                    activityId, activityName: getActivityName(activityId), ...data,
+                    date: Timestamp.fromDate(data.date),
+                    createdByUid: userProfile.uid, createdByDisplayName: userProfile.displayName || 'Pembina',
+                });
+                await addActivityLog("Laporan Kegiatan Dibuat", `Laporan "${data.title}" untuk ${getActivityName(activityId)} dibuat oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || 'Pembina');
+                toast({ title: "Sukses", description: "Laporan kegiatan berhasil disimpan." });
+            }
+            form.reset(); setIsFormOpen(false); setReportToModify(null); onDataChange();
         } catch (error: any) {
             toast({ variant: "destructive", title: "Gagal Menyimpan", description: error.message });
         } finally {
@@ -171,13 +192,19 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
         }
     };
     
-    const handleDeleteReport = async () => {
-        if (!reportToDelete?.id) return;
+    const handleDeleteClick = (laporan: LaporanKegiatan) => {
+        setReportToModify(laporan);
+        setIsAlertOpen(true);
+    };
+    
+    const handleConfirmDelete = async () => {
+        if (!reportToModify?.id) return;
         setIsSubmitting(true);
         try {
-            await deleteLaporanKegiatan(reportToDelete.id);
+            await deleteLaporanKegiatan(reportToModify.id);
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil dihapus." });
-            setReportToDelete(null);
+            setReportToModify(null);
+            setIsAlertOpen(false);
             onDataChange();
         } catch (error: any) {
             toast({ variant: "destructive", title: "Gagal Hapus", description: error.message });
@@ -189,54 +216,43 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
     return (
         <div>
             <div className="flex justify-end mb-4">
-                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Buat Laporan Baru</Button></DialogTrigger>
-                    <DialogContent className="sm:max-w-[525px]">
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)}>
-                                <DialogHeader>
-                                    <DialogTitle>Form Laporan Kegiatan</DialogTitle>
-                                    <DialogDescription>Isi detail agenda atau laporan kegiatan yang telah dilaksanakan.</DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan/Agenda</FormLabel><FormControl><Input placeholder="cth: Rapat Persiapan Lomba 17an" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian Agenda</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
-                                </div>
-                                <DialogFooter>
-                                    <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose>
-                                    <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan Laporan"}</Button>
-                                </DialogFooter>
-                            </form>
-                        </Form>
-                    </DialogContent>
-                </Dialog>
+                <Button onClick={() => handleOpenForm()}><PlusCircle className="mr-2 h-4 w-4" /> Buat Laporan Baru</Button>
             </div>
             <div className="border rounded-md">
                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Judul</TableHead>
-                            <TableHead>Tanggal</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Tanggal Kegiatan</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {isLoading ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>) : laporanList.length === 0 ? (<TableRow><TableCell colSpan={3} className="text-center h-24">Belum ada laporan.</TableCell></TableRow>) : (laporanList.map((laporan) => (<TableRow key={laporan.id}><TableCell className="font-medium max-w-sm truncate" title={laporan.title}>{laporan.title}</TableCell><TableCell>{format(laporan.date.toDate(), "dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setReportToDelete(laporan)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>)))}
+                        {isLoading ? (<TableRow><TableCell colSpan={3} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>) : 
+                         laporanList.length === 0 ? (<TableRow><TableCell colSpan={3} className="text-center h-24">Belum ada laporan.</TableCell></TableRow>) : 
+                         (laporanList.map((laporan) => (<TableRow key={laporan.id}><TableCell className="font-medium max-w-sm truncate" title={laporan.title}>{laporan.title}</TableCell><TableCell>{format(laporan.date.toDate(), "dd MMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell className="text-right space-x-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenForm(laporan)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(laporan)} disabled={isSubmitting} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                         </TableCell></TableRow>)))}
                     </TableBody>
                 </Table>
             </div>
-            {reportToDelete && (
-                <AlertDialog open={!!reportToDelete} onOpenChange={() => setReportToDelete(null)}>
+            
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogContent className="sm:max-w-[525px]">
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)}>
+                            <DialogHeader><DialogTitle>{reportToModify ? 'Edit' : 'Buat'} Laporan Kegiatan</DialogTitle><DialogDescription>Isi detail agenda atau laporan kegiatan yang telah dilaksanakan.</DialogDescription></DialogHeader>
+                            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                                <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Judul Laporan/Agenda</FormLabel><FormControl><Input placeholder="cth: Rapat Persiapan Lomba 17an" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Tanggal Kegiatan</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={`w-full justify-start text-left font-normal ${!field.value && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: indonesiaLocale }) : (<span>Pilih tanggal</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Isi Laporan/Rincian Agenda</FormLabel><FormControl><Textarea placeholder="Tuliskan detail laporan di sini..." {...field} rows={6} /></FormControl><FormMessage /></FormItem>)} />
+                            </div>
+                            <DialogFooter><DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Batal</Button></DialogClose><Button type="submit" disabled={isSubmitting}>{isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Menyimpan...</> : "Simpan"}</Button></DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+
+            {reportToModify && (
+                <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
                     <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                            <AlertDialogDescription>Ini akan menghapus laporan <span className="font-semibold">{reportToDelete.title}</span>. Tindakan ini tidak dapat diurungkan.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isSubmitting}>Batal</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteReport} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/80">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Ya, Hapus</AlertDialogAction>
-                        </AlertDialogFooter>
+                        <AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Ini akan menghapus laporan <span className="font-semibold">{reportToModify.title}</span>. Tindakan ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting} onClick={() => setIsAlertOpen(false)}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleConfirmDelete} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/80">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Ya, Hapus</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             )}
@@ -246,28 +262,29 @@ function ReportManagement({ activityId, onDataChange }: ReportManagementProps) {
 
 export default function PembinaDashboardPage() {
     const { userProfile, isPembinaEskul, isPembinaOsis, isKesiswaan } = useAuth();
+    const { toast } = useToast();
     const [allStudents, setAllStudents] = useState<Siswa[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [forceRerender, setForceRerender] = useState(0);
 
     const pembinaRoles = useMemo(() => {
-        const roles = userProfile?.tugasTambahan?.filter(t => t.startsWith('pembina_') || t === 'kesiswaan') || [];
-        return roles;
+        return userProfile?.tugasTambahan?.filter(t => t.startsWith('pembina_') || t === 'kesiswaan') || [];
     }, [userProfile]);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true); setError(null);
         try {
             const studentList = await getStudents();
-            setAllStudents(studentList);
-            setForceRerender(prev => prev + 1);
+            setAllStudents(studentList || []);
         } catch (err: any) {
-            setError("Gagal memuat data siswa.");
+            setError(`Gagal memuat data siswa: ${err.message}`);
+            toast({ variant: "destructive", title: "Gagal Memuat Data", description: err.message });
         } finally {
             setIsLoading(false);
+            setForceRerender(prev => prev + 1);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         if (isPembinaOsis || isPembinaEskul || isKesiswaan) {
@@ -289,8 +306,8 @@ export default function PembinaDashboardPage() {
                 <CardHeader><CardTitle>Manajemen Kegiatan</CardTitle><CardDescription>Pilih tab untuk melihat dan mengelola setiap kegiatan.</CardDescription></CardHeader>
                 <CardContent>
                     <Tabs defaultValue={pembinaRoles[0]} className="w-full">
-                        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 h-auto">
-                            {pembinaRoles.map(role => (<TabsTrigger key={role} value={role}>{getActivityName(role)}</TabsTrigger>))}
+                        <TabsList className="grid w-full h-auto grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                            {pembinaRoles.map(role => (<TabsTrigger key={role} value={role} className="whitespace-normal">{getActivityName(role)}</TabsTrigger>))}
                         </TabsList>
                         {pembinaRoles.map(role => (<TabsContent key={role} value={role} className="mt-4">
                             <Tabs defaultValue="laporan" className="w-full">

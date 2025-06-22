@@ -53,7 +53,7 @@ export interface Nilai {
   pts: number; // Penilaian Tengah Semester
   pas: number; // Penilaian Akhir Semester
   kehadiran: number; // Stores attendance as a percentage
-  eskul: number; // Extracurricular
+  eskul: number;
   osis: number;
   nilai_akhir?: number; // Calculated final grade
   teacherUid?: string; // UID of the teacher who created/owns this grade entry
@@ -202,4 +202,5 @@ export interface LaporanKegiatan {
   createdByUid: string;
   createdByDisplayName: string;
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
 }

@@ -453,7 +453,7 @@ export const getStudentById = async (id: string): Promise<Siswa | null> => {
 };
 export const updateStudent = async (id: string, siswaData: Partial<Siswa>): Promise<void> => {
   const { id_siswa, ...updatableData } = siswaData;
-  const docRef = doc(db, 'siswa', id).withConverter(siswaConverter);
+  const docRef = doc(db, 'siswa', id);
   await updateDoc(docRef, updatableData);
 };
 export const deleteStudent = async (id: string): Promise<void> => {
@@ -475,6 +475,14 @@ export const deleteStudent = async (id: string): Promise<void> => {
   const batch = writeBatch(db);
   gradesSnapshot.docs.forEach(nilaiDoc => batch.delete(nilaiDoc.ref));
   await batch.commit();
+};
+export const updateStudentActivity = async (studentId: string, activity: TugasTambahan, type: 'add' | 'remove'): Promise<void> => {
+  const studentRef = doc(db, 'siswa', studentId);
+  if (type === 'add') {
+    await updateDoc(studentRef, { kegiatan: arrayUnion(activity) });
+  } else {
+    await updateDoc(studentRef, { kegiatan: arrayRemove(activity) });
+  }
 };
 
 // --- Nilai (Grade) Service ---

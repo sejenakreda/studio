@@ -660,7 +660,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(docRef);
+  const docSnap = await getDoc(userDocRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -1018,3 +1018,5 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
+    

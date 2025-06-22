@@ -982,16 +982,22 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
     const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
     const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
+    
+    // Simplified query to fetch all agendas in a date range
     const q = query(coll, 
-        where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
         where('tanggal', '<=', endDate)
     );
+    
     const snapshot = await getDocs(q);
-    const agendas = snapshot.docs.map(doc => doc.data());
-    // Sort on the client-side to avoid needing a composite index
-    agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-    return agendas;
+    const allAgendasForMonth = snapshot.docs.map(doc => doc.data());
+    
+    // Filter by teacher on the client side
+    const teacherAgendas = allAgendasForMonth.filter(agenda => agenda.teacherUid === teacherUid);
+
+    // Sort on the client-side
+    teacherAgendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    return teacherAgendas;
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {

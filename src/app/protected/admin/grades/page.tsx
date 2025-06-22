@@ -230,14 +230,14 @@ export default function ManageAllGradesPage() {
         <TableCell>{grade.tahun_ajaran}</TableCell>
         <TableCell>{grade.semester === 1 ? 'Ganjil' : 'Genap'}</TableCell>
         <TableCell>{grade.mapel}</TableCell>
-        <TableCell>{(grade.rataRataTugas || 0).toFixed(2)}</TableCell>
-        <TableCell>{grade.tes?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>{grade.pts?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>{grade.pas?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>{grade.kehadiran?.toFixed(2) || '0.00'}%</TableCell>
-        <TableCell>{grade.eskul?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>{grade.osis?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell className="font-semibold text-primary">{(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.rataRataTugas || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.tes || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.pts || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.pas || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.kehadiran || 0).toFixed(2)}%</TableCell>
+        <TableCell>{Number(grade.eskul || 0).toFixed(2)}</TableCell>
+        <TableCell>{Number(grade.osis || 0).toFixed(2)}</TableCell>
+        <TableCell className="font-semibold text-primary">{Number(grade.nilai_akhir || 0).toFixed(2)}</TableCell>
       </TableRow>
     ));
   }, [paginatedGrades]);
@@ -259,14 +259,14 @@ export default function ManageAllGradesPage() {
       'Tahun Ajaran': grade.tahun_ajaran,
       'Semester': grade.semester === 1 ? 'Ganjil' : 'Genap',
       'Mata Pelajaran': grade.mapel,
-      'Avg. Tugas': parseFloat((grade.rataRataTugas || 0).toFixed(2)),
-      'Tes': parseFloat(grade.tes?.toFixed(2) || '0.00'),
-      'PTS': parseFloat(grade.pts?.toFixed(2) || '0.00'),
-      'PAS': parseFloat(grade.pas?.toFixed(2) || '0.00'),
-      'Kehadiran (%)': parseFloat(grade.kehadiran?.toFixed(2) || '0.00'),
-      'Eskul': parseFloat(grade.eskul?.toFixed(2) || '0.00'),
-      'OSIS': parseFloat(grade.osis?.toFixed(2) || '0.00'),
-      'Nilai Akhir': parseFloat((grade.nilai_akhir || 0).toFixed(2)),
+      'Avg. Tugas': parseFloat(Number(grade.rataRataTugas || 0).toFixed(2)),
+      'Tes': parseFloat(Number(grade.tes || 0).toFixed(2)),
+      'PTS': parseFloat(Number(grade.pts || 0).toFixed(2)),
+      'PAS': parseFloat(Number(grade.pas || 0).toFixed(2)),
+      'Kehadiran (%)': parseFloat(Number(grade.kehadiran || 0).toFixed(2)),
+      'Eskul': parseFloat(Number(grade.eskul || 0).toFixed(2)),
+      'OSIS': parseFloat(Number(grade.osis || 0).toFixed(2)),
+      'Nilai Akhir': parseFloat(Number(grade.nilai_akhir || 0).toFixed(2)),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);

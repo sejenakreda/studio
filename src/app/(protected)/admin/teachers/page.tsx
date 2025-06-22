@@ -506,16 +506,16 @@ export default function ManageTeachersPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-wrap">
             <div>
               <CardTitle>Daftar Guru Terdaftar</CardTitle>
               <CardDescription>Berikut adalah daftar semua profil guru dalam sistem.</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-              <Button onClick={handleDownloadTeacherTemplate} variant="outline">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto justify-end">
+              <Button onClick={handleDownloadTeacherTemplate} variant="outline" className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Unduh Template
               </Button>
-              <Button onClick={handleExportTeachersData} variant="outline">
+              <Button onClick={handleExportTeachersData} variant="outline" className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Ekspor Data Guru
               </Button>
             </div>

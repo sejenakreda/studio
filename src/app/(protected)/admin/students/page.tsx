@@ -496,9 +496,9 @@ export default function AdminManageStudentsPage() {
               <CardTitle>Daftar Siswa Terdaftar</CardTitle>
               <CardDescription>Berikut adalah daftar semua siswa.</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
                  {uniqueClasses.length > 0 && (
-                    <div className="w-full sm:w-auto min-w-[200px]">
+                    <div className="w-full sm:w-auto sm:min-w-[200px]">
                         <Select value={selectedClass} onValueChange={setSelectedClass}>
                         <SelectTrigger className="w-full" aria-label="Filter berdasarkan kelas">
                             <Filter className="h-4 w-4 mr-2 opacity-70" />

@@ -155,9 +155,8 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
-      { href: "/admin/grades", label: "Semua Nilai Siswa", icon: FileText },
       { href: "/admin/violation-reports", label: "Laporan Kesiswaan", icon: Users2 },
-      { href: "/admin/kegiatan-reports", label: "Semua Laporan Kegiatan", icon: FileText, isExact: true },
+      { href: "/admin/kegiatan-reports", label: "Semua Laporan Kegiatan", icon: FileText },
       ...reportableRoles.map(role => ({
         href: `/admin/kegiatan-reports?activity=${role.id}`,
         label: `Laporan ${role.label}`,
@@ -290,63 +289,65 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    const allGroups = [...navigationStructure];
-    const finalGroups: NavGroup[] = [];
-
-    allGroups.forEach(group => {
-      let isVisible = group.roles.includes(userProfile.role);
-      if (isVisible && group.requiredTugas) {
-        isVisible = group.requiredTugas(authContext);
-      }
-      
-      if(isVisible) {
-        finalGroups.push(group);
-      }
+    
+    return navigationStructure.filter(group => {
+        if (!group.roles.includes(userProfile.role)) {
+            return false;
+        }
+        if (group.requiredTugas) {
+            return group.requiredTugas(authContext);
+        }
+        return true;
     });
 
-    return finalGroups;
-}, [userProfile, loading, authContext]);
+  }, [userProfile, loading, authContext]);
+
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];
-    
-    const currentActivity = searchParams.get('activity');
-    if (pathname.startsWith('/admin/kegiatan-reports') && currentActivity) {
-      return ['Kepala Sekolah'];
-    }
 
     return filteredNavGroups
-      .filter(group => group.groupLabel && group.items.some(item =>
-        item.isExact ? pathname === item.href : pathname.startsWith(item.href.split('?')[0])
-      ))
+      .filter(group => group.groupLabel && group.items.some(item => {
+          const itemPath = item.href.split('?')[0];
+          return pathname.startsWith(itemPath);
+      }))
       .map(group => group.groupLabel!);
-  }, [pathname, searchParams, filteredNavGroups, loading, userProfile]);
+  }, [pathname, filteredNavGroups, loading, userProfile]);
 
 
   const currentPageLabel = React.useMemo(() => {
     if (loading || !userProfile) return "Memuat...";
-    
-    const currentActivity = searchParams.get('activity');
-    if (pathname === '/admin/kegiatan-reports' && currentActivity) {
-      const role = reportableRoles.find(r => r.id === currentActivity);
-      if (role) return `Laporan ${role.label}`;
-    }
 
-    const defaultDashboardLabel = userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru';
     const allNavItemsFlat = filteredNavGroups.flatMap(group => group.items);
-    const exactMatch = allNavItemsFlat.find(item => item.href === pathname);
-    if (exactMatch) return exactMatch.label;
     
+    // Find a link that perfectly matches the path and query params
+    const perfectMatch = allNavItemsFlat.find(item => {
+        const itemPath = item.href.split('?')[0];
+        if(pathname !== itemPath) return false;
+
+        const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+        const currentParams = new URLSearchParams(searchParams.toString());
+
+        if(itemParams.size !== currentParams.size) return false;
+
+        for (const [key, value] of itemParams.entries()) {
+            if (currentParams.get(key) !== value) return false;
+        }
+        return true;
+    });
+    if(perfectMatch) return perfectMatch.label;
+    
+    // Fallback: find the best partial match (longest path prefix)
     let bestMatch: NavMenuItem | null = null;
     for (const item of allNavItemsFlat) {
-      if (item.isExact || item.href.includes('?')) continue; 
-      if (pathname.startsWith(item.href)) {
+      if (pathname.startsWith(item.href.split('?')[0])) {
         if (!bestMatch || item.href.length > bestMatch.href.length) {
           bestMatch = item;
         }
       }
     }
-    return bestMatch ? bestMatch.label : defaultDashboardLabel;
+    
+    return bestMatch ? bestMatch.label : (userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru');
   }, [pathname, searchParams, filteredNavGroups, userProfile, loading]);
 
   const handleLinkClick = () => {
@@ -354,6 +355,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setOpenMobile(false);
     }
   };
+  
+  const checkIsActive = React.useCallback((item: NavMenuItem) => {
+    const itemPath = item.href.split('?')[0];
+    const currentPath = pathname;
+
+    if (item.isExact) {
+        return currentPath === itemPath;
+    }
+    
+    if (currentPath !== itemPath) {
+        // For non-exact matches where path is different, check for parent path match
+        // e.g. /admin/students should be active for /admin/students/edit/123
+        return currentPath.startsWith(itemPath + '/');
+    }
+    
+    // If paths are the same, we need to compare query params
+    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+    const currentParams = new URLSearchParams(searchParams.toString());
+    
+    if (itemParams.size === 0) {
+        // The item has no params, it's active if the current URL also has no params
+        return currentParams.size === 0;
+    }
+
+    // The item has params, check if all of them match the current URL's params
+    for (const [key, value] of itemParams.entries()) {
+        if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+
+  }, [pathname, searchParams]);
+
 
   return (
     <div className="flex min-h-screen w-full">
@@ -380,7 +413,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
                           asChild
-                          isActive={item.isExact ? pathname === item.href : pathname.startsWith(item.href)}
+                          isActive={checkIsActive(item)}
                           tooltip={{ children: item.label, side: "right", align: "center" }}
                           onClick={handleLinkClick}
                         >
@@ -408,26 +441,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <SidebarMenuItem key={item.href}>
                               <SidebarMenuButton
                                 asChild
-                                isActive={(() => {
-                                    const itemPath = item.href.split('?')[0];
-                                    if (item.isExact) {
-                                      return pathname === itemPath && !searchParams.toString();
-                                    }
-                                    
-                                    if (!pathname.startsWith(itemPath)) return false;
-                                    
-                                    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-                                    const itemActivity = itemParams.get('activity');
-                                    
-                                    if(itemActivity) {
-                                      return searchParams.get('activity') === itemActivity;
-                                    }
-
-                                    // if there is an activity param in the URL, but the item has no activity param, it's not a match, unless it's the base page
-                                    if(searchParams.get('activity') && !itemActivity && item.href !== '/admin/kegiatan-reports') return false;
-
-                                    return true;
-                                })()}
+                                isActive={checkIsActive(item)}
                                 size="sm" 
                                 className="h-7"
                                 onClick={handleLinkClick}

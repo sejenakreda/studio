@@ -46,7 +46,9 @@ const agendaSchema = z.object({
 type AgendaFormData = z.infer<typeof agendaSchema>;
 
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 10 }, (_, i) => currentYear - i);
+const startYearRange = currentYear - 10;
+const endYearRange = currentYear + 5;
+const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: format(new Date(0, i), "MMMM", { locale: indonesiaLocale }) }));
 
 export default function AgendaKelasPage() {

@@ -55,7 +55,7 @@ interface TeacherImportData {
 }
 
 const availableTugasTambahan: TugasTambahan[] = [
-    'kesiswaan', 'kurikulum', 'pembina_osis', 'kepala_sekolah', 'operator', 'bendahara', 'bk',
+    'kesiswaan', 'kurikulum', 'pembina_osis', 'kepala_sekolah', 'operator', 'bendahara', 'bk', 'kepala_tata_usaha',
     'pembina_eskul_pmr', 'pembina_eskul_paskibra', 'pembina_eskul_pramuka',
     'pembina_eskul_karawitan', 'pembina_eskul_pencak_silat', 'pembina_eskul_volly_ball'
 ];

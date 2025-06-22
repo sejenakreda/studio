@@ -39,6 +39,7 @@ const strukturalOptions: { id: TugasTambahan; label: string }[] = [
 const stafOptions: { id: TugasTambahan; label: string }[] = [
     { id: 'operator', label: 'Operator' },
     { id: 'bk', label: 'Guru BK' },
+    { id: 'kepala_tata_usaha', label: 'Kepala Tata Usaha' },
 ];
 
 const pembinaOptions: { id: TugasTambahan; label: string }[] = [
@@ -416,4 +417,3 @@ export default function EditTeacherPage() {
     </div>
   );
 }
-

@@ -11,6 +11,7 @@ export type TugasTambahan =
   | 'operator'
   | 'bendahara'
   | 'bk'
+  | 'kepala_tata_usaha'
   | 'pembina_eskul_pmr'
   | 'pembina_eskul_paskibra'
   | 'pembina_eskul_pramuka'

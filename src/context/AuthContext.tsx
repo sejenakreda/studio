@@ -23,6 +23,7 @@ interface AuthContextType {
   isBendahara: boolean;
   isBk: boolean;
   isPembinaEskul: boolean;
+  isKepalaTataUsaha: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isBendahara = useMemo(() => hasTugas('bendahara'), [userProfile]);
   const isBk = useMemo(() => hasTugas('bk'), [userProfile]);
   const isPembinaEskul = useMemo(() => userProfile?.tugasTambahan?.some(t => t.startsWith('pembina_eskul_')) ?? false, [userProfile]);
+  const isKepalaTataUsaha = useMemo(() => hasTugas('kepala_tata_usaha'), [userProfile]);
 
   const value = useMemo(() => ({
     user,
@@ -122,10 +124,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isBendahara,
     isBk,
     isPembinaEskul,
+    isKepalaTataUsaha,
   }), [
     user, userProfile, loading, isAdmin, isGuru, 
     isKesiswaan, isKurikulum, isPembinaOsis, isKepalaSekolah,
-    isOperator, isBendahara, isBk, isPembinaEskul
+    isOperator, isBendahara, isBk, isPembinaEskul, isKepalaTataUsaha
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

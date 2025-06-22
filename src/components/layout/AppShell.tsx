@@ -8,9 +8,8 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
   SidebarMenuItem,
+  SidebarMenu,
   SidebarMenuButton,
   SidebarTrigger,
   SidebarFooter,
@@ -21,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, FileWarning } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -156,7 +155,6 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/admin/reports", label: "Laporan Sistem", icon: BarChart3 },
       { href: "/admin/violation-reports", label: "Laporan Kesiswaan", icon: Users2 },
-      { href: "/admin/kegiatan-reports", label: "Semua Laporan Kegiatan", icon: FileText },
       ...reportableRoles.map(role => ({
         href: `/admin/kegiatan-reports?activity=${role.id}`,
         label: `Laporan ${role.label}`,
@@ -190,6 +188,15 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isBendahara }) => isBendahara,
     items: [
       { href: "/guru/bendahara", label: "Dasbor Keuangan", icon: Home },
+    ],
+  },
+  {
+    groupLabel: "Tata Usaha",
+    groupIcon: Briefcase,
+    roles: ['guru'],
+    requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
+    items: [
+      { href: "/guru/tata-usaha", label: "Dasbor Tata Usaha", icon: Home },
     ],
   },
   {
@@ -286,19 +293,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     await signOut(auth);
     router.push("/login");
   };
-
+  
   const filteredNavGroups = React.useMemo(() => {
     if (loading || !userProfile) return [];
     
-    return navigationStructure.filter(group => {
+    const validNavGroups: NavGroup[] = [];
+    
+    for (const group of navigationStructure) {
         if (!group.roles.includes(userProfile.role)) {
-            return false;
+            continue;
         }
+
         if (group.requiredTugas) {
-            return group.requiredTugas(authContext);
+            if (!group.requiredTugas(authContext)) {
+                continue;
+            }
         }
-        return true;
-    });
+        
+        validNavGroups.push(group);
+    }
+
+    return validNavGroups;
 
   }, [userProfile, loading, authContext]);
 
@@ -320,35 +335,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     const allNavItemsFlat = filteredNavGroups.flatMap(group => group.items);
     
-    // Find a link that perfectly matches the path and query params
-    const perfectMatch = allNavItemsFlat.find(item => {
-        const itemPath = item.href.split('?')[0];
-        if(pathname !== itemPath) return false;
-
-        const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-        const currentParams = new URLSearchParams(searchParams.toString());
-
-        if(itemParams.size !== currentParams.size) return false;
-
-        for (const [key, value] of itemParams.entries()) {
-            if (currentParams.get(key) !== value) return false;
-        }
-        return true;
-    });
-    if(perfectMatch) return perfectMatch.label;
-    
-    // Fallback: find the best partial match (longest path prefix)
     let bestMatch: NavMenuItem | null = null;
-    for (const item of allNavItemsFlat) {
-      if (pathname.startsWith(item.href.split('?')[0])) {
-        if (!bestMatch || item.href.length > bestMatch.href.length) {
-          bestMatch = item;
-        }
-      }
-    }
     
+    for (const item of allNavItemsFlat) {
+        const itemPath = item.href.split('?')[0];
+
+        // Perfect match on path and all query params
+        if (pathname === itemPath) {
+            const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+            const currentParams = new URLSearchParams(searchParams.toString());
+            let paramsMatch = true;
+            if (itemParams.size !== currentParams.size) {
+                paramsMatch = false;
+            } else {
+                for (const [key, value] of itemParams.entries()) {
+                    if (currentParams.get(key) !== value) {
+                        paramsMatch = false;
+                        break;
+                    }
+                }
+            }
+            if (paramsMatch) {
+                return item.label; // Exact match found
+            }
+        }
+
+        // Check for best partial match (longest path prefix)
+        if (pathname.startsWith(itemPath)) {
+            if (!bestMatch || item.href.length > bestMatch.href.length) {
+                bestMatch = item;
+            }
+        }
+    }
+
     return bestMatch ? bestMatch.label : (userProfile.role === 'admin' ? 'Dasbor Admin' : 'Dasbor Guru');
   }, [pathname, searchParams, filteredNavGroups, userProfile, loading]);
+
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -364,26 +386,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return currentPath === itemPath;
     }
     
-    if (currentPath !== itemPath) {
-        // For non-exact matches where path is different, check for parent path match
-        // e.g. /admin/students should be active for /admin/students/edit/123
-        return currentPath.startsWith(itemPath + '/');
-    }
-    
-    // If paths are the same, we need to compare query params
-    const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-    const currentParams = new URLSearchParams(searchParams.toString());
-    
-    if (itemParams.size === 0) {
-        // The item has no params, it's active if the current URL also has no params
-        return currentParams.size === 0;
+    // Non-exact matches: check if current path starts with item path
+    if (currentPath.startsWith(itemPath)) {
+        // If it's a parent route, like /admin/students for /admin/students/edit/123
+        if(currentPath !== itemPath) return true;
+
+        // If paths are the same, compare query params for specificity
+        const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+        const currentParams = new URLSearchParams(searchParams.toString());
+
+        if (itemParams.size === 0) {
+            // If the menu item has no params, it's active.
+            return true;
+        }
+
+        // The item has params, check if all of them match the current URL's params
+        for (const [key, value] of itemParams.entries()) {
+            if (currentParams.get(key) !== value) return false;
+        }
+        return true;
     }
 
-    // The item has params, check if all of them match the current URL's params
-    for (const [key, value] of itemParams.entries()) {
-        if (currentParams.get(key) !== value) return false;
-    }
-    return true;
+    return false;
 
   }, [pathname, searchParams]);
 
@@ -425,7 +449,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </SidebarMenuItem>
                     ))
                   ) : (
-                    <AccordionItem value={group.groupLabel!} className="border-b-0">
+                    <AccordionItem value={group.groupLabel} className="border-b-0">
                       <AccordionTrigger 
                         className={cn(
                           "flex w-full items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
@@ -491,11 +515,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <UserNav />
         </header>
-        <SidebarInset>
-            <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background overflow-auto">
-                {children}
-            </main>
-        </SidebarInset>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background overflow-auto">
+            {children}
+        </main>
       </div>
     </div>
   );

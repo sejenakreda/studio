@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -21,30 +20,30 @@ export default function ProtectedLayout({
       if (!user || !userProfile) {
         router.replace('/login');
       } else {
-        const isAdminRoute = pathname.startsWith('/admin');
-        const isGuruRoute = pathname.startsWith('/guru');
+        const isAdminRoute = pathname.startsWith('/protected/admin');
+        const isGuruRoute = pathname.startsWith('/protected/guru');
 
         if (userProfile.role === 'admin') {
-          if (isGuruRoute) router.replace('/admin');
+          if (isGuruRoute) router.replace('/protected/admin');
         } else if (userProfile.role === 'guru') {
           if (isAdminRoute) {
             if (isKepalaSekolah || isKepalaTataUsaha) {
               const allowedAdminRoutesForKepsek = [
-                '/admin/reports', 
-                '/admin/grades', 
-                '/admin/violation-reports', 
-                '/admin/kegiatan-reports',
-                '/admin/agenda-kelas',
-                '/admin/teacher-attendance',
-                '/admin/school-profile', // Kepsek should see this too
+                '/protected/admin/reports', 
+                '/protected/admin/grades', 
+                '/protected/admin/violation-reports', 
+                '/protected/admin/kegiatan-reports',
+                '/protected/admin/agenda-kelas',
+                '/protected/admin/teacher-attendance',
+                '/protected/admin/school-profile', // Kepsek should see this too
               ];
               // Kepsek can see the main admin dashboard and any route starting with the allowed paths
-              const isAllowed = pathname === '/admin' || allowedAdminRoutesForKepsek.some(route => pathname.startsWith(route));
+              const isAllowed = pathname === '/protected/admin' || allowedAdminRoutesForKepsek.some(route => pathname.startsWith(route));
               if (!isAllowed) {
-                router.replace('/guru');
+                router.replace('/protected/guru');
               }
             } else {
-              router.replace('/guru');
+              router.replace('/protected/guru');
             }
           }
         } else {
@@ -79,7 +78,7 @@ export default function ProtectedLayout({
     );
   }
 
-  const isAdminRoute = pathname.startsWith('/admin');
+  const isAdminRoute = pathname.startsWith('/protected/admin');
   if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKepalaTataUsaha) {
     return (
          <div className="flex min-h-screen w-full items-center justify-center">

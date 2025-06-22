@@ -78,42 +78,42 @@ export default function AdminDashboardPage() {
       icon: BookCopy,
       defaultOpen: true,
       items: [
-        { title: "Kelola Siswa", description: "Tambah, edit, atau impor data siswa.", href: "/admin/students", icon: BookUser, color: "text-sky-500" },
-        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran master.", href: "/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
-        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot komponen penilaian.", href: "/admin/weights", icon: Settings, color: "text-green-500" },
-        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran yang aktif.", href: "/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
-        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai siswa.", href: "/admin/grades", icon: FileText, color: "text-purple-500" },
+        { title: "Kelola Siswa", description: "Tambah, edit, atau impor data siswa.", href: "/protected/admin/students", icon: BookUser, color: "text-sky-500" },
+        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran master.", href: "/protected/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
+        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot komponen penilaian.", href: "/protected/admin/weights", icon: Settings, color: "text-green-500" },
+        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran yang aktif.", href: "/protected/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
+        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai siswa.", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
       ]
     },
     {
       title: "Manajemen Pengguna & Sistem",
       icon: Users,
       items: [
-        { title: "Kelola Guru", description: "Tambah atau edit data profil guru.", href: "/admin/teachers", icon: Users, color: "text-blue-500" },
-        { title: "Laporan Sistem", description: "Statistik dan laporan umum sistem.", href: "/admin/reports", icon: BarChart3, color: "text-rose-500" },
-        { title: "Laporan Pelanggaran", description: "Lihat dan ekspor data pelanggaran.", href: "/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
-        { title: "Laporan Kegiatan", description: "Lihat laporan dari Pembina & Kesiswaan.", href: "/admin/kegiatan-reports", icon: Award, color: "text-teal-500" },
+        { title: "Kelola Guru", description: "Tambah atau edit data profil guru.", href: "/protected/admin/teachers", icon: Users, color: "text-blue-500" },
+        { title: "Laporan Sistem", description: "Statistik dan laporan umum sistem.", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
+        { title: "Laporan Pelanggaran", description: "Lihat dan ekspor data pelanggaran.", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
+        { title: "Laporan Kegiatan", description: "Lihat laporan dari Pembina & Kesiswaan.", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-teal-500" },
       ]
     },
     {
       title: "Kehadiran Guru",
       icon: CalendarCheck,
       items: [
-        { title: "Rekap Kehadiran Guru", description: "Kelola rekapitulasi kehadiran guru.", href: "/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" }
+        { title: "Rekap Kehadiran Guru", description: "Kelola rekapitulasi kehadiran guru.", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" }
       ]
     },
     {
       title: "Komunikasi & Informasi",
       icon: Megaphone,
       items: [
-        { title: "Pengumuman Guru", description: "Buat dan kelola pengumuman untuk guru.", href: "/admin/announcements", icon: Megaphone, color: "text-cyan-500" }
+        { title: "Pengumuman Guru", description: "Buat dan kelola pengumuman untuk guru.", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" }
       ]
     },
     {
       title: "Pengaturan Umum",
       icon: Settings,
       items: [
-        { title: "Profil Sekolah", description: "Kelola data statistik sekolah seperti jumlah siswa, guru, dan sarana.", href: "/admin/school-profile", icon: Building, color: "text-gray-500" }
+        { title: "Profil Sekolah", description: "Kelola data statistik sekolah seperti jumlah siswa, guru, dan sarana.", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" }
       ]
     }
   ];
@@ -253,4 +253,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-    

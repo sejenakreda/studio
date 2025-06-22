@@ -65,7 +65,7 @@ export default function AdminEditStudentPage() {
       setIsLoadingData(false);
       setFetchError("ID Dokumen Siswa tidak valid.");
       toast({ variant: "destructive", title: "Error", description: "ID Dokumen Siswa tidak ditemukan." });
-      router.push('/admin/students'); 
+      router.push('/protected/admin/students'); 
       return;
     }
     setIsLoadingData(true);
@@ -82,7 +82,7 @@ export default function AdminEditStudentPage() {
       } else {
         setFetchError("Data siswa tidak ditemukan.");
         toast({ variant: "destructive", title: "Error", description: "Data siswa tidak ditemukan." });
-        router.push('/admin/students');
+        router.push('/protected/admin/students');
       }
     } catch (error) {
       console.error("Error fetching student data:", error);
@@ -127,7 +127,7 @@ export default function AdminEditStudentPage() {
         currentAdminProfile.displayName || currentAdminProfile.email || "Admin"
       );
       toast({ title: "Sukses", description: `Data siswa ${data.nama} berhasil diperbarui.` });
-      router.push('/admin/students');
+      router.push('/protected/admin/students');
     } catch (error: any) {
       console.error("Error updating student:", error);
       toast({ variant: "destructive", title: "Error", description: "Gagal memperbarui data siswa. Silakan coba lagi." });
@@ -162,7 +162,7 @@ export default function AdminEditStudentPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/admin/students">
+          <Link href="/protected/admin/students">
             <Button variant="outline" size="icon" aria-label="Kembali ke Daftar Siswa">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -174,7 +174,7 @@ export default function AdminEditStudentPage() {
           <AlertTitle>Gagal Memuat</AlertTitle>
           <AlertDescription>{fetchError || "Data siswa tidak ditemukan. Silakan kembali dan coba lagi."}</AlertDescription>
         </Alert>
-        <Button onClick={() => router.push('/admin/students')}>Kembali ke Daftar Siswa</Button>
+        <Button onClick={() => router.push('/protected/admin/students')}>Kembali ke Daftar Siswa</Button>
       </div>
     );
   }
@@ -182,7 +182,7 @@ export default function AdminEditStudentPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/admin/students">
+        <Link href="/protected/admin/students">
           <Button variant="outline" size="icon" aria-label="Kembali ke Daftar Siswa">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -320,5 +320,3 @@ export default function AdminEditStudentPage() {
     </div>
   );
 }
-
-    

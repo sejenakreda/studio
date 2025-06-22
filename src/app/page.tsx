@@ -15,16 +15,16 @@ export default function HomePage() {
     if (!loading) {
       if (user && userProfile) {
         if (userProfile.role === 'admin') {
-          router.replace('/admin');
+          router.replace('/protected/admin');
         } else if (userProfile.role === 'guru') {
           if (isSatpam) {
-            router.replace('/guru/satpam');
+            router.replace('/protected/guru/satpam');
           } else if (isPenjagaSekolah) {
-            router.replace('/guru/penjaga-sekolah');
+            router.replace('/protected/guru/penjaga-sekolah');
           } else if (isStafTu) {
-            router.replace('/guru/staf-tu');
+            router.replace('/protected/guru/staf-tu');
           } else {
-            router.replace('/guru');
+            router.replace('/protected/guru');
           }
         } else {
           // Fallback or error if role is undefined

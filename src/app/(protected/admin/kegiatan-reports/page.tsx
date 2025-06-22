@@ -18,27 +18,8 @@ import { getAllLaporanKegiatan } from '@/lib/firestoreService';
 import type { LaporanKegiatan, TugasTambahan } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { getActivityName } from '@/lib/utils';
 
-
-const getActivityName = (activityId: TugasTambahan | string): string => {
-    switch(activityId) {
-        case 'pembina_osis': return 'OSIS';
-        case 'kesiswaan': return 'Kesiswaan';
-        case 'bk': return 'Bimbingan Konseling';
-        case 'kepala_tata_usaha': return 'Tata Usaha';
-        case 'operator': return 'Operator';
-        case 'staf_tu': return 'Staf Tata Usaha';
-        case 'satpam': return 'Satpam';
-        case 'penjaga_sekolah': return 'Penjaga Sekolah';
-        default:
-            return activityId
-                .replace('pembina_eskul_', '')
-                .replace(/_/g, ' ')
-                .split(' ')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ');
-    }
-};
 
 export default function KegiatanReportsPage() {
   const { toast } = useToast();
@@ -144,7 +125,7 @@ export default function KegiatanReportsPage() {
     <div className="space-y-6 print:space-y-2">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden sticky top-0 bg-background/80 backdrop-blur-sm pt-2 pb-4 -mt-2 -mx-4 px-4 z-10">
         <div className="flex items-center gap-4">
-          <Link href="/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline flex items-center gap-2">
               <Award className="h-8 w-8 text-primary" /> {pageTitle}
@@ -231,15 +212,11 @@ export default function KegiatanReportsPage() {
           .print\\:space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem !important; margin-bottom: 0 !important; }
           .print\\:border-b-2 { border-bottom-width: 2px !important; }
           .print\\:border-black { border-color: #000 !important; }
-          .accordion-content[data-state="closed"] {
-             display: none !important;
-          }
-          .accordion-content[data-state="open"] {
-             display: block !important;
-          }
-           .accordion-trigger > svg {
-            display: none !important;
-          }
+          .accordion-content[data-state="closed"] { display: none !important; }
+          .accordion-content[data-state="open"] { display: block !important; }
+          .accordion-trigger > svg { display: none !important; }
+          tr { break-inside: avoid !important; }
+          .page-break { break-after: page; }
         }
       `}</style>
     </div>

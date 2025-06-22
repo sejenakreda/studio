@@ -323,7 +323,7 @@ export default function InputNilaiPage() {
                             </>
                             )}
                             <CardFooter className="mt-6 px-0 justify-end">
-                                <Button type="submit" disabled={isSaving || isLoadingData}><mrowisSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Simpan Semua Perubahan</Button>
+                                <Button type="submit" disabled={isSaving || isLoadingData}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Simpan Semua Perubahan</Button>
                             </CardFooter>
                           </form>
                         </Form>

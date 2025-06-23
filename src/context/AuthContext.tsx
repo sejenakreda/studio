@@ -4,7 +4,7 @@
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
-import { doc, getDoc, Firestore } from 'firebase/firestore';
+import { doc, getDoc, Firestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile, Role, TugasTambahan } from '@/types';
 
@@ -42,8 +42,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (fbUser) {
         try {
+          // First, try to get the user document directly by UID
           const userDocRef = doc(db as Firestore, 'users', fbUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
+          let userDocSnap = await getDoc(userDocRef);
+
+          // Fallback: If not found by UID (e.g., mismatch), query by email
+          if (!userDocSnap.exists()) {
+              console.warn(`AuthContext: User document not found for UID ${fbUser.uid}. Attempting fallback query by email.`);
+              const usersCollection = collection(db, 'users');
+              const q = query(usersCollection, where("email", "==", fbUser.email), limit(1));
+              const querySnapshot = await getDocs(q);
+
+              if (!querySnapshot.empty) {
+                  userDocSnap = querySnapshot.docs[0];
+                  console.log(`AuthContext: Fallback successful. Found user document for email ${fbUser.email} with doc ID ${userDocSnap.id}.`);
+              }
+          }
 
           if (userDocSnap.exists()) {
             const profileDataFromDb = userDocSnap.data();
@@ -53,37 +67,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 (profileDataFromDb.role === 'admin' || profileDataFromDb.role === 'guru')) {
 
               const constructedProfile: UserProfile = {
-                uid: fbUser.uid,
+                uid: fbUser.uid, // Always use the auth UID
                 email: fbUser.email,
                 displayName: profileDataFromDb.displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Pengguna',
                 role: profileDataFromDb.role as Role,
                 assignedMapel: profileDataFromDb.assignedMapel || [],
-                tugasTambahan: profileDataFromDb.tugasTambahan || [], // Added this line
+                tugasTambahan: profileDataFromDb.tugasTambahan || [],
                 createdAt: profileDataFromDb.createdAt,
                 updatedAt: profileDataFromDb.updatedAt,
               };
               
               setUser(fbUser); 
               setUserProfile(constructedProfile);
-              setLoading(false);
 
             } else {
               console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has missing, malformed, or invalid 'role'. Logging out. Firestore Data:`, profileDataFromDb);
-              setUser(null);
-              setUserProfile(null);
               await signOut(auth);
             }
           } else {
-            console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found. Logging out.`);
-            setUser(null);
-            setUserProfile(null);
+            console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found, even with email fallback. Logging out.`);
             await signOut(auth);
           }
         } catch (error) {
           console.error(`AuthContext: Error fetching/processing user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
-          setUser(null);
-          setUserProfile(null);
           await signOut(auth);
+        } finally {
+            setLoading(false);
         }
       } else {
         setUser(null);

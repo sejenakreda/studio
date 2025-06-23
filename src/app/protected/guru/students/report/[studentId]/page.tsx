@@ -287,7 +287,7 @@ export default function StudentReportPage() {
          <div className="mt-12 text-center">
             <p>Kepala Sekolah SMA PGRI Naringgul</p>
             <br/><br/><br/><br/>
-            <p className="font-bold border-b border-black w-60 mx-auto">ASEP RISMAN KOMARA, S.Pd.</p>
+            <p className="font-bold border-b border-black w-60 mx-auto">( .................................... )</p>
             <p>NUPTK. ................................</p>
          </div>
       </div>

@@ -504,11 +504,11 @@ export default function AdminManageStudentsPage() {
                     </div>
                 )}
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button onClick={handleDownloadStudentTemplate} variant="outline" className="flex-1 sm:flex-initial">
-                        <Download className="mr-2 h-4 w-4" /> Unduh Template Impor
+                    <Button onClick={handleDownloadStudentTemplate} variant="outline" className="flex-1 sm:flex-initial" title="Unduh template Excel untuk impor siswa">
+                        <Download className="mr-2 h-4 w-4" /> Unduh Template
                     </Button>
-                    <Button onClick={handleExportStudentsData} variant="outline" className="flex-1 sm:flex-initial">
-                        <Download className="mr-2 h-4 w-4" /> Ekspor Semua Siswa
+                    <Button onClick={handleExportStudentsData} variant="outline" className="flex-1 sm:flex-initial" title="Ekspor semua data siswa yang ada ke file Excel">
+                        <Download className="mr-2 h-4 w-4" /> Ekspor Data
                     </Button>
                 </div>
             </div>
@@ -536,26 +536,24 @@ export default function AdminManageStudentsPage() {
               ))}
             </div>
           ) : allStudents.length === 0 && !fetchError ? (
-             <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada Siswa</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Belum ada siswa yang terdaftar. Silakan tambahkan menggunakan formulir di atas.
-              </p>
-            </div>
+             <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Belum Ada Siswa</AlertTitle>
+                <AlertDescription>
+                  Belum ada siswa yang terdaftar. Silakan tambahkan menggunakan formulir di atas atau impor dari file Excel.
+                </AlertDescription>
+             </Alert>
           ) : filteredStudents.length === 0 && selectedClass !== "all" ? (
-            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">
-                Tidak Ada Siswa di Kelas {selectedClass}
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tidak ada siswa yang cocok dengan filter kelas yang dipilih. Coba pilih kelas lain atau "Semua Kelas".
-              </p>
-              <Button variant="outline" className="mt-4" onClick={() => setSelectedClass("all")}>
-                Tampilkan Semua Kelas
-              </Button>
-            </div>
+            <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Tidak Ada Siswa di Kelas {selectedClass}</AlertTitle>
+                <AlertDescription>
+                    Tidak ada siswa yang cocok dengan filter kelas yang dipilih. Coba pilih kelas lain atau tampilkan semua kelas.
+                </AlertDescription>
+                 <Button variant="outline" size="sm" className="mt-4" onClick={() => setSelectedClass("all")}>
+                    Tampilkan Semua Kelas
+                </Button>
+            </Alert>
           ) : (
             <>
               <div className="overflow-x-auto">

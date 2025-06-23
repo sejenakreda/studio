@@ -614,24 +614,23 @@ export const getGradesForTeacherDisplay = async (
   tahunAjaran: string,
   semester: number
 ): Promise<Nilai[]> => {
-  if (mapelList.length === 0) return [];
-  const mapelChunks: string[][] = [];
-  for (let i = 0; i < mapelList.length; i += 30) {
-      mapelChunks.push(mapelList.slice(i, i + 30));
-  }
-  const allGradesPromises = mapelChunks.map(chunk => {
-      const q = query(collection(db, 'nilai').withConverter(nilaiConverter),
-        where('teacherUid', '==', teacherUid),
-        where('tahun_ajaran', '==', tahunAjaran),
-        where('semester', '==', semester),
-        where('mapel', 'in', chunk)
-      );
-      return getDocs(q);
-  });
-  const allGradesSnapshots = await Promise.all(allGradesPromises);
-  const combinedGrades: Nilai[] = [];
-  allGradesSnapshots.forEach(s => s.docs.forEach(d => combinedGrades.push(d.data())));
-  return combinedGrades;
+  if (mapelList.length === 0 || !teacherUid) return [];
+
+  // Query only by teacherUid to avoid complex indexes.
+  const gradesQuery = query(
+    collection(db, 'nilai').withConverter(nilaiConverter),
+    where('teacherUid', '==', teacherUid)
+  );
+
+  const querySnapshot = await getDocs(gradesQuery);
+  const allTeacherGrades = querySnapshot.docs.map(doc => doc.data());
+
+  // Filter the rest on the client side.
+  return allTeacherGrades.filter(grade =>
+    grade.tahun_ajaran === tahunAjaran &&
+    grade.semester === semester &&
+    mapelList.includes(grade.mapel)
+  );
 };
 export const getUniqueMapelNamesFromGrades = async (assignedMapelList?: string[], teacherUid?: string): Promise<string[]> => {
   const gradesCollRef = collection(db, 'nilai');
@@ -925,23 +924,9 @@ export const updatePelanggaran = async (id: string, data: Partial<Omit<Pelanggar
   await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
 };
 
-export const getAllPelanggaran = async (year: number, month?: number | null): Promise<PelanggaranSiswa[]> => {
+export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-  
-  const qConstraints = [];
-  
-  let startDate: Timestamp, endDate: Timestamp;
-  if (month && month >= 1 && month <= 12) {
-    startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-    endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
-  } else {
-    startDate = Timestamp.fromDate(new Date(year, 0, 1));
-    endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
-  }
-  qConstraints.push(where('tanggal', '>=', startDate));
-  qConstraints.push(where('tanggal', '<=', endDate));
-
-  const q = query(collRef, ...qConstraints);
+  const q = query(collRef);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -1010,7 +995,7 @@ export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'cre
     }
 };
 
-export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
+export const getAgendasForTeacher = async (teacherUid: string): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
 
     // Query only by teacherUid to avoid composite index requirement.
@@ -1019,16 +1004,7 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     );
     
     const snapshot = await getDocs(q);
-    const allAgendas = snapshot.docs.map(doc => doc.data());
-
-    // Filter by date on the client-side.
-    const filteredAgendas = allAgendas.filter(agenda => {
-        const agendaDate = agenda.tanggal.toDate();
-        return agendaDate.getFullYear() === year && agendaDate.getMonth() === (month - 1);
-    });
-    
-    // Sort the filtered results.
-    return filteredAgendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    return snapshot.docs.map(doc => doc.data());
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {

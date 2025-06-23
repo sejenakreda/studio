@@ -67,9 +67,13 @@ export default function ManageKkmPage() {
         getActiveAcademicYears(),
         getAllKkmSettings()
       ]);
-      setMapelList(mapelData || []);
+      const sortedMapel = (mapelData || []).sort((a,b) => a.namaMapel.localeCompare(b.namaMapel));
+      setMapelList(sortedMapel);
       setActiveYears(yearsData.length > 0 ? yearsData : [getCurrentAcademicYear()]);
       setAllKkmSettings(kkmData || []);
+       if (sortedMapel.length > 0) {
+        form.setValue('mapel', sortedMapel[0].namaMapel);
+      }
     } catch (error: any) {
       console.error("Error fetching KKM initial data:", error);
       setFetchError("Gagal memuat data. Silakan coba lagi.");
@@ -77,7 +81,7 @@ export default function ManageKkmPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, form]);
 
   useEffect(() => {
     fetchInitialData();
@@ -138,7 +142,7 @@ export default function ManageKkmPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mata Pelajaran</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={mapelList.length === 0}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={mapelList.length === 0}>
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder={mapelList.length === 0 ? "Belum ada mapel" : "Pilih mata pelajaran..."} /></SelectTrigger>
                         </FormControl>
@@ -204,11 +208,13 @@ export default function ManageKkmPage() {
           ) : fetchError ? (
             <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>
           ) : allKkmSettings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[150px] text-center p-6 border-2 border-dashed rounded-lg">
-                <Info className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-2 text-sm font-medium text-foreground">Belum Ada KKM</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Belum ada KKM yang diatur. Silakan tambahkan menggunakan formulir di atas.</p>
-            </div>
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Belum Ada KKM</AlertTitle>
+              <AlertDescription>
+                Belum ada KKM yang diatur. Silakan tambahkan menggunakan formulir di atas.
+              </AlertDescription>
+            </Alert>
           ) : (
             <div className="overflow-x-auto">
               <Table>

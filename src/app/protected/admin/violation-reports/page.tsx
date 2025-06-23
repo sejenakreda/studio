@@ -46,9 +46,8 @@ export default function ViolationReportsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const monthQueryValue = filterMonth === 'all' ? null : filterMonth;
       const [fetchedViolations, fetchedStudents] = await Promise.all([
-        getAllPelanggaran(filterYear, monthQueryValue), // Pass filters to the service
+        getAllPelanggaran(),
         getStudents(),
       ]);
       setViolations(fetchedViolations);
@@ -59,7 +58,7 @@ export default function ViolationReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, filterYear, filterMonth]);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
@@ -70,13 +69,18 @@ export default function ViolationReportsPage() {
   }, [students]);
 
   const filteredViolations = useMemo(() => {
-    let items = [...violations];
-    if (filterKelas !== "all") {
-      items = items.filter(v => v.kelasSiswa === filterKelas);
-    }
-    // Date filtering is now done in Firestore query, so we just sort here.
-    return items.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-  }, [violations, filterKelas]);
+    return violations
+      .filter(v => {
+        if (filterKelas !== "all" && v.kelasSiswa !== filterKelas) return false;
+        
+        const violationDate = v.tanggal.toDate();
+        if (violationDate.getFullYear() !== filterYear) return false;
+        if (filterMonth !== "all" && violationDate.getMonth() !== filterMonth - 1) return false;
+        
+        return true;
+      })
+      .sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+  }, [violations, filterKelas, filterYear, filterMonth]);
   
   const handlePrint = () => {
     window.print();

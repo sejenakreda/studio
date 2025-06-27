@@ -116,22 +116,23 @@ export default function LaporanKegiatanPage() {
   }, [reportableActivities, selectedActivity]);
 
   const fetchReports = useCallback(async () => {
-    if (!selectedActivity) {
+    if (!selectedActivity || !userProfile?.uid) {
         setReports([]);
         return;
     };
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedReports = await getLaporanKegiatanByActivity(selectedActivity);
-      setReports(fetchedReports);
+      const fetchedReports = await getLaporanKegiatanByActivity(selectedActivity, userProfile.uid);
+      const sortedReports = fetchedReports.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      setReports(sortedReports);
     } catch (err: any) {
       setError(`Gagal memuat laporan untuk ${getActivityName(selectedActivity)}.`);
       toast({ variant: "destructive", title: "Error Memuat Data", description: err.message });
     } finally {
       setIsLoading(false);
     }
-  }, [selectedActivity, toast]);
+  }, [selectedActivity, toast, userProfile?.uid]);
 
   useEffect(() => {
     fetchReports();
@@ -286,5 +287,3 @@ export default function LaporanKegiatanPage() {
     </div>
   );
 }
-
-    

@@ -671,7 +671,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef);
+  const docSnap = await getDoc(docRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -955,9 +955,10 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
   });
 };
 
-export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan): Promise<LaporanKegiatan[]> => {
+export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan, userUid: string): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  const q = query(collRef, where('activityId', '==', activityId));
+  // Add createdByUid to the query to satisfy security rules for gurus
+  const q = query(collRef, where('activityId', '==', activityId), where('createdByUid', '==', userUid));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -995,12 +996,18 @@ export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'cre
     }
 };
 
-export const getAgendasForTeacher = async (teacherUid: string): Promise<AgendaKelas[]> => {
+export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
+
+    const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+    const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
 
     // Query only by teacherUid to avoid composite index requirement.
     const q = query(coll, 
-        where('teacherUid', '==', teacherUid)
+        where('teacherUid', '==', teacherUid),
+        where('tanggal', '>=', startDate),
+        where('tanggal', '<=', endDate),
+        orderBy('tanggal', 'desc')
     );
     
     const snapshot = await getDocs(q);

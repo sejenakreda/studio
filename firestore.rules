@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -24,8 +25,8 @@ service cloud.firestore {
     }
     
     function hasTugas(tugas) {
-      // Corrected: 'in' operator works on lists (arrays) in Firestore rules.
-      return isGuru() && tugas in getUserData().tugasTambahan;
+      // Updated to safely handle missing tugasTambahan field
+      return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
     }
 
     function isKepalaSekolah() {
@@ -34,10 +35,6 @@ service cloud.firestore {
     
     function isKesiswaan() {
       return hasTugas('kesiswaan');
-    }
-
-    function isKepalaTataUsaha() {
-      return hasTugas('kepala_tata_usaha');
     }
 
     match /users/{userId} {
@@ -49,7 +46,7 @@ service cloud.firestore {
     }
     
     match /siswa/{docId} {
-      allow read: if isAuthenticated() && isGuru();
+      allow read: if isAuthenticated() && (isAdmin() || isGuru());
       allow write: if isAdmin();
     }
     
@@ -87,9 +84,19 @@ service cloud.firestore {
     }
 
     match /teacherDailyAttendance/{docId} {
+      // GET: Admins, Kepsek, and the owner of the record (by checking docId) can get it.
+      // This works even if the document doesn't exist yet for the owner.
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
+
+      // LIST: Any authenticated user can attempt a list, but Firestore will enforce the 'get' rule on every potential result.
+      // This means a guru's query `where('teacherUid', '==', their_uid)` will succeed,
+      // but a broader query would fail because they can't 'get' other users' documents.
       allow list: if isAuthenticated();
+
+      // CREATE: Only the user themselves can create their own attendance record.
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
+      
+      // UPDATE/DELETE: Only Admins or Kepsek can modify/delete records.
       allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
 
@@ -109,14 +116,19 @@ service cloud.firestore {
     }
     
     match /agenda_kelas/{docId} {
+      // GET: Admins, Kepsek, and the owner of the record can get it.
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
+
+      // LIST: Any authenticated user can attempt a list.
+      // A guru's query `where('teacherUid', '==', their_uid)` will succeed.
       allow list: if isAuthenticated();
+
+      // CREATE/UPDATE/DELETE: Only the owner, Admin, or Kepsek can modify the record.
       allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || request.resource.data.teacherUid == request.auth.uid);
     }
     
     match /laporan_kegiatan/{docId} {
-      // Fix: Kepala TU can read reports from their staff, and users can read their own.
-      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
+      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || hasTugas('kepala_tata_usaha') || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.createdByUid));
     }

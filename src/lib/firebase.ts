@@ -4,67 +4,60 @@ import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
-// TEMPORARY HARDCODED CONFIG FOR TESTING - REMOVE AND USE .env.local FOR PRODUCTION/SECURITY
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAAuN0z5IUP7m7AZ2UkEmqJ8LoJHjcMT48", // process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: "device-streaming-923d7bd9.firebaseapp.com", // process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: "device-streaming-923d7bd9", // process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: "device-streaming-923d7bd9.appspot.com", // process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: "96364387257", // process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: "1:96364387257:web:3c07beab20637de09d3468", // process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Enhanced logging and error handling
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error(
-    "Firebase config is missing critical keys (apiKey or projectId). " +
-    "This might be due to hardcoded values being incorrect or an issue with .env.local if not hardcoding. " +
-    "Current configuration (sensitive values may be partly redacted for apiKey if present):",
-    {
-      apiKey: firebaseConfig.apiKey ? 'PRESENT_BUT_POTENTIALLY_INVALID' : 'MISSING_OR_UNDEFINED',
-      authDomain: firebaseConfig.authDomain,
-      projectId: firebaseConfig.projectId || 'MISSING_OR_UNDEFINED',
+// A flag to check if the config is valid and all required keys are present
+export const isFirebaseConfigValid =
+  !!firebaseConfig.apiKey &&
+  !!firebaseConfig.authDomain &&
+  !!firebaseConfig.projectId;
+
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
+
+// Initialize Firebase only if the configuration is valid
+if (isFirebaseConfigValid) {
+  if (!getApps().length) {
+    try {
+      app = initializeApp(firebaseConfig);
+    } catch (e) {
+      console.error("Firebase initialization error:", e);
+      // Ensure services are null if initialization fails
+      app = null;
+      auth = null;
+      db = null;
+      storage = null;
     }
-  );
-  throw new Error(
-    "Firebase initialization failed: Firebase apiKey or projectId is missing. Check your .env.local file " +
-    "or hardcoded values. Please check your Firebase configuration and ensure all NEXT_PUBLIC_ variables " +
-    "are set correctly and your server has been restarted if using .env.local."
-  );
-}
+  } else {
+    app = getApp();
+  }
 
-let app: FirebaseApp;
-
-if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-    console.log("Firebase app initialized successfully with hardcoded config (FOR TESTING).");
-  } catch (error: any) {
-    console.error("Firebase initialization error in initializeApp (hardcoded config):", error);
-    throw new Error(
-      `Firebase initialization failed (hardcoded config): ${error.message}. ` +
-      "Check the hardcoded Firebase configuration values."
-    );
+  if (app) {
+    try {
+      auth = getAuth(app);
+      db = getFirestore(app);
+      storage = getStorage(app);
+    } catch (e) {
+      // This is where the invalid-api-key error was likely thrown from
+      console.error("Error getting Firebase services:", e);
+      auth = null;
+      db = null;
+      storage = null;
+    }
   }
 } else {
-  app = getApp();
-  console.log("Firebase app already initialized (hardcoded config - FOR TESTING).");
-}
-
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
-
-try {
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-} catch (error: any) {
-  console.error("Error getting Firebase Auth, Firestore, or Storage instance (hardcoded config):", error);
-  throw new Error(
-    `Failed to get Firebase Auth/Firestore/Storage services (hardcoded config): ${error.message}. ` +
-    "Ensure these services are enabled in your Firebase project."
-  );
+    // This message is helpful for developers in the server console
+    console.warn("Firebase configuration is missing or incomplete. Please check your environment variables (.env.local).");
 }
 
 export { app, auth, db, storage };

@@ -887,7 +887,7 @@ export const getAllTeachersDailyAttendanceForPeriod = async (year: number, month
   const querySnapshot = await getDocs(q);
   const records = querySnapshot.docs.map(doc => doc.data());
   // Sort on the client
-  return records;
+  return records.sort((a,b) => (b.date?.toDate()?.getTime() || 0) - (a.date?.toDate()?.getTime() || 0));
 };
 
 // --- School Profile Service ---
@@ -1002,16 +1002,18 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
     const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
     const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
 
-    // Query only by teacherUid to avoid composite index requirement.
+    // Query without ordering to avoid composite index requirement.
     const q = query(coll, 
         where('teacherUid', '==', teacherUid),
         where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate),
-        orderBy('tanggal', 'desc')
+        where('tanggal', '<=', endDate)
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data());
+    const agendas = snapshot.docs.map(doc => doc.data());
+
+    // Sort on the client side now
+    return agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {

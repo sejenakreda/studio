@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -22,10 +23,13 @@ service cloud.firestore {
     }
 
     function isGuru() {
+        // This now ONLY returns true for users with the literal 'guru' role.
         return isSignedIn() && getRole() == 'guru';
     }
 
     // ===== Default Rule: Deny All =====
+    // By default, no one can read or write to any document.
+    // Specific rules below will grant access.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -34,49 +38,63 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /users/{userId} {
-      // Any signed-in user can read profile data (for names, etc.).
-      allow read: if isSignedIn();
-      // An admin can update any user profile. A user can update their own.
-      allow update: if isAdmin() || isOwner(userId);
+      // An admin can get any profile. A user can get their own.
+      allow get, update: if isAdmin() || isOwner(userId);
+      // Any guru (including special roles) or admin can list user data for reports.
+      allow list: if isGuru() || isAdmin();
       // Only admins can create new users or delete existing ones.
       allow create, delete: if isAdmin();
     }
     
     // --- Students ---
+    // Rules for the 'siswa' collection
     match /siswa/{studentId} {
+      // Any signed-in user (admin or guru) can read the list of students.
       allow read: if isSignedIn();
+      // Only admins can add, change, or remove students from the master list.
       allow create, update, delete: if isAdmin();
     }
     
     // --- Grades ---
+    // Rules for the 'nilai' collection
     match /nilai/{gradeId} {
+      // Any signed-in user can read grade data (for reports, etc.).
       allow read: if isSignedIn();
+      // Only users with the 'guru' role can create or update grades.
       allow create, update: if isGuru();
+      // Only admins have the power to delete grade records.
       allow delete: if isAdmin();
     }
     
     // --- Academic Settings (Bobot, KKM, Mapel, etc.) ---
+    
+    // Global grade weights
     match /bobot/global_weights {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isSignedIn(); // All users can read weights for calculations.
+      allow write: if isAdmin(); // Only admins can change weights.
     }
     
+    // Master list of subjects
     match /mataPelajaranMaster/{mapelId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
     
+    // Active academic years
     match /academicYearConfigs/{yearId} {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
     }
     
+    // KKM (Minimum Passing Grade) settings
     match /kkm_settings/{kkmId} {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
     }
 
     // --- Communication & Reports ---
+    
+    // Announcements
     match /pengumuman/{announcementId} {
         allow read: if isSignedIn();
         allow create, delete: if isAdmin();
@@ -84,18 +102,15 @@ service cloud.firestore {
 
     // Daily teacher attendance records
     match /teacherDailyAttendance/{dailyId} {
-       // A teacher can read/update their own records, an admin can manage any.
-       // This works for get() and for list() queries that filter by teacherUid.
-       allow read, update: if isAdmin() || request.auth.uid == resource.data.teacherUid;
-       // A teacher can create their own record.
-       allow create: if isAdmin() || request.auth.uid == request.resource.data.teacherUid;
-       // Only an admin can delete records.
+       // Admins and Gurus (for Kepsek reports) can read any record.
+       allow read: if isGuru() || isAdmin();
+       // A teacher can submit their own attendance. An admin can edit it.
+       allow create, update: if isOwner(dailyId.split('_')[0]) || isAdmin();
        allow delete: if isAdmin();
     }
     
     // Student Violations
     match /pelanggaran_siswa/{violationId} {
-        // Admins and Gurus can read violations.
         allow read: if isGuru() || isAdmin();
         allow create: if isGuru();
         allow update, delete: if isAdmin();
@@ -103,9 +118,8 @@ service cloud.firestore {
 
     // Activity Reports (Kesiswaan, Pembina, etc.)
     match /laporan_kegiatan/{reportId} {
-        // Admins can read all reports. A guru can read their own.
-        // The service logic MUST filter by createdByUid for gurus.
-        allow read: if isAdmin() || isOwner(resource.data.createdByUid);
+        // Admins and Gurus (for Kepsek reports) can read all reports.
+        allow read: if isGuru() || isAdmin();
         allow create: if isGuru();
         // A guru can edit/delete their own reports. Admins can manage all.
         allow update, delete: if isAdmin() || isOwner(resource.data.createdByUid);
@@ -113,14 +127,16 @@ service cloud.firestore {
     
     // Class Agendas
     match /agenda_kelas/{agendaId} {
-        // Admins can read all agendas. A guru can read their own.
-        allow read: if isAdmin() || isOwner(resource.data.teacherUid);
+        // Admins and Gurus (for Kepsek reports) can read all agendas.
+        allow read: if isGuru() || isAdmin();
         allow create: if isGuru();
         // A guru can edit/delete their own agendas. Admins can manage all.
         allow update, delete: if isAdmin() || isOwner(resource.data.teacherUid);
     }
 
     // --- System & Config ---
+    
+    // School Profile
     match /schoolConfig/main_profile {
         allow read: if isSignedIn();
         allow write: if isAdmin();
@@ -128,6 +144,7 @@ service cloud.firestore {
 
     // Activity Logs
     match /activity_logs/{logId} {
+      // Only admins can read or write to the activity log.
       allow read, write: if isAdmin();
     }
   }

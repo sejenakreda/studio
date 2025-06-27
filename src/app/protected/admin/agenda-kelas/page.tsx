@@ -59,11 +59,16 @@ export default function LaporanAgendaKelasPage() {
     const filteredAgendas = useMemo(() => {
         return agendas.filter(agenda => {
             if (filterTeacher !== "all" && agenda.teacherUid !== filterTeacher) return false;
+            
+            // Check if agenda.tanggal is a valid Timestamp
+            if (!agenda.tanggal || typeof agenda.tanggal.toDate !== 'function') return false;
+            
             const agendaDate = agenda.tanggal.toDate();
             if (agendaDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && agendaDate.getMonth() !== filterMonth - 1) return false;
             return true;
-        }).sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+        });
+        // Note: Sorting was already happening in the service function to avoid index issues
     }, [agendas, filterTeacher, filterYear, filterMonth]);
     
     const handleDownloadExcel = () => {

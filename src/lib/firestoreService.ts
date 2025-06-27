@@ -962,7 +962,8 @@ export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan, us
   const querySnapshot = await getDocs(q);
   const allUserReports = querySnapshot.docs.map(doc => doc.data());
   // Filter by activityId on the client side.
-  return allUserReports.filter(report => report.activityId === activityId);
+  const finalReports = allUserReports.filter(report => report.activityId === activityId);
+  return finalReports.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 };
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
@@ -1020,9 +1021,12 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
+    // Simplified query to avoid composite index
     const q = query(coll);
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data());
+    const data = querySnapshot.docs.map(doc => doc.data());
+    // Sort on client
+    return data.sort((a,b) => b.tanggal.toMillis() - a.tanggal.toMillis());
 };
 
 export const deleteAgenda = async (id: string): Promise<void> => {

@@ -62,5 +62,8 @@ You should see a "Deploy complete!" message. Your database is now secure and rea
 
 1.  **Push to GitHub:** Push your completed project code to a new GitHub repository.
 2.  **Import to Vercel:** Go to your Vercel dashboard, click "Add New... > Project", and import the repository from GitHub.
-3.  **Configure Environment Variables:** In the Vercel project settings, go to "Environment Variables". Add all the `NEXT_PUBLIC_` variables from your `.env.local` file here. This is a critical step for the deployed app to connect to Firebase.
+3.  **Configure Environment Variables (CRITICAL STEP):** In the Vercel project settings, go to "Settings" > "Environment Variables". You must add all the `NEXT_PUBLIC_` variables from your `.env.local` file here. This is a critical step for the deployed app to connect to Firebase.
+    *   **Key:** `NEXT_PUBLIC_FIREBASE_API_KEY`, **Value:** `your_api_key`
+    *   **Key:** `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, **Value:** `your_auth_domain`
+    *   ...and so on for all 6 variables.
 4.  **Deploy:** Click the "Deploy" button. Vercel will automatically build and deploy your Next.js application, and it will be live on the web!

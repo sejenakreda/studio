@@ -1,11 +1,10 @@
-
 "use client";
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { doc, getDoc, Firestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, isFirebaseConfigValid } from '@/lib/firebase';
 import type { UserProfile, Role, TugasTambahan } from '@/types';
 
 interface AuthContextType {
@@ -37,6 +36,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Safety check: If Firebase isn't configured, don't set up the listener.
+    // This prevents the app from crashing if environment variables are missing.
+    if (!isFirebaseConfigValid || !auth) {
+      console.error("AuthContext: Firebase is not configured correctly. Please check your environment variables. Auth features will be disabled.");
+      setLoading(false);
+      return; // Early return
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setLoading(true);
 

@@ -857,8 +857,24 @@ export const getTeacherDailyAttendanceForDate = async (teacherUid: string, date:
   const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const docId = `${teacherUid}_${formattedDate}`;
   const docRef = doc(db, TEACHER_DAILY_ATTENDANCE_COLLECTION, docId).withConverter(teacherDailyAttendanceConverter);
-  const docSnap = await getDoc(docRef);
-  return docSnap.exists() ? docSnap.data() : null;
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Add a check here to ensure data and its date field are valid before returning
+        if (data && data.date && typeof data.date.toDate === 'function') {
+            return data;
+        } else {
+            console.warn(`Attendance record ${docId} has malformed data and will be ignored. Data:`, data);
+            return null; // Treat malformed data as non-existent
+        }
+    }
+    return null; // Document does not exist
+  } catch (error) {
+    console.error(`Failed to get or convert document ${docId}. It may contain malformed data. Error:`, error);
+    // On error (e.g. converter fails), treat as non-existent to prevent UI crash
+    return null;
+  }
 };
 export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year: number, month: number): Promise<TeacherDailyAttendance[]> => {
   const startDate = new Date(year, month - 1, 1);
@@ -874,9 +890,9 @@ export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year
   const querySnapshot = await getDocs(q);
   const allUserRecords = querySnapshot.docs.map(doc => doc.data());
 
-  // Filter and sort on the client-side
+  // Filter by date on the client side with robustness checks
   const recordsInMonth = allUserRecords.filter(record => {
-      // Add robustness check
+      // Add robustness check for the record and its date field
       if (!record || !record.date || typeof record.date.toDate !== 'function') {
         console.warn("Skipping invalid attendance record without a valid Timestamp 'date' field:", record);
         return false;
@@ -1058,6 +1074,7 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
 
 
 

@@ -127,6 +127,10 @@ function LoginForm() {
         friendlyMessage = 'Terlalu banyak percobaan login yang gagal. Akun Anda telah dinonaktifkan sementara. Silakan coba lagi nanti atau reset password Anda.';
       } else if (e.code === 'auth/invalid-email') {
         friendlyMessage = 'Format email yang Anda masukkan tidak valid.';
+      } else if (e.code === 'auth/network-request-failed') {
+          friendlyMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda. Masalah ini juga bisa disebabkan oleh Kunci API atau domain yang belum diizinkan.';
+      } else if (e.code === 'auth/api-key-not-valid') {
+          friendlyMessage = 'Kunci API Firebase tidak valid. Pastikan Environment Variable di Vercel sudah benar dan tidak ada kesalahan ketik.';
       }
       setErrorLoginForm(friendlyMessage);
       toast({

@@ -18,7 +18,7 @@ Before deploying, you must secure your Firebase configuration keys.
 
 1.  **Create `.env.local` file:** In the root directory of your project, create a file named `.env.local`.
 
-2.  **Add Your Keys:** Open your new `.env.local` file and add your Firebase project's configuration keys. You can find these in your Firebase project settings.
+2.  **Add Your Keys:** Open your new `.env.local` file and add your Firebase project's configuration keys. You can find these in your Firebase project settings under "Project settings" > "General".
 
     ```
     NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key

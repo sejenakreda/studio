@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Safety check: If Firebase isn't configured, don't set up the listener.
     // This prevents the app from crashing if environment variables are missing.
     if (!isFirebaseConfigValid || !auth) {
-      console.error("AuthContext: Firebase is not configured correctly. Please check your environment variables. Auth features will be disabled.");
+      console.warn("AuthContext: Firebase configuration is missing or invalid. Please create a '.env.local' file with your Firebase keys. Auth features are disabled.");
       setLoading(false);
       return; // Early return
     }

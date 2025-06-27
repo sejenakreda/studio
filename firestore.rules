@@ -4,51 +4,148 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- Helper Functions ---
-    // Checks if a user is signed in.
+    // ===== Helper Functions =====
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Gets the role of the signed-in user from their document in the 'users' collection.
-    function getUserRole() {
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function getRole() {
+      // Get the user's role from their profile in the 'users' collection
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Checks if the signed-in user is an admin.
     function isAdmin() {
-      return isSignedIn() && getUserRole() == 'admin';
+      return isSignedIn() && getRole() == 'admin';
     }
 
-    // --- Security Rules for Specific Collections ---
+    function isGuru() {
+        return isSignedIn() && getRole() == 'guru';
+    }
 
-    // Rule for the 'users' collection
+    // ===== Default Rule: Deny All =====
+    // By default, no one can read or write to any document.
+    // Specific rules below will grant access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===== Collection Rules =====
+
+    // --- User Profiles ---
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow users to read and update their own profile.
-      // Allow admins to read and update any user's profile.
-      allow read, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      
-      // Allow any authenticated user to create a profile (for signup).
-      allow create: if isSignedIn();
-
-      // Only allow admins to delete user profiles.
+      // An admin can read/update any user profile.
+      // A user can read/update their own profile.
+      allow read, update: if isAdmin() || isOwner(userId);
+      // Only admins can create new users or delete existing ones.
+      allow create, delete: if isAdmin();
+    }
+    
+    // --- Students ---
+    // Rules for the 'siswa' collection
+    match /siswa/{studentId} {
+      // Any signed-in user (admin or guru) can read the list of students.
+      allow read: if isSignedIn();
+      // Only admins can add, change, or remove students from the master list.
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // --- Grades ---
+    // Rules for the 'nilai' collection
+    match /nilai/{gradeId} {
+      // Any signed-in user can read grade data (for reports, etc.).
+      allow read: if isSignedIn();
+      // Only users with the 'guru' role can create or update grades.
+      allow create, update: if isGuru();
+      // Only admins have the power to delete grade records.
       allow delete: if isAdmin();
     }
-
-    // Rules for configuration collections that only admins should modify.
-    match /(bobot|schoolConfig|academicYearConfigs|kkm_settings|mataPelajaranMaster)/{docId} {
-      // Any signed-in user can read these settings.
+    
+    // --- Academic Settings (Bobot, KKM, Mapel, etc.) ---
+    // These collections hold critical settings for the entire application.
+    
+    // Global grade weights
+    match /bobot/global_weights {
+      allow read: if isSignedIn(); // All users can read weights for calculations.
+      allow write: if isAdmin(); // Only admins can change weights.
+    }
+    
+    // Master list of subjects
+    match /mataPelajaranMaster/{mapelId} {
       allow read: if isSignedIn();
-      // Only admins can write to these settings.
-      allow write: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Active academic years
+    match /academicYearConfigs/{yearId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+    }
+    
+    // KKM (Minimum Passing Grade) settings
+    match /kkm_settings/{kkmId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin();
     }
 
-    // Rules for general data collections.
-    match /(siswa|nilai|activity_logs|pengumuman|teacherAttendance|teacherDailyAttendance|pelanggaran_siswa|laporan_kegiatan|agenda_kelas)/{docId} {
-      // Allow any signed-in user to read, create, update, and delete.
-      // The app's UI and logic already handle who can do what (e.g., a guru can't delete another guru's grade).
-      // This provides a secure base without breaking app functionality.
-      allow read, write: if isSignedIn();
+    // --- Communication & Reports ---
+    
+    // Announcements
+    match /pengumuman/{announcementId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isAdmin();
+    }
+
+    // Daily teacher attendance records
+    match /teacherDailyAttendance/{dailyId} {
+       // Admins can read any record. A teacher can read their own.
+       allow read: if isAdmin() || isOwner(dailyId.split('_')[0]);
+       // A teacher can submit their own attendance. An admin can edit it.
+       allow create, update: if isOwner(dailyId.split('_')[0]) || isAdmin();
+       allow delete: if isAdmin();
+    }
+    
+    // Student Violations
+    match /pelanggaran_siswa/{violationId} {
+        allow read: if isGuru(); // Any teacher can view violations.
+        allow create: if isGuru(); // Any teacher can record a violation.
+        allow update, delete: if isAdmin();
+    }
+
+    // Activity Reports (Kesiswaan, Pembina, etc.)
+    match /laporan_kegiatan/{reportId} {
+        // Admins can read all reports. A guru can read their own.
+        allow read: if isAdmin() || isOwner(resource.data.createdByUid);
+        allow create: if isGuru();
+        // A guru can edit/delete their own reports. Admins can manage all.
+        allow update, delete: if isAdmin() || isOwner(resource.data.createdByUid);
+    }
+    
+    // Class Agendas
+    match /agenda_kelas/{agendaId} {
+        // Admins can read all agendas. A guru can read their own.
+        allow read: if isAdmin() || isOwner(resource.data.teacherUid);
+        allow create: if isGuru();
+        // A guru can edit/delete their own agendas. Admins can manage all.
+        allow update, delete: if isAdmin() || isOwner(resource.data.teacherUid);
+    }
+
+    // --- System & Config ---
+    
+    // School Profile
+    match /schoolConfig/main_profile {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
+
+    // Activity Logs
+    match /activity_logs/{logId} {
+      // Only admins can read or write to the activity log.
+      allow read, write: if isAdmin();
     }
   }
 }

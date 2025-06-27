@@ -14,22 +14,22 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Required Setup: Environment Variables
 
-Before deploying, you must secure your Firebase configuration keys.
+Before running or deploying the app, you **must** configure your Firebase connection keys.
 
-1.  **Create `.env.local` file:** In the root directory of your project, create a file named `.env.local`.
+1.  **Find your keys:** Go to your **Firebase project settings**, and on the **General** tab, find your web app configuration. You will need values like `apiKey`, `authDomain`, etc.
 
-2.  **Add Your Keys:** Open your new `.env.local` file and add your Firebase project's configuration keys. You can find these in your Firebase project settings under "Project settings" > "General".
+2.  **Fill `.env.local`:** This project now includes a `.env.local` file with placeholders. Open it and replace each placeholder (like `your_api_key_here`) with the corresponding value from your Firebase project.
 
     ```
-    NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+    # Example for .env.local file
+    NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=my-project.firebaseapp.com
+    # ... and so on for all 6 variables.
     ```
+    
+3.  **Restart the server:** After saving `.env.local`, you must restart your development server (`Ctrl+C` then `npm run dev`) for the changes to take effect.
 
-3.  **Important:** Make sure your `.gitignore` file includes a line for `.env.local` to prevent your secret keys from being pushed to GitHub.
+4.  **Important:** The `.env.local` file is automatically ignored by Git, so your secret keys will not be pushed to GitHub. This is a crucial security feature.
 
 ## Deploying
 

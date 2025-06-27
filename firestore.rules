@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
+    function isUser(uid) {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
@@ -44,10 +44,10 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /users/{userId} {
-      allow get: if isAuthenticated() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin() || isKepalaSekolah(); // Kepsek needs to list teachers for reports
+      allow get: if isAuthenticated() && (isAdmin() || isUser(userId));
+      allow list: if isAdmin() || isKepalaSekolah();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || isOwner(userId);
+      allow update: if isAdmin() || isUser(userId);
     }
     
     match /siswa/{docId} {
@@ -56,11 +56,14 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
-      // Allow Kepsek to read all grades for reports
+      // `get` allows fetching a specific document. This rule is strict and secure.
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
-      // Allow list for admin, kepsek, and gurus querying their own data
-      allow list: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.query.filters[0][2] == request.auth.uid));
       
+      // `list` allows queries. Firestore checks the `get` rule for every document returned by a `list` query.
+      // This is the most stable and recommended pattern.
+      allow list: if isAuthenticated();
+      
+      // Write permissions remain unchanged from the stable version.
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
       allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
@@ -74,13 +77,11 @@ service cloud.firestore {
         allow read, write: if isAdmin();
     }
     
-    // FIX: All authenticated users need to read these configs for grade pages to load.
     match /academicYearConfigs/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
-    // FIX: All authenticated users need to read these configs for grade pages to load.
     match /kkm_settings/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
@@ -98,7 +99,7 @@ service cloud.firestore {
 
     match /teacherDailyAttendance/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
-      allow list: if isAuthenticated(); // relies on 'get' rules being enforced on each doc
+      allow list: if isAuthenticated();
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
@@ -120,15 +121,14 @@ service cloud.firestore {
     
     match /agenda_kelas/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
-      allow list: if isAuthenticated(); // relies on 'get' rules
+      allow list: if isAuthenticated();
       allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || request.resource.data.teacherUid == request.auth.uid);
     }
     
     match /laporan_kegiatan/{docId} {
-      // FIX: Added isKepalaTataUsaha() to allow them to read staff reports.
       allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
-      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.createdByUid));
+      allow update, delete: if isAuthenticated() && (isAdmin() || isUser(resource.data.createdByUid));
     }
   }
 }

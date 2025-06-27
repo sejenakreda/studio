@@ -103,19 +103,27 @@ function LoginForm() {
     setErrorLoginForm(null);
     setLoadingLoginForm(true);
 
+    if (!auth) {
+        setErrorLoginForm("Konfigurasi Firebase tidak valid. Silakan periksa file .env.local Anda.");
+        setLoadingLoginForm(false);
+        return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Login Berhasil",
-        description: "Mengarahkan ke dasbor...", // Updated message
+        description: "Mengarahkan ke dasbor...",
       });
       // DO NOT router.push('/') here. LoginPage's useEffect will handle redirection.
     } catch (e: any) {
-      let friendlyMessage = 'Gagal melakukan login. Periksa kembali email dan password Anda.';
+      let friendlyMessage = 'Terjadi kesalahan. Silakan coba lagi.';
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan coba lagi.';
+        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan periksa kembali.';
       } else if (e.code === 'auth/too-many-requests') {
-        friendlyMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti.';
+        friendlyMessage = 'Terlalu banyak percobaan login yang gagal. Akun Anda telah dinonaktifkan sementara. Silakan coba lagi nanti atau reset password Anda.';
+      } else if (e.code === 'auth/invalid-email') {
+        friendlyMessage = 'Format email yang Anda masukkan tidak valid.';
       }
       setErrorLoginForm(friendlyMessage);
       toast({
@@ -147,7 +155,7 @@ function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          placeholder="contoh@email.com"
+          placeholder="contoh@example.com"
           className="bg-background/50 border-border focus:border-primary focus:ring-primary"
           aria-label="Alamat Email"
         />

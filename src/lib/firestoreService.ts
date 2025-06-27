@@ -671,7 +671,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(userDocRef);
+  const docSnap = await getDoc(docRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -876,6 +876,11 @@ export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year
 
   // Filter and sort on the client-side
   const recordsInMonth = allUserRecords.filter(record => {
+      // Add robustness check
+      if (!record || !record.date || typeof record.date.toDate !== 'function') {
+        console.warn("Skipping invalid attendance record without a valid Timestamp 'date' field:", record);
+        return false;
+      }
       const recordDate = record.date.toDate();
       return recordDate >= startDate && recordDate <= endDate;
   });
@@ -1053,5 +1058,6 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
 
 

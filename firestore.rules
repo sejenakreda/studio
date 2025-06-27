@@ -24,7 +24,7 @@ service cloud.firestore {
     }
     
     function hasTugas(tugas) {
-      // Robust check for tugasTambahan existence and membership
+      // Robust check for 'tugasTambahan' existence
       return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
     }
 
@@ -36,12 +36,20 @@ service cloud.firestore {
       return hasTugas('kesiswaan');
     }
 
+    function isKepalaTataUsaha() {
+        return hasTugas('kepala_tata_usaha');
+    }
+
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
-      allow write: if isAdmin();
-      allow create: if isAdmin();
+      // GET: Admins can get any user. Users can get their own profile.
+      allow get: if isAuthenticated() && (isAdmin() || isOwner(userId));
+
+      // LIST: Admins and Kepala Sekolah can list users (e.g., for report filters).
+      allow list: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
+
+      // WRITE: Admins can manage all. Users can update their own profile.
+      allow create, delete: if isAdmin();
       allow update: if isAdmin() || isOwner(userId);
-      allow delete: if isAdmin();
     }
     
     match /siswa/{docId} {
@@ -50,11 +58,11 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
-      // GET: Admin, Kepsek, and the grade's owner can get a specific record.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
-      // LIST: Any authenticated user can list. Firestore security rules on 'get' will be applied to the results.
-      allow list: if isAuthenticated();
-      // WRITE: Only Admin or the grade's owner can write.
+      // GET: Admin, Kepsek, or the owner can get a specific grade.
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
+      // LIST: Only Admin and Kepsek can list all grades. Gurus can only query for their own.
+      allow list: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
+      
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
       allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
@@ -68,13 +76,11 @@ service cloud.firestore {
         allow read, write: if isAdmin();
     }
     
-    // FIX: All authenticated users can read configs to prevent "gagal memuat" errors.
     match /academicYearConfigs/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
-    // FIX: All authenticated users can read configs to prevent "gagal memuat" errors.
     match /kkm_settings/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
@@ -119,8 +125,7 @@ service cloud.firestore {
     }
     
     match /laporan_kegiatan/{docId} {
-      // FIX: Added hasTugas('kepala_tata_usaha') to the read rule to fix the last remaining bug.
-      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || hasTugas('kepala_tata_usaha') || resource.data.createdByUid == request.auth.uid);
+      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.createdByUid));
     }

@@ -3,14 +3,52 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows anyone with your database Creadentials to read, write and delete
-    // all data in your Firestore database. It is useful for getting started, but
-    // make sure to edit it to match your app's security requirements before
-    // deploying.
-    // Cloud Firestore Security Rules Docs: https://firebase.google.com/docs/firestore/security/get-started
-    match /{document=**} {
-      allow read, write: if
-          request.time < timestamp.date(2025, 7, 17);
+    
+    // --- Helper Functions ---
+    // Checks if a user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Gets the role of the signed-in user from their document in the 'users' collection.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Checks if the signed-in user is an admin.
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
+    // --- Security Rules for Specific Collections ---
+
+    // Rule for the 'users' collection
+    match /users/{userId} {
+      // Allow users to read and update their own profile.
+      // Allow admins to read and update any user's profile.
+      allow read, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      
+      // Allow any authenticated user to create a profile (for signup).
+      allow create: if isSignedIn();
+
+      // Only allow admins to delete user profiles.
+      allow delete: if isAdmin();
+    }
+
+    // Rules for configuration collections that only admins should modify.
+    match /(bobot|schoolConfig|academicYearConfigs|kkm_settings|mataPelajaranMaster)/{docId} {
+      // Any signed-in user can read these settings.
+      allow read: if isSignedIn();
+      // Only admins can write to these settings.
+      allow write: if isAdmin();
+    }
+
+    // Rules for general data collections.
+    match /(siswa|nilai|activity_logs|pengumuman|teacherAttendance|teacherDailyAttendance|pelanggaran_siswa|laporan_kegiatan|agenda_kelas)/{docId} {
+      // Allow any signed-in user to read, create, update, and delete.
+      // The app's UI and logic already handle who can do what (e.g., a guru can't delete another guru's grade).
+      // This provides a secure base without breaking app functionality.
+      allow read, write: if isSignedIn();
     }
   }
 }

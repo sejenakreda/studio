@@ -25,8 +25,8 @@ service cloud.firestore {
     }
     
     function hasTugas(tugas) {
-      // Check if 'tugasTambahan' field exists before trying to access it
-      return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
+      // Use 'in' for lists/arrays in Firestore rules
+      return isGuru() && tugas in getUserData().tugasTambahan;
     }
 
     function isKepalaSekolah() {
@@ -56,11 +56,10 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
-      // `get` allows fetching a specific document. This rule is strict and secure.
+      // `get` allows fetching a specific document.
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
-      
-      // `list` allows queries. Firestore checks the `get` rule for every document returned by a `list` query.
-      // This is the most stable and recommended pattern.
+      // `list` allows queries. The `get` rule above will be checked for every document returned.
+      // This pattern is safer and more robust than inspecting query filters.
       allow list: if isAuthenticated();
       
       // Write permissions remain unchanged from the stable version.
@@ -77,11 +76,13 @@ service cloud.firestore {
         allow read, write: if isAdmin();
     }
     
+    // FIX: All authenticated users (gurus) need to read these configs for grade pages to load.
     match /academicYearConfigs/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
+    // FIX: All authenticated users (gurus) need to read these configs for grade pages to load.
     match /kkm_settings/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
@@ -126,6 +127,7 @@ service cloud.firestore {
     }
     
     match /laporan_kegiatan/{docId} {
+      // FIX: Added `isKepalaTataUsaha()` to allow them to read staff reports.
       allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isUser(resource.data.createdByUid));

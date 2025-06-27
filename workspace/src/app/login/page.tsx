@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, type FormEvent, useEffect } from 'react';
@@ -16,6 +15,15 @@ import { useAuth } from '@/context/AuthContext'; // Import useAuth
 export default function LoginPage() {
   const router = useRouter();
   const { user, userProfile, loading: authContextLoading, isSatpam, isPenjagaSekolah, isStafTu } = useAuth();
+
+  // Debugging state to check for environment variable
+  const [debugProjectId, setDebugProjectId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // This will run on the client side and show us what env var the build received.
+    setDebugProjectId(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+  }, []);
+
 
   useEffect(() => {
     // This effect handles redirection:
@@ -84,7 +92,8 @@ export default function LoginPage() {
         )}
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
-        © {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.
+        <p className="font-mono text-xs p-2 bg-black/20 rounded">DEBUG - Project ID: {debugProjectId || "TIDAK TERBACA"}</p>
+        <p className="mt-2">© {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.</p>
       </footer>
     </div>
   );
@@ -127,8 +136,10 @@ function LoginForm() {
         friendlyMessage = 'Terlalu banyak percobaan login yang gagal. Akun Anda telah dinonaktifkan sementara. Silakan coba lagi nanti atau reset password Anda.';
       } else if (e.code === 'auth/invalid-email') {
         friendlyMessage = 'Format email yang Anda masukkan tidak valid.';
+      } else if (e.code === 'auth/network-request-failed') {
+          friendlyMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda. Masalah ini juga bisa disebabkan oleh Kunci API atau domain yang belum diizinkan.';
       } else if (e.code === 'auth/api-key-not-valid') {
-        friendlyMessage = 'Kunci API Firebase tidak valid. Pastikan sudah benar di .env.local dan tidak dibatasi di Google Cloud Console.'
+          friendlyMessage = 'Kunci API Firebase tidak valid. Pastikan Environment Variable di Vercel sudah benar dan tidak ada kesalahan ketik.';
       }
       setErrorLoginForm(friendlyMessage);
       toast({
@@ -201,3 +212,4 @@ function LoginForm() {
     </form>
   );
 }
+    

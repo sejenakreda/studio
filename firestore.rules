@@ -13,9 +13,17 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
     function getRole() {
-      // Get the user's role from their profile in the 'users' collection
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return 'role' in getUserData() ? getUserData().role : '';
+    }
+    
+    function hasTugas(tugas) {
+      let data = getUserData();
+      return 'tugasTambahan' in data && data.tugasTambahan is list && tugas in data.tugasTambahan;
     }
 
     function isAdmin() {
@@ -23,12 +31,22 @@ service cloud.firestore {
     }
 
     function isGuru() {
-        return isSignedIn() && getRole() == 'guru';
+      return isSignedIn() && getRole() == 'guru';
+    }
+    
+    function isKepalaSekolah() {
+      return isSignedIn() && hasTugas('kepala_sekolah');
+    }
+    
+    function isKesiswaan() {
+      return isSignedIn() && hasTugas('kesiswaan');
+    }
+    
+    function isKepalaTataUsaha() {
+      return isSignedIn() && hasTugas('kepala_tata_usaha');
     }
 
     // ===== Default Rule: Deny All =====
-    // By default, no one can read or write to any document.
-    // Specific rules below will grant access.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -36,120 +54,74 @@ service cloud.firestore {
     // ===== Collection Rules =====
 
     // --- User Profiles ---
-    // Rules for the 'users' collection
     match /users/{userId} {
-      // An admin can read/update any user profile.
-      // A user can read/update their own profile.
-      allow read, update: if isAdmin() || isOwner(userId);
-      // Only admins can create new users or delete existing ones.
+      allow read: if isAdmin() || isKepalaSekolah() || isOwner(userId);
+      allow update: if isAdmin() || isOwner(userId);
       allow create, delete: if isAdmin();
     }
     
     // --- Students ---
-    // Rules for the 'siswa' collection
     match /siswa/{studentId} {
-      // Any signed-in user (admin or guru) can read the list of students.
       allow read: if isSignedIn();
-      // Only admins can add, change, or remove students from the master list.
       allow create, update, delete: if isAdmin();
     }
     
     // --- Grades ---
-    // Rules for the 'nilai' collection
     match /nilai/{gradeId} {
-      // Any signed-in user can read grade data (for reports, etc.).
-      allow read: if isSignedIn();
-      // Only users with the 'guru' role can create or update grades.
+      allow read: if isAdmin() || isKepalaSekolah() || isOwner(resource.data.teacherUid);
       allow create, update: if isGuru();
-      // Only admins have the power to delete grade records.
       allow delete: if isAdmin();
     }
     
-    // --- Academic Settings (Bobot, KKM, Mapel, etc.) ---
-    // These collections hold critical settings for the entire application.
-    
-    // Global grade weights
-    match /bobot/global_weights {
-      allow read: if isSignedIn(); // All users can read weights for calculations.
-      allow write: if isAdmin(); // Only admins can change weights.
-    }
-    
-    // Master list of subjects
-    match /mataPelajaranMaster/{mapelId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-    
-    // Active academic years
-    match /academicYearConfigs/{yearId} {
-        allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
-    }
-    
-    // KKM (Minimum Passing Grade) settings
-    match /kkm_settings/{kkmId} {
-        allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
-    }
+    // --- Academic Settings ---
+    match /bobot/global_weights { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /mataPelajaranMaster/{mapelId} { allow read: if isSignedIn(); allow create, update, delete: if isAdmin(); }
+    match /academicYearConfigs/{yearId} { allow read: if isSignedIn(); allow create, update, delete: if isAdmin(); }
+    match /kkm_settings/{kkmId} { allow read: if isSignedIn(); allow create, update, delete: if isAdmin(); }
 
     // --- Communication & Reports ---
-    
-    // Announcements
     match /pengumuman/{announcementId} {
-        allow read: if isSignedIn();
-        allow create, delete: if isAdmin();
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
     }
 
-    // Daily teacher attendance records
     match /teacherDailyAttendance/{dailyId} {
-       // Admins can read any record.
-       // A teacher can GET a single record (e.g., to check if it exists). The docId format is 'uid_date'.
-       allow get: if isAdmin() || (isGuru() && isOwner(dailyId.split('_')[0]));
-
-       // A teacher can LIST their own records (e.g., for a monthly recap). This requires a query on the teacherUid field.
-       allow list: if isAdmin() || (isGuru() && request.auth.uid == resource.data.teacherUid);
-       
-       // A teacher can submit their own attendance. An admin can edit it.
-       allow create, update: if (isGuru() && isOwner(request.resource.data.teacherUid)) || isAdmin();
+       // A user can read their own attendance (single doc or list). Admin/Kepsek can read any.
+       // This rule handles both `get` (by doc ID) and `list` (by resource data) requests correctly.
+       allow read: if isAdmin() || isKepalaSekolah() || isOwner(dailyId.split('_')[0]) || isOwner(resource.data.teacherUid);
+       allow create: if isOwner(resource.data.teacherUid);
+       allow update: if isOwner(resource.data.teacherUid) || isAdmin();
        allow delete: if isAdmin();
     }
     
-    // Student Violations
     match /pelanggaran_siswa/{violationId} {
-        allow read: if isGuru() || isAdmin(); // Any teacher or admin can view violations.
-        allow create: if isGuru(); // Any teacher can record a violation.
+        // Admins, Kepsek, Kesiswaan, and BK can read all. Any guru can create.
+        allow read: if isAdmin() || isKepalaSekolah() || isKesiswaan() || hasTugas('bk');
+        allow create: if isGuru();
         allow update, delete: if isAdmin();
     }
 
-    // Activity Reports (Kesiswaan, Pembina, etc.)
     match /laporan_kegiatan/{reportId} {
-        // Admins can read all reports. A guru can read their own.
-        allow read: if isAdmin() || isOwner(resource.data.createdByUid);
+        // Admins, Kepsek, and Kepala TU can read all reports. A guru can read their own.
+        allow read: if isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || isOwner(resource.data.createdByUid);
         allow create: if isGuru();
-        // A guru can edit/delete their own reports. Admins can manage all.
         allow update, delete: if isAdmin() || isOwner(resource.data.createdByUid);
     }
     
-    // Class Agendas
     match /agenda_kelas/{agendaId} {
-        // Admins can read all agendas. A guru can read their own.
-        allow read: if isAdmin() || isOwner(resource.data.teacherUid);
+        // Admins and Kepsek can read all agendas. A guru can read their own.
+        allow read: if isAdmin() || isKepalaSekolah() || isOwner(resource.data.teacherUid);
         allow create: if isGuru();
-        // A guru can edit/delete their own agendas. Admins can manage all.
         allow update, delete: if isAdmin() || isOwner(resource.data.teacherUid);
     }
 
     // --- System & Config ---
-    
-    // School Profile
     match /schoolConfig/main_profile {
         allow read: if isSignedIn();
         allow write: if isAdmin();
     }
 
-    // Activity Logs
     match /activity_logs/{logId} {
-      // Only admins can read or write to the activity log.
       allow read, write: if isAdmin();
     }
   }

@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Helper Functions ---
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -24,7 +25,7 @@ service cloud.firestore {
     }
     
     function hasTugas(tugas) {
-      // Robust check for tugasTambahan existence and membership
+      // Check if 'tugasTambahan' field exists before trying to access it
       return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
     }
 
@@ -32,21 +33,21 @@ service cloud.firestore {
       return hasTugas('kepala_sekolah');
     }
     
-    function isKepalaTataUsaha() {
-      return hasTugas('kepala_tata_usaha');
-    }
-    
     function isKesiswaan() {
       return hasTugas('kesiswaan');
     }
 
+    function isKepalaTataUsaha() {
+      return hasTugas('kepala_tata_usaha');
+    }
+
+    // --- Collection Rules ---
+
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
-      allow list: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
-      allow write: if isAdmin();
-      allow create: if isAdmin();
+      allow get: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      allow list: if isAdmin() || isKepalaSekolah(); // Kepsek needs to list teachers for reports
+      allow create, delete: if isAdmin();
       allow update: if isAdmin() || isOwner(userId);
-      allow delete: if isAdmin();
     }
     
     match /siswa/{docId} {
@@ -55,9 +56,9 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
-      // Allow get for admin, kepsek, or the teacher who owns the grade.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
-      // Allow list for admin, kepsek, or a guru querying their own grades.
+      // Allow Kepsek to read all grades for reports
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
+      // Allow list for admin, kepsek, and gurus querying their own data
       allow list: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.query.filters[0][2] == request.auth.uid));
       
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
@@ -73,13 +74,15 @@ service cloud.firestore {
         allow read, write: if isAdmin();
     }
     
+    // FIX: All authenticated users need to read these configs for grade pages to load.
     match /academicYearConfigs/{docId} {
-        allow read: if isAuthenticated(); // FIX: All authenticated users need to read this for forms.
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
+    // FIX: All authenticated users need to read these configs for grade pages to load.
     match /kkm_settings/{docId} {
-        allow read: if isAuthenticated(); // FIX: All authenticated users need to read this for forms.
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
@@ -95,7 +98,7 @@ service cloud.firestore {
 
     match /teacherDailyAttendance/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated(); // relies on 'get' rules being enforced on each doc
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
@@ -117,7 +120,7 @@ service cloud.firestore {
     
     match /agenda_kelas/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated(); // relies on 'get' rules
       allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || request.resource.data.teacherUid == request.auth.uid);
     }
     

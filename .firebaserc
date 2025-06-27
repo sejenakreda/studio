@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "device-streaming-923d7bd9"
-  }
+    "default": "device-streaming-923d7bd9",
+    "firebase deploy --only firestore:rules": "device-streaming-923d7bd9"
+  },
+  "targets": {},
+  "etags": {}
 }

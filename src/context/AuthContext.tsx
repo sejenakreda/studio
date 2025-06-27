@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fallback: If not found by UID (e.g., mismatch), query by email
           if (!userDocSnap.exists()) {
               console.warn(`AuthContext: User document not found for UID ${fbUser.uid}. Attempting fallback query by email.`);
-              const usersCollection = collection(db, 'users');
+              const usersCollection = collection(db as Firestore, 'users');
               const q = query(usersCollection, where("email", "==", fbUser.email), limit(1));
               const querySnapshot = await getDocs(q);
 

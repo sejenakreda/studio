@@ -103,12 +103,14 @@ service cloud.firestore {
     // Daily teacher attendance records
     match /teacherDailyAttendance/{dailyId} {
        // Admins can read any record.
-       // A teacher can read a specific record if the doc ID contains their UID (for single gets).
-       // A teacher can also read a list of records if the data inside contains their UID (for queries).
-       allow read: if isAdmin() || isOwner(dailyId.split('_')[0]) || (isGuru() && resource.data.teacherUid == request.auth.uid);
+       // A teacher can GET a single record (e.g., to check if it exists). The docId format is 'uid_date'.
+       allow get: if isAdmin() || (isGuru() && isOwner(dailyId.split('_')[0]));
+
+       // A teacher can LIST their own records (e.g., for a monthly recap). This requires a query on the teacherUid field.
+       allow list: if isAdmin() || (isGuru() && request.auth.uid == resource.data.teacherUid);
        
        // A teacher can submit their own attendance. An admin can edit it.
-       allow create, update: if isOwner(dailyId.split('_')[0]) || isAdmin();
+       allow create, update: if (isGuru() && isOwner(request.resource.data.teacherUid)) || isAdmin();
        allow delete: if isAdmin();
     }
     

@@ -1,119 +1,135 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function isGuru() {
+      return isAuthenticated() && getUserData().role == 'guru';
     }
     
-    function isGuru() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guru';
+    function hasTugas(tugas) {
+      return isGuru() && tugas in getUserData().tugasTambahan;
     }
 
     function isKepalaSekolah() {
-        return request.auth != null && 'kepala_sekolah' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tugasTambahan;
-    }
-
-    function isKepalaSekolahOrAdmin() {
-      return isAdmin() || isKepalaSekolah();
+      return hasTugas('kepala_sekolah');
     }
     
-    // --- Collection Rules ---
+    function isKesiswaan() {
+      return hasTugas('kesiswaan');
+    }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isKepalaSekolahOrAdmin();
-      allow write: if isAdmin(); // Only admins can create/update user profiles directly
-    }
-
-    match /siswa/{studentId} {
-      allow read: if isGuru() || isAdmin();
+      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOwner(userId);
+      allow delete: if isAdmin();
     }
-
-    match /bobot/{document} {
-      allow read: if isGuru() || isAdmin();
+    
+    match /siswa/{docId} {
+      allow read: if isAuthenticated() && (isAdmin() || isGuru());
       allow write: if isAdmin();
     }
     
-    match /academicYearConfigs/{yearId} {
-      allow read: if isGuru() || isAdmin();
+    match /nilai/{docId} {
+      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
+      allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
+    }
+    
+    match /bobot/{docId} {
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    match /kkm_settings/{kkmId} {
-        allow read: if isGuru() || isAdmin();
+    match /activity_logs/{docId} {
+        allow read, write: if isAdmin();
+    }
+    
+    match /academicYearConfigs/{docId} {
+        allow read, write: if isAdmin();
+    }
+    
+    match /kkm_settings/{docId} {
+        allow read, write: if isAdmin();
+    }
+    
+    match /mataPelajaranMaster/{docId} {
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
-    match /mataPelajaranMaster/{mapelId} {
-      allow read: if isGuru() || isAdmin();
-      allow write: if isAdmin();
-    }
-    
-    match /pengumuman/{pengumumanId} {
-      allow read: if isGuru() || isAdmin();
-      allow write: if isAdmin();
-    }
-    
-    match /schoolConfig/{configId} {
-        allow read: if isGuru() || isAdmin();
+    match /pengumuman/{docId} {
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
 
-    match /nilai/{gradeId} {
-      // Teachers can read/write grades they own. Admins/Kepsek can read any.
-      allow read: if request.auth != null && (isOwner(resource.data.teacherUid) || isKepalaSekolahOrAdmin());
-      allow write: if request.auth != null && isOwner(request.resource.data.teacherUid);
-      // Only Admin/Kepsek can delete.
-      allow delete: if request.auth != null && isKepalaSekolahOrAdmin();
+    match /teacherDailyAttendance/{docId} {
+      // GET: Admins, Kepsek, and the owner of the record (by checking docId) can get it.
+      // This works even if the document doesn't exist yet for the owner.
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
+
+      // LIST: Any authenticated user can attempt a list, but Firestore will enforce the 'get' rule on every potential result.
+      // This means a guru's query `where('teacherUid', '==', their_uid)` will succeed,
+      // but a broader query would fail because they can't 'get' other users' documents.
+      allow list: if isAuthenticated();
+
+      // CREATE: Only the user themselves can create their own attendance record.
+      allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
+      
+      // UPDATE/DELETE: Only Admins or Kepsek can modify/delete records.
+      allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
 
-    match /teacherDailyAttendance/{dailyId} {
-      // This is the corrected rule.
-      // It handles three cases:
-      // 1. Admin/Kepsek can read anything.
-      // 2. A get() request for an existing document checks the teacherUid inside the document.
-      // 3. A get() request for a non-existent document checks the teacherUid in the document's path.
-      allow read: if request.auth != null && (
-        isKepalaSekolahOrAdmin() ||
-        (resource != null && resource.data.teacherUid == request.auth.uid) ||
-        (resource == null && dailyId.split('_')[0] == request.auth.uid)
-      );
-
-      // Write is for create/update. A teacher can only write their own attendance.
-      allow write: if request.auth != null && (isOwner(request.resource.data.teacherUid) || isKepalaSekolahOrAdmin());
-                   
-      // Only Admin/Kepsek can delete.
-      allow delete: if request.auth != null && isKepalaSekolahOrAdmin();
-    }
-
-    match /pelanggaran_siswa/{pelanggaranId} {
-        allow read: if request.auth != null && (isGuru() || isAdmin());
-        allow write: if request.auth != null && isGuru();
-        allow delete: if isKepalaSekolahOrAdmin();
+    match /teacherAttendance/{docId} {
+       allow read, write: if isAdmin() || isKepalaSekolah();
     }
     
-    match /laporan_kegiatan/{laporanId} {
-      allow read: if request.auth != null && (isOwner(resource.data.createdByUid) || isKepalaSekolahOrAdmin());
-      allow write: if request.auth != null && isOwner(request.resource.data.createdByUid);
-      allow delete: if request.auth != null && isOwner(resource.data.createdByUid);
+    match /schoolConfig/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
     }
     
-    match /agenda_kelas/{agendaId} {
-      allow read: if request.auth != null && (isOwner(resource.data.teacherUid) || isKepalaSekolahOrAdmin());
-      allow write: if request.auth != null && isOwner(request.resource.data.teacherUid);
-      allow delete: if request.auth != null && isOwner(resource.data.teacherUid);
+    match /pelanggaran_siswa/{docId} {
+        allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKesiswaan());
+        allow create: if isAuthenticated() && isGuru() && (isKesiswaan() || hasTugas('bk'));
+        allow write: if isAdmin() || isKesiswaan();
     }
+    
+    match /agenda_kelas/{docId} {
+      // GET: Admins, Kepsek, and the owner of the record can get it.
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
 
-    // Default deny all other collections/paths
-    match /{document=**} {
-      allow read, write: if false;
+      // LIST: Any authenticated user can attempt a list.
+      // A guru's query `where('teacherUid', '==', their_uid)` will succeed.
+      allow list: if isAuthenticated();
+
+      // CREATE/UPDATE/DELETE: Only the owner, Admin, or Kepsek can modify the record.
+      allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || request.resource.data.teacherUid == request.auth.uid);
+    }
+    
+    match /laporan_kegiatan/{docId} {
+      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.createdByUid == request.auth.uid);
+      allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.createdByUid));
     }
   }
 }

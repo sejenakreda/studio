@@ -117,6 +117,9 @@ function LoginForm() {
       });
       // DO NOT router.push('/') here. LoginPage's useEffect will handle redirection.
     } catch (e: any) {
+      // Log the full error to the console for debugging
+      console.error("Detail Error Login:", e);
+
       let friendlyMessage = 'Terjadi kesalahan. Silakan coba lagi.';
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
         friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan periksa kembali.';
@@ -150,7 +153,7 @@ function LoginForm() {
           Alamat Email
         </Label>
         <Input
-          id="email-login" 
+          id="email-login"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -165,7 +168,7 @@ function LoginForm() {
           Password
         </Label>
         <Input
-          id="password-login" 
+          id="password-login"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -175,8 +178,8 @@ function LoginForm() {
           aria-label="Password"
         />
       </div>
-      <Button 
-        type="submit" 
+      <Button
+        type="submit"
         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         disabled={loadingLoginForm}
         aria-live="polite"

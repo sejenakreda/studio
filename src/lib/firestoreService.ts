@@ -926,7 +926,7 @@ export const updatePelanggaran = async (id: string, data: Partial<Omit<Pelanggar
 
 export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
   const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-  const q = query(collRef);
+  const q = query(collRef, orderBy('tanggal', 'desc'));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => doc.data());
 };
@@ -1002,34 +1002,41 @@ export const addOrUpdateAgendaKelas = async (data: Omit<AgendaKelas, 'id' | 'cre
 export const getAgendasForTeacher = async (teacherUid: string, year: number, month: number): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
 
-    const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-    const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59));
+    const startDate = new Date(year, month - 1, 1);
+    startDate.setHours(0, 0, 0, 0);
 
-    // Query without ordering to avoid composite index requirement.
+    const endDate = new Date(year, month, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    // To avoid needing a composite index, we query only by teacher and filter the date on the client.
     const q = query(coll, 
-        where('teacherUid', '==', teacherUid),
-        where('tanggal', '>=', startDate),
-        where('tanggal', '<=', endDate)
+        where('teacherUid', '==', teacherUid)
     );
     
     const snapshot = await getDocs(q);
-    const agendas = snapshot.docs.map(doc => doc.data());
+    const allTeacherAgendas = snapshot.docs.map(doc => doc.data());
 
-    // Sort on the client side now
-    return agendas.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    // Filter by date on the client side
+    const agendasInMonth = allTeacherAgendas.filter(agenda => {
+        const agendaDate = agenda.tanggal.toDate();
+        return agendaDate >= startDate && agendaDate <= endDate;
+    });
+
+    // Sort the filtered results
+    return agendasInMonth.sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
 };
 
 export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
     // Simplified query to avoid composite index
-    const q = query(coll);
+    const q = query(coll, orderBy('tanggal', 'desc'));
     const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map(doc => doc.data());
-    // Sort on client
-    return data.sort((a,b) => b.tanggal.toMillis() - a.tanggal.toMillis());
+    return data;
 };
 
 export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+

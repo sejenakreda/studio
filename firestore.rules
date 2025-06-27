@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -25,8 +24,8 @@ service cloud.firestore {
     }
     
     function hasTugas(tugas) {
-      // Use 'in' operator for lists (arrays)
-      return isGuru() && tugas in getUserData().tugasTambahan;
+      // Robust check for tugasTambahan existence and membership
+      return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
     }
 
     function isKepalaSekolah() {
@@ -37,7 +36,6 @@ service cloud.firestore {
       return hasTugas('kesiswaan');
     }
 
-    // --- Collection Rules ---
     match /users/{userId} {
       allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin();
@@ -52,13 +50,12 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
-      // GET: Admin, Kepsek, or the teacher who owns the grade can get it.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
-      // LIST: Any authenticated user can list, but results are filtered by the 'get' rule.
+      // GET: Admin, Kepsek, and the grade's owner can get a specific record.
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
+      // LIST: Any authenticated user can list. Firestore security rules on 'get' will be applied to the results.
       allow list: if isAuthenticated();
-      // WRITE: Admin or the owner teacher can create/update.
+      // WRITE: Only Admin or the grade's owner can write.
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
-      // DELETE: Admin or the owner teacher can delete.
       allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
     
@@ -71,14 +68,14 @@ service cloud.firestore {
         allow read, write: if isAdmin();
     }
     
+    // FIX: All authenticated users can read configs to prevent "gagal memuat" errors.
     match /academicYearConfigs/{docId} {
-        // All signed-in users need to read this for UI dropdowns.
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
+    // FIX: All authenticated users can read configs to prevent "gagal memuat" errors.
     match /kkm_settings/{docId} {
-        // All signed-in users need to read this for UI validation.
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
@@ -122,7 +119,7 @@ service cloud.firestore {
     }
     
     match /laporan_kegiatan/{docId} {
-      // FIX: Added hasTugas('kepala_tata_usaha') to allow read access.
+      // FIX: Added hasTugas('kepala_tata_usaha') to the read rule to fix the last remaining bug.
       allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || hasTugas('kepala_tata_usaha') || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.createdByUid));

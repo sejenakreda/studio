@@ -1,134 +1,119 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
     
-    function getUserData(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data;
-    }
-
+    // Helper Functions
     function isOwner(uid) {
-      return request.auth.uid == uid;
+      return request.auth != null && request.auth.uid == uid;
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData(request.auth.uid).role == 'admin';
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
+    
     function isGuru() {
-      return isSignedIn() && getUserData(request.auth.uid).role == 'guru';
-    }
-    
-    function hasTugas(tugas) {
-        return isSignedIn() && tugas in getUserData(request.auth.uid).tugasTambahan;
-    }
-    
-    function isKepalaSekolah() {
-      return hasTugas('kepala_sekolah');
-    }
-    
-    function isKesiswaan() {
-        return hasTugas('kesiswaan');
-    }
-    
-    function isKepalaTataUsaha() {
-        return hasTugas('kepala_tata_usaha');
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guru';
     }
 
-    // --- RULES FOR COLLECTIONS ---
+    function isKepalaSekolah() {
+        return request.auth != null && 'kepala_sekolah' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tugasTambahan;
+    }
+
+    function isKepalaSekolahOrAdmin() {
+      return isAdmin() || isKepalaSekolah();
+    }
+    
+    // --- Collection Rules ---
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin() || isKepalaSekolah());
-      allow list: if isAdmin() || isKepalaSekolah();
-      allow create, update, delete: if isAdmin();
-    }
-    
-    match /bobot/{bobotId} {
-      allow read: if isSignedIn(); // Any logged in user can read weights
-      allow write: if isAdmin();
+      allow read: if isOwner(userId) || isKepalaSekolahOrAdmin();
+      allow write: if isAdmin(); // Only admins can create/update user profiles directly
     }
 
     match /siswa/{studentId} {
-      allow read: if isSignedIn() && (isGuru() || isAdmin());
+      allow read: if isGuru() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /bobot/{document} {
+      allow read: if isGuru() || isAdmin();
       allow write: if isAdmin();
     }
     
-    match /nilai/{gradeId} {
-      allow read: if isSignedIn() && (isAdmin() || isKepalaSekolah() || isOwner(resource.data.teacherUid));
-      allow create, update: if isSignedIn() && isOwner(request.resource.data.teacherUid);
-      allow delete: if isSignedIn() && (isAdmin() || isOwner(resource.data.teacherUid));
-    }
-
-    match /activity_logs/{logId} {
-      allow read, list: if isAdmin() || isKepalaSekolah();
-      allow create: if isSignedIn();
-    }
-
-    match /academicYearConfigs/{configId} {
-      allow read: if isSignedIn(); // Any logged in user can read this config
+    match /academicYearConfigs/{yearId} {
+      allow read: if isGuru() || isAdmin();
       allow write: if isAdmin();
     }
-
+    
     match /kkm_settings/{kkmId} {
-      allow read: if isSignedIn() && (isGuru() || isAdmin());
-      allow write: if isAdmin();
+        allow read: if isGuru() || isAdmin();
+        allow write: if isAdmin();
     }
     
     match /mataPelajaranMaster/{mapelId} {
-       allow read: if isSignedIn() && (isGuru() || isAdmin());
-       allow write: if isAdmin();
-    }
-
-    match /pengumuman/{pengumumanId} {
-      allow read: if isSignedIn(); // Any logged in user can read announcements
+      allow read: if isGuru() || isAdmin();
       allow write: if isAdmin();
     }
-
-    match /teacherDailyAttendance/{dailyId} {
-      // Guru can read their own records, admin/kepsek can read all.
-      allow read: if isSignedIn() && (isOwner(resource.data.teacherUid) || isAdmin() || isKepalaSekolah());
-      // A guru can only create/update a record for themselves.
-      allow create, update: if isSignedIn() && (isOwner(request.resource.data.teacherUid) || isAdmin());
-      // Admin only for delete to maintain data integrity.
-      allow delete: if isAdmin();
+    
+    match /pengumuman/{pengumumanId} {
+      allow read: if isGuru() || isAdmin();
+      allow write: if isAdmin();
     }
     
     match /schoolConfig/{configId} {
-       allow read: if isSignedIn(); // Any logged in user can read school profile
-       allow write: if isAdmin();
+        allow read: if isGuru() || isAdmin();
+        allow write: if isAdmin();
+    }
+
+    match /nilai/{gradeId} {
+      // Teachers can read/write grades they own. Admins/Kepsek can read any.
+      allow read: if request.auth != null && (isOwner(resource.data.teacherUid) || isKepalaSekolahOrAdmin());
+      allow write: if request.auth != null && isOwner(request.resource.data.teacherUid);
+      // Only Admin/Kepsek can delete.
+      allow delete: if request.auth != null && isKepalaSekolahOrAdmin();
+    }
+
+    match /teacherDailyAttendance/{dailyId} {
+      // This is the corrected rule.
+      // It handles three cases:
+      // 1. Admin/Kepsek can read anything.
+      // 2. A get() request for an existing document checks the teacherUid inside the document.
+      // 3. A get() request for a non-existent document checks the teacherUid in the document's path.
+      allow read: if request.auth != null && (
+        isKepalaSekolahOrAdmin() ||
+        (resource != null && resource.data.teacherUid == request.auth.uid) ||
+        (resource == null && dailyId.split('_')[0] == request.auth.uid)
+      );
+
+      // Write is for create/update. A teacher can only write their own attendance.
+      allow write: if request.auth != null && (isOwner(request.resource.data.teacherUid) || isKepalaSekolahOrAdmin());
+                   
+      // Only Admin/Kepsek can delete.
+      allow delete: if request.auth != null && isKepalaSekolahOrAdmin();
+    }
+
+    match /pelanggaran_siswa/{pelanggaranId} {
+        allow read: if request.auth != null && (isGuru() || isAdmin());
+        allow write: if request.auth != null && isGuru();
+        allow delete: if isKepalaSekolahOrAdmin();
     }
     
-    match /pelanggaran_siswa/{pelanggaranId} {
-      // Any guru can create a violation record (e.g. BK, Kesiswaan).
-      allow create: if isGuru();
-      // Only Admin or specific roles can read/list all violations.
-      allow read: if isAdmin() || isKepalaSekolah() || isKesiswaan();
-      // Admin only for write/delete to maintain data integrity.
-      allow update, delete: if isAdmin();
-    }
-
     match /laporan_kegiatan/{laporanId} {
-      // A guru can read their own reports. Admin/Kepsek/KepalaTU can read all.
-      allow read: if isSignedIn() && (isOwner(resource.data.createdByUid) || isAdmin() || isKepalaSekolah() || isKepalaTataUsaha());
-      // A guru can create a report for themselves.
-      allow create: if isSignedIn() && isOwner(request.resource.data.createdByUid);
-      // A guru can update/delete their own reports. Admin can do any.
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.createdByUid) || isAdmin());
+      allow read: if request.auth != null && (isOwner(resource.data.createdByUid) || isKepalaSekolahOrAdmin());
+      allow write: if request.auth != null && isOwner(request.resource.data.createdByUid);
+      allow delete: if request.auth != null && isOwner(resource.data.createdByUid);
+    }
+    
+    match /agenda_kelas/{agendaId} {
+      allow read: if request.auth != null && (isOwner(resource.data.teacherUid) || isKepalaSekolahOrAdmin());
+      allow write: if request.auth != null && isOwner(request.resource.data.teacherUid);
+      allow delete: if request.auth != null && isOwner(resource.data.teacherUid);
     }
 
-    match /agenda_kelas/{agendaId} {
-      // Guru can read their own agenda. Admin/Kepsek can read all.
-      allow read: if isSignedIn() && (isOwner(resource.data.teacherUid) || isAdmin() || isKepalaSekolah());
-      // Guru can create a record for themselves.
-      allow create: if isSignedIn() && isOwner(request.resource.data.teacherUid);
-      // Guru can update/delete their own records.
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.teacherUid) || isAdmin());
+    // Default deny all other collections/paths
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

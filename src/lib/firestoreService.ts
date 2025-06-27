@@ -861,12 +861,26 @@ export const getTeacherDailyAttendanceForDate = async (teacherUid: string, date:
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year: number, month: number): Promise<TeacherDailyAttendance[]> => {
-  const startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
-  const endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+  const startDate = new Date(year, month - 1, 1);
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(year, month, 0);
+  endDate.setHours(23, 59, 59, 999);
+  
   const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
-  const q = query(collRef, where('teacherUid', '==', teacherUid), where('date', '>=', startDate), where('date', '<=', endDate), orderBy('date', 'asc'));
+  
+  // Simplified query to avoid composite index
+  const q = query(collRef, where('teacherUid', '==', teacherUid));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
+  const allUserRecords = querySnapshot.docs.map(doc => doc.data());
+
+  // Filter and sort on the client-side
+  const recordsInMonth = allUserRecords.filter(record => {
+      const recordDate = record.date.toDate();
+      return recordDate >= startDate && recordDate <= endDate;
+  });
+  
+  return recordsInMonth.sort((a, b) => (a.date.toDate().getTime()) - (b.date.toDate().getTime()));
 };
 export const deleteTeacherDailyAttendance = async (id: string): Promise<void> => {
   if (!id) throw new Error("Document ID is required.");
@@ -1039,4 +1053,5 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     const docRef = doc(db, AGENDA_KELAS_COLLECTION, id);
     await deleteDoc(docRef);
 };
+
 

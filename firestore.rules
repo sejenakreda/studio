@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -13,9 +12,12 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function getRole() {
-      // Get the user's role from their profile in the 'users' collection
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserData().role;
     }
 
     function isAdmin() {
@@ -23,13 +25,19 @@ service cloud.firestore {
     }
 
     function isGuru() {
-        // This now ONLY returns true for users with the literal 'guru' role.
         return isSignedIn() && getRole() == 'guru';
     }
 
+    function isReportViewer() {
+        let userTugas = getUserData().tugasTambahan;
+        if (userTugas == null) {
+            return false;
+        }
+        // These roles can view all reports, not just their own.
+        return userTugas.hasAny(['kepala_sekolah', 'kepala_tata_usaha', 'kesiswaan', 'kurikulum']);
+    }
+
     // ===== Default Rule: Deny All =====
-    // By default, no one can read or write to any document.
-    // Specific rules below will grant access.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -38,55 +46,40 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /users/{userId} {
-      // An admin can get any profile. A user can get their own.
-      allow get, update: if isAdmin() || isOwner(userId);
-      // Any guru (including special roles) or admin can list user data for reports.
-      allow list: if isGuru() || isAdmin();
-      // Only admins can create new users or delete existing ones.
+      allow read: if isAdmin() || isOwner(userId);
+      allow update: if isAdmin() || isOwner(userId);
       allow create, delete: if isAdmin();
     }
     
     // --- Students ---
-    // Rules for the 'siswa' collection
     match /siswa/{studentId} {
-      // Any signed-in user (admin or guru) can read the list of students.
       allow read: if isSignedIn();
-      // Only admins can add, change, or remove students from the master list.
       allow create, update, delete: if isAdmin();
     }
     
     // --- Grades ---
-    // Rules for the 'nilai' collection
     match /nilai/{gradeId} {
-      // Any signed-in user can read grade data (for reports, etc.).
       allow read: if isSignedIn();
-      // Only users with the 'guru' role can create or update grades.
       allow create, update: if isGuru();
-      // Only admins have the power to delete grade records.
       allow delete: if isAdmin();
     }
     
-    // --- Academic Settings (Bobot, KKM, Mapel, etc.) ---
-    
-    // Global grade weights
+    // --- Academic Settings ---
     match /bobot/global_weights {
-      allow read: if isSignedIn(); // All users can read weights for calculations.
-      allow write: if isAdmin(); // Only admins can change weights.
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
     
-    // Master list of subjects
     match /mataPelajaranMaster/{mapelId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
     
-    // Active academic years
     match /academicYearConfigs/{yearId} {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
     }
     
-    // KKM (Minimum Passing Grade) settings
     match /kkm_settings/{kkmId} {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
@@ -94,57 +87,47 @@ service cloud.firestore {
 
     // --- Communication & Reports ---
     
-    // Announcements
     match /pengumuman/{announcementId} {
         allow read: if isSignedIn();
         allow create, delete: if isAdmin();
     }
 
-    // Daily teacher attendance records
     match /teacherDailyAttendance/{dailyId} {
-       // Admins and Gurus (for Kepsek reports) can read any record.
-       allow read: if isGuru() || isAdmin();
-       // A teacher can submit their own attendance. An admin can edit it.
+       allow read: if isAdmin() || isOwner(dailyId.split('_')[0]);
        allow create, update: if isOwner(dailyId.split('_')[0]) || isAdmin();
        allow delete: if isAdmin();
     }
     
-    // Student Violations
     match /pelanggaran_siswa/{violationId} {
-        allow read: if isGuru() || isAdmin();
+        allow read: if isGuru();
         allow create: if isGuru();
         allow update, delete: if isAdmin();
     }
-
-    // Activity Reports (Kesiswaan, Pembina, etc.)
+    
     match /laporan_kegiatan/{reportId} {
-        // Admins and Gurus (for Kepsek reports) can read all reports.
-        allow read: if isGuru() || isAdmin();
+        // Admins, designated report viewers, or the owner can read.
+        allow read: if isAdmin() || isReportViewer() || isOwner(resource.data.createdByUid);
         allow create: if isGuru();
-        // A guru can edit/delete their own reports. Admins can manage all.
+        // Only the owner or an admin can modify.
         allow update, delete: if isAdmin() || isOwner(resource.data.createdByUid);
     }
     
-    // Class Agendas
     match /agenda_kelas/{agendaId} {
-        // Admins and Gurus (for Kepsek reports) can read all agendas.
-        allow read: if isGuru() || isAdmin();
+        // Admins and owners can read all agendas. Simplifies queries.
+        allow read: if isAdmin() || isOwner(resource.data.teacherUid);
         allow create: if isGuru();
-        // A guru can edit/delete their own agendas. Admins can manage all.
+        // Only owner or admin can modify
         allow update, delete: if isAdmin() || isOwner(resource.data.teacherUid);
     }
 
     // --- System & Config ---
     
-    // School Profile
     match /schoolConfig/main_profile {
         allow read: if isSignedIn();
         allow write: if isAdmin();
     }
 
-    // Activity Logs
     match /activity_logs/{logId} {
-      // Only admins can read or write to the activity log.
       allow read, write: if isAdmin();
     }
   }

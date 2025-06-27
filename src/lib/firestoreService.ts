@@ -671,7 +671,7 @@ export const createUserProfile = async (
 };
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-  const docSnap = await getDoc(docRef);
+  const docSnap = await getDoc(userDocRef);
   return docSnap.exists() ? docSnap.data() : null;
 };
 export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
@@ -957,10 +957,12 @@ export const updateLaporanKegiatan = async (id: string, data: Partial<Omit<Lapor
 
 export const getLaporanKegiatanByActivity = async (activityId: TugasTambahan, userUid: string): Promise<LaporanKegiatan[]> => {
   const collRef = collection(db, LAPORAN_KEGIATAN_COLLECTION).withConverter(laporanKegiatanConverter);
-  // Add createdByUid to the query to satisfy security rules for gurus
-  const q = query(collRef, where('activityId', '==', activityId), where('createdByUid', '==', userUid));
+  // Query only by user UID to avoid needing a composite index for gurus.
+  const q = query(collRef, where('createdByUid', '==', userUid));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => doc.data());
+  const allUserReports = querySnapshot.docs.map(doc => doc.data());
+  // Filter by activityId on the client side.
+  return allUserReports.filter(report => report.activityId === activityId);
 };
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {

@@ -1,144 +1,88 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- Helper Functions ---
-    function isAuthenticated() {
-      return request.auth != null;
-    }
+    function isAuthenticated() { return request.auth != null; }
+    function isUser(uid) { return isAuthenticated() && request.auth.uid == uid; }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
+    // This function is now safe because the /users rule is fixed.
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isAuthenticated() && getUserData().role == 'admin'; }
+    function isGuru() { return isAuthenticated() && getUserData().role == 'guru'; }
+    function hasTugas(tugas) { return isGuru() && tugas in getUserData().tugasTambahan; }
+    function isKepalaSekolah() { return hasTugas('kepala_sekolah'); }
+    function isKesiswaan() { return hasTugas('kesiswaan'); }
+    function isKepalaTataUsaha() { return hasTugas('kepala_tata_usaha'); }
 
-    function isUser(uid) {
-      return request.auth.uid == uid;
-    }
+    // --- Collection Rules ---
 
-    function isAdmin() {
-      return isAuthenticated() && getUserData().role == 'admin';
-    }
-
-    function isGuru() {
-      return isAuthenticated() && getUserData().role == 'guru';
-    }
-
-    function hasTugas(tugas) {
-      let tugasList = getUserData().tugasTambahan;
-      return tugasList is list && tugas in tugasList;
-    }
-
-    function isKepalaSekolah() {
-      return isGuru() && hasTugas('kepala_sekolah');
-    }
-
-    function isKepalaTataUsaha() {
-      return isGuru() && hasTugas('kepala_tata_usaha');
-    }
-
-    function isWakasek() {
-      return isGuru() && (hasTugas('kesiswaan') || hasTugas('kurikulum') || hasTugas('bendahara'));
-    }
-
-    function isTUStaff(uid) {
-      let user = get(/databases/$(database)/documents/users/$(uid)).data;
-      return user.tugasTambahan is list &&
-        ('operator' in user.tugasTambahan || 'staf_tu' in user.tugasTambahan || 'satpam' in user.tugasTambahan || 'penjaga_sekolah' in user.tugasTambahan);
-    }
-
-    // --- users ---
+    // This rule prevents the deadlock issue.
     match /users/{userId} {
-      allow get: if isAuthenticated() && (isAdmin() || isUser(userId));
+      allow get: if isUser(userId) || isAdmin();
       allow list: if isAdmin() || isKepalaSekolah();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || isUser(userId);
+      allow update: if isUser(userId) || isAdmin();
     }
-
-    // --- siswa ---
+    
     match /siswa/{docId} {
-      allow read: if isAuthenticated() && (isAdmin() || isGuru());
+      allow read: if isAdmin() || isGuru();
       allow write: if isAdmin();
     }
-
-    // --- nilai ---
+    
     match /nilai/{docId} {
-      allow get, list: if isAuthenticated() && (isAdmin() || resource.data.teacherUid == request.auth.uid);
-      allow create, update, delete: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create, update: if isGuru() && request.resource.data.teacherUid == request.auth.uid || isAdmin();
+      allow delete: if isGuru() && resource.data.teacherUid == request.auth.uid || isAdmin();
     }
-
-    // --- agenda_kelas ---
+    
     match /agenda_kelas/{docId} {
-      allow get, list: if isAuthenticated() && (isAdmin() || resource.data.teacherUid == request.auth.uid);
-      allow create, update, delete: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create, update: if isGuru() && request.resource.data.teacherUid == request.auth.uid || isAdmin();
+      allow delete: if isGuru() && resource.data.teacherUid == request.auth.uid || isAdmin();
+    }
+    
+    match /laporan_kegiatan/{docId} {
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.createdByUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create: if isGuru() && request.resource.data.createdByUid == request.auth.uid || isAdmin();
+      allow update, delete: if (isGuru() && resource.data.createdByUid == request.auth.uid) || isAdmin();
+    }
+    
+    match /pelanggaran_siswa/{docId} {
+        allow read: if isAdmin() || isKepalaSekolah() || isKesiswaan() || hasTugas('bk');
+        allow create: if isGuru() && (isKesiswaan() || hasTugas('bk'));
+        allow write: if isAdmin() || isKesiswaan();
     }
 
-    // --- teacherDailyAttendance ---
+    // --- THE FIX IS HERE ---
+    match /activity_logs/{docId} {
+        allow create: if isGuru(); // Any guru can create a log entry.
+        allow read, update, delete: if isAdmin(); // Only admin can manage logs.
+    }
+    
+    // --- Other Config Collections ---
+    match /bobot/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /academicYearConfigs/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /kkm_settings/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /mataPelajaranMaster/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /pengumuman/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /schoolConfig/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+
+    // --- Attendance Collections (Generally OK from stable version) ---
     match /teacherDailyAttendance/{docId} {
-      allow get: if isAuthenticated() && (isAdmin() || docId.split('_')[0] == request.auth.uid);
+      allow get: if isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid);
       allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      allow update, delete: if isAuthenticated() && (isAdmin());
+      allow create: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
+      allow update, delete: if isAdmin() || isKepalaSekolah();
     }
 
     match /teacherAttendance/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    // --- laporan_kegiatan ---
-    match /laporan_kegiatan/{docId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() ||
-        isKepalaSekolah() ||
-        (isKepalaTataUsaha() && isTUStaff(resource.data.createdByUid)) ||
-        resource.data.createdByUid == request.auth.uid
-      );
-
-      allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
-
-      allow update, delete: if isAuthenticated() && (isAdmin() || resource.data.createdByUid == request.auth.uid);
-    }
-
-    // --- pelanggaran_siswa ---
-    match /pelanggaran_siswa/{docId} {
-      allow read: if isAuthenticated() && (isAdmin() || hasTugas('kesiswaan'));
-      allow create: if isAuthenticated() && isGuru() && (hasTugas('kesiswaan') || hasTugas('bk'));
-      allow update, delete: if isAdmin() || hasTugas('kesiswaan');
-    }
-
-    // --- read-only public config ---
-    match /academicYearConfigs/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /kkm_settings/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /bobot/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /mataPelajaranMaster/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /pengumuman/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /schoolConfig/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /activity_logs/{docId} {
-      allow read, write: if isAdmin();
+       allow read, write: if isAdmin() || isKepalaSekolah();
     }
   }
 }

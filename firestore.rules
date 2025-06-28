@@ -1,147 +1,89 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- Helper Functions ---
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function getUserData() {
-      // This function is the source of the deadlock if not used carefully.
-      // It relies on the /users/{userId} rule being accessible.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isAdmin() {
-      // This is safe to call as long as the /users/{userId} rule is fixed.
-      return isAuthenticated() && getUserData().role == 'admin';
-    }
-
-    function isGuru() {
-      // This is safe to call as long as the /users/{userId} rule is fixed.
-      return isAuthenticated() && getUserData().role == 'guru';
-    }
-    
-    function hasTugas(tugas) {
-      return isGuru() && tugas in getUserData().tugasTambahan;
-    }
-
-    function isKepalaSekolah() {
-      return hasTugas('kepala_sekolah');
-    }
-    
-    function isKesiswaan() {
-      return hasTugas('kesiswaan');
-    }
-
-    function isKepalaTataUsaha() {
-      return hasTugas('kepala_tata_usaha');
-    }
+    // These helpers are now safe to use because the 'users' rule below is fixed.
+    function isAuthenticated() { return request.auth != null; }
+    function isUser(uid) { return isAuthenticated() && request.auth.uid == uid; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isAuthenticated() && getUserData().role == 'admin'; }
+    function isGuru() { return isAuthenticated() && getUserData().role == 'guru'; }
+    function hasTugas(tugas) { return isGuru() && tugas in getUserData().tugasTambahan; }
+    function isKepalaSekolah() { return hasTugas('kepala_sekolah'); }
+    function isKesiswaan() { return hasTugas('kesiswaan'); }
+    function isKepalaTataUsaha() { return hasTugas('kepala_tata_usaha'); }
 
     // --- Collection Rules ---
 
-    // **THE CRITICAL FIX IS HERE**
-    // This rule is simplified to break the recursive deadlock.
-    // A user can always get their own document. An admin can read any user document.
-    // This allows helper functions like isGuru() and isAdmin() to work correctly elsewhere.
+    // FIX: This rule is rewritten to prevent a deadlock loop.
+    // It explicitly checks the authenticated user's role without calling helper functions
+    // that would in turn read from this same collection.
     match /users/{userId} {
-      allow get: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin() || isKepalaSekolah();
+      allow get: if request.auth.uid == userId || (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow list: if isAdmin(); // This now works because the `get` in isAdmin() is allowed.
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || request.auth.uid == userId;
-    }
-    
-    match /siswa/{docId} {
-      // Any authenticated user can read student data
-      allow read: if isAuthenticated();
-      // Only admins can modify student data
-      allow write: if isAdmin();
-    }
-    
-    match /nilai/{docId} {
-      // Any authenticated user can list grades (the query itself is filtered in the app)
-      allow list: if isAuthenticated();
-      // An admin, kepala sekolah, or the teacher who owns the grade can get it.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
-      // A guru can create/update/delete THEIR OWN grades. An admin can do anything.
-      allow write: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
-    }
-    
-    match /bobot/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    
-    match /activity_logs/{docId} {
-        allow read, write: if isAdmin();
-    }
-    
-    match /academicYearConfigs/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
-    }
-    
-    match /kkm_settings/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
-    }
-    
-    match /mataPelajaranMaster/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
-    }
-    
-    match /pengumuman/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow update: if isUser(userId) || isAdmin();
     }
 
+    match /siswa/{docId} {
+      allow read: if isAdmin() || isGuru();
+      allow write: if isAdmin();
+    }
+
+    // FIX: Simplified rules to allow any guru to CRUD their own data.
+    match /nilai/{docId} {
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create, update: if isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid);
+      allow delete: if isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+    }
+
+    // FIX: Simplified rules to allow any guru to CRUD their own data.
+    match /agenda_kelas/{docId} {
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create, update: if isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid);
+      allow delete: if isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid);
+    }
+
+    // FIX: Simplified rules to allow any guru to CRUD their own data.
+    match /laporan_kegiatan/{docId} {
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.createdByUid == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
+      allow create: if isGuru() && request.resource.data.createdByUid == request.auth.uid;
+      allow update, delete: if isAdmin() || (isGuru() && resource.data.createdByUid == request.auth.uid);
+    }
+
+    match /pelanggaran_siswa/{docId} {
+      allow read: if isAdmin() || isKepalaSekolah() || isKesiswaan() || hasTugas('bk');
+      allow create: if isGuru() && (isKesiswaan() || hasTugas('bk'));
+      allow update, delete: if isAdmin() || isKesiswaan() || hasTugas('bk');
+    }
+    
+    // --- Config & Log Collections ---
+    match /bobot/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /activity_logs/{docId} { allow read, write: if isAdmin(); }
+    match /academicYearConfigs/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /kkm_settings/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /mataPelajaranMaster/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /pengumuman/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /schoolConfig/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+
+    // --- Attendance Collections ---
     match /teacherDailyAttendance/{docId} {
-      // An admin, kepala sekolah, or the teacher themselves can get a specific attendance record.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
-      // Any authenticated user can list (for admin reports etc.)
-      allow list: if isAuthenticated();
-      // Only the specific guru can create their own attendance record
+      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && docId.split('_')[0] == request.auth.uid);
+      allow list: if isAdmin() || isGuru();
       allow create: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      // Only admin or kepala sekolah can edit/delete daily records
-      allow update, delete: if isAdmin() || isKepalaSekolah();
+      allow update, delete: if isAdmin();
     }
 
     match /teacherAttendance/{docId} {
-       // Only admin or kepala sekolah can manage monthly rekap
-       allow read, write: if isAdmin() || isKepalaSekolah();
-    }
-    
-    match /schoolConfig/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
-    }
-    
-    match /pelanggaran_siswa/{docId} {
-        allow read: if isAuthenticated(); // Broad read for reports
-        // Only Kesiswaan or BK can create violations
-        allow create: if isGuru() && (isKesiswaan() || hasTugas('bk'));
-        // Only admin or kesiswaan can edit/delete
-        allow write: if isAdmin() || isKesiswaan();
-    }
-    
-    match /agenda_kelas/{docId} {
-      allow list: if isAuthenticated();
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
-      // A guru can create/update/delete THEIR OWN agenda. Admin can do anything.
-      allow write: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
-    }
-    
-    match /laporan_kegiatan/{docId} {
-      // Broad read for reports
-      allow read: if isAuthenticated();
-      // A guru can create THEIR OWN report
-      allow create: if isGuru() && request.resource.data.createdByUid == request.auth.uid;
-      // A guru can update/delete THEIR OWN report. Admin can do anything.
-      allow update, delete: if isAdmin() || (isGuru() && resource.data.createdByUid == request.auth.uid);
+      allow read, write: if isAdmin() || isKepalaSekolah();
     }
   }
 }

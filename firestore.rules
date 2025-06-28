@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -127,7 +128,9 @@ service cloud.firestore {
     match /agenda_kelas/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
       allow list: if isAuthenticated();
-      allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || request.resource.data.teacherUid == request.auth.uid);
+      // FIX: Separated write rule to handle delete operations correctly for gurus.
+      allow create, update: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      allow delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
     
     match /laporan_kegiatan/{docId} {

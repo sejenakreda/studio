@@ -4,86 +4,141 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- Helper Functions ---
-    // These helpers are now safe to use because the 'users' rule below is fixed.
-    function isAuthenticated() { return request.auth != null; }
-    function isUser(uid) { return isAuthenticated() && request.auth.uid == uid; }
-    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isAdmin() { return isAuthenticated() && getUserData().role == 'admin'; }
-    function isGuru() { return isAuthenticated() && getUserData().role == 'guru'; }
-    function hasTugas(tugas) { return isGuru() && tugas in getUserData().tugasTambahan; }
-    function isKepalaSekolah() { return hasTugas('kepala_sekolah'); }
-    function isKesiswaan() { return hasTugas('kesiswaan'); }
-    function isKepalaTataUsaha() { return hasTugas('kepala_tata_usaha'); }
-
-    // --- Collection Rules ---
-
-    // **CRITICAL FIX**: Make user profile readable by its own user without causing a deadlock.
-    // This is the key to making all other role-based checks work for reads.
-    match /users/{userId} {
-      allow get: if isUser(userId) || isAdmin();
-      allow list: if isAdmin() || isKepalaSekolah();
-      allow create, delete: if isAdmin();
-      allow update: if isUser(userId) || isAdmin();
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isUser(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function isGuru() {
+      return isAuthenticated() && getUserData().role == 'guru';
+    }
+
+    function hasTugas(tugas) {
+      let tugasList = getUserData().tugasTambahan;
+      return tugasList is list && tugas in tugasList;
+    }
+
+    function isKepalaSekolah() {
+      return isGuru() && hasTugas('kepala_sekolah');
+    }
+
+    function isKepalaTataUsaha() {
+      return isGuru() && hasTugas('kepala_tata_usaha');
+    }
+
+    function isWakasek() {
+      return isGuru() && (hasTugas('kesiswaan') || hasTugas('kurikulum') || hasTugas('bendahara'));
+    }
+
+    function isTUStaff(uid) {
+      let user = get(/databases/$(database)/documents/users/$(uid)).data;
+      return user.tugasTambahan is list &&
+        ('operator' in user.tugasTambahan || 'staf_tu' in user.tugasTambahan || 'satpam' in user.tugasTambahan || 'penjaga_sekolah' in user.tugasTambahan);
+    }
+
+    // --- users ---
+    match /users/{userId} {
+      allow get: if isAuthenticated() && (isAdmin() || isUser(userId));
+      allow list: if isAdmin() || isKepalaSekolah();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isUser(userId);
+    }
+
+    // --- siswa ---
     match /siswa/{docId} {
-      allow read: if isAdmin() || isGuru();
+      allow read: if isAuthenticated() && (isAdmin() || isGuru());
       allow write: if isAdmin();
     }
 
-    // MANUAL OVERRIDE: Simplify write rules to bypass complex role checks and only verify ownership.
+    // --- nilai ---
     match /nilai/{docId} {
-      allow read: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
-      allow list: if isAdmin() || isGuru(); // Guru can query the list, the 'get' rule will secure each doc.
-      // FIX: Remove isGuru() check. If you're logged in and the UID matches, you can write.
-      allow create, update: if isAuthenticated() && request.resource.data.teacherUid == request.auth.uid;
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.teacherUid == request.auth.uid);
+      allow get, list: if isAuthenticated() && (isAdmin() || resource.data.teacherUid == request.auth.uid);
+      allow create, update, delete: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
     }
 
-    // MANUAL OVERRIDE: Simplify write rules to bypass complex role checks.
+    // --- agenda_kelas ---
     match /agenda_kelas/{docId} {
-      allow read: if isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid);
-      allow list: if isAdmin() || isGuru();
-       // FIX: Remove isGuru() check. If you're logged in and the UID matches, you can write.
-      allow create, update: if isAuthenticated() && request.resource.data.teacherUid == request.auth.uid;
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.teacherUid == request.auth.uid);
+      allow get, list: if isAuthenticated() && (isAdmin() || resource.data.teacherUid == request.auth.uid);
+      allow create, update, delete: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
     }
 
-    // MANUAL OVERRIDE: Simplify write rules to bypass complex role checks.
-    match /laporan_kegiatan/{docId} {
-      allow read: if isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || (isGuru() && resource.data.createdByUid == request.auth.uid);
-      allow list: if isAdmin() || isGuru();
-       // FIX: Remove isGuru() check. If you're logged in and the UID matches, you can write.
-      allow create: if isAuthenticated() && request.resource.data.createdByUid == request.auth.uid;
-      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.createdByUid == request.auth.uid);
-    }
-
-    match /pelanggaran_siswa/{docId} {
-      allow read: if isAdmin() || isKepalaSekolah() || isKesiswaan() || hasTugas('bk');
-      // FIX: Ensure the creator is the one logged in.
-      allow create: if isGuru() && (isKesiswaan() || hasTugas('bk')) && request.resource.data.recordedByUid == request.auth.uid;
-      allow update, delete: if isAdmin() || (isGuru() && (isKesiswaan() || hasTugas('bk')));
-    }
-    
-    // --- Config & Log Collections (No changes needed here) ---
-    match /bobot/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-    match /activity_logs/{docId} { allow read, write: if isAdmin(); }
-    match /academicYearConfigs/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-    match /kkm_settings/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-    match /mataPelajaranMaster/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-    match /pengumuman/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-    match /schoolConfig/{docId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
-
-    // --- Attendance Collections (This was already working, keeping it stable) ---
+    // --- teacherDailyAttendance ---
     match /teacherDailyAttendance/{docId} {
-      allow get: if isAdmin() || isKepalaSekolah() || (isGuru() && docId.split('_')[0] == request.auth.uid);
-      allow list: if isAdmin() || isGuru();
-      allow create: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow get: if isAuthenticated() && (isAdmin() || docId.split('_')[0] == request.auth.uid);
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (isAdmin());
     }
-    
+
     match /teacherAttendance/{docId} {
-      allow read, write: if isAdmin() || isKepalaSekolah();
+      allow read, write: if isAdmin();
+    }
+
+    // --- laporan_kegiatan ---
+    match /laporan_kegiatan/{docId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        isKepalaSekolah() ||
+        (isKepalaTataUsaha() && isTUStaff(resource.data.createdByUid)) ||
+        resource.data.createdByUid == request.auth.uid
+      );
+
+      allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
+
+      allow update, delete: if isAuthenticated() && (isAdmin() || resource.data.createdByUid == request.auth.uid);
+    }
+
+    // --- pelanggaran_siswa ---
+    match /pelanggaran_siswa/{docId} {
+      allow read: if isAuthenticated() && (isAdmin() || hasTugas('kesiswaan'));
+      allow create: if isAuthenticated() && isGuru() && (hasTugas('kesiswaan') || hasTugas('bk'));
+      allow update, delete: if isAdmin() || hasTugas('kesiswaan');
+    }
+
+    // --- read-only public config ---
+    match /academicYearConfigs/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /kkm_settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /bobot/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /mataPelajaranMaster/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /pengumuman/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /schoolConfig/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /activity_logs/{docId} {
+      allow read, write: if isAdmin();
     }
   }
 }

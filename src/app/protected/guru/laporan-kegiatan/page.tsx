@@ -74,7 +74,7 @@ export default function LaporanKegiatanPage() {
     if (!userProfile?.tugasTambahan) return [];
 
     const allReportableRoles = userProfile.tugasTambahan.filter(tugas => 
-        tugas.startsWith('pembina_') || ['kesiswaan', 'kurikulum', 'bendahara', 'bk', 'operator', 'staf_tu', 'satpam', 'penjaga_sekolah', 'kepala_tata_usaha'].includes(tugas)
+        tugas.startsWith('pembina_') || ['kesiswaan', 'kurikulum', 'bendahara', 'bk', 'operator', 'staf_tu', 'satpam', 'penjaga_sekolah', 'kepala_tata_usaha', 'kepala_sekolah'].includes(tugas)
     );
     
     if (!context) return allReportableRoles;
@@ -145,7 +145,7 @@ export default function LaporanKegiatanPage() {
     try {
         if (editingReport) {
             await updateLaporanKegiatan(editingReport.id!, { title: data.title, content: data.content, date: Timestamp.fromDate(data.date) });
-            await addActivityLog(`Laporan Kegiatan Diperbarui`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
+            await addActivityLog(`Laporan Kegiatan Diperbarui`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || "Guru");
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil diperbarui." });
         } else {
             const payload: Omit<LaporanKegiatan, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -155,10 +155,10 @@ export default function LaporanKegiatanPage() {
                 content: data.content,
                 date: Timestamp.fromDate(data.date),
                 createdByUid: userProfile.uid,
-                createdByDisplayName: userProfile.displayName!,
+                createdByDisplayName: userProfile.displayName || "Guru",
             };
             await addLaporanKegiatan(payload);
-            await addActivityLog(`Laporan Kegiatan Ditambahkan`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
+            await addActivityLog(`Laporan Kegiatan Ditambahkan`, `Judul: "${data.title}" oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || "Guru");
             toast({ title: "Sukses", description: "Laporan kegiatan berhasil disimpan." });
         }
         form.reset();
@@ -185,7 +185,7 @@ export default function LaporanKegiatanPage() {
     if (!reportToDelete || !userProfile) return;
     try {
       await deleteLaporanKegiatan(reportToDelete.id!);
-      await addActivityLog("Laporan Kegiatan Dihapus", `Laporan "${reportToDelete.title}" dihapus oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
+      await addActivityLog("Laporan Kegiatan Dihapus", `Laporan "${reportToDelete.title}" dihapus oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName || "Guru");
       toast({ title: "Sukses", description: "Laporan berhasil dihapus." });
       setReportToDelete(null);
       fetchReports();

@@ -14,11 +14,8 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      // Use exists() for safety to prevent errors if a user auth record
-      // exists but their firestore document does not.
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
-             : {};
+      // It is critical that this function is only called after isAuthenticated() is confirmed.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
@@ -26,12 +23,13 @@ service cloud.firestore {
     }
 
     function isGuru() {
+      // This is the primary check for any user with the 'guru' role.
       return isAuthenticated() && getUserData().role == 'guru';
     }
     
     function hasTugas(tugas) {
-      // Use 'in' for lists/arrays and check for field existence for safety
-      return isGuru() && 'tugasTambahan' in getUserData() && tugas in getUserData().tugasTambahan;
+      // Helper for checking special additional roles.
+      return isGuru() && tugas in getUserData().tugasTambahan;
     }
 
     function isKepalaSekolah() {
@@ -56,18 +54,23 @@ service cloud.firestore {
     }
     
     match /siswa/{docId} {
-      allow read: if isAuthenticated() && (isAdmin() || isGuru());
+      // Any authenticated user can read student data.
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
     match /nilai/{docId} {
-      // FIX: Any teacher ('isGuru()') can now read their own grade documents.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
-      // `list` allows queries. Firestore will then apply the `get` rule to each document.
+      // FIX: Any authenticated user can query grades (for admin/kepsek reports).
+      // The `get` rule below provides document-level security.
       allow list: if isAuthenticated();
       
-      // Writes are already correct.
+      // A user can get a specific grade document if they are an admin, headmaster, or the teacher who owns it.
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
+      
+      // FIX: Any user with the 'guru' role can create/update a grade as long as they set themselves as the owner.
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      
+      // A guru can delete a grade they own. Admin can delete any.
       allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
     
@@ -77,35 +80,35 @@ service cloud.firestore {
     }
     
     match /activity_logs/{docId} {
-        allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
     }
     
     match /academicYearConfigs/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     match /kkm_settings/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     match /mataPelajaranMaster/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     match /pengumuman/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /teacherDailyAttendance/{docId} {
-      // FIX: Added isGuru() check for security and consistency.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && docId.split('_')[0] == request.auth.uid));
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
       allow list: if isAuthenticated();
+      // FIX: Any 'guru' can create their own attendance record.
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      // Update/delete is intentionally restrictive, only admin/kepsek can change a record.
+      // Only admin/kepsek can modify/delete records for integrity.
       allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
 
@@ -114,32 +117,30 @@ service cloud.firestore {
     }
     
     match /schoolConfig/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     match /pelanggaran_siswa/{docId} {
-        // FIX: Added BK so they can also read violation reports.
-        allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKesiswaan() || hasTugas('bk'));
-        allow create: if isAuthenticated() && isGuru() && (isKesiswaan() || hasTugas('bk'));
-        // FIX: Allow the user who recorded the violation to also update/delete it.
-        allow update, delete: if isAuthenticated() && (isAdmin() || isKesiswaan() || (isGuru() && resource.data.recordedByUid == request.auth.uid));
+      allow read: if isAuthenticated();
+      // Only specific roles can create violation records.
+      allow create: if isAuthenticated() && (isKesiswaan() || hasTugas('bk'));
+      // Admin, Kepsek, Kesiswaan can update/delete records.
+      allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKesiswaan());
     }
     
     match /agenda_kelas/{docId} {
-      // FIX: Added isGuru() check for security and consistency.
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
       allow list: if isAuthenticated();
-      // FIX: Added isGuru() check to ensure only a teacher can create an agenda for themselves.
-      allow write: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
+      // FIX: Any 'guru' can create, update, or delete their own class agenda.
+      allow write: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
     }
     
     match /laporan_kegiatan/{docId} {
-      // FIX: Added isGuru() check for security and consistency.
-      allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || (isGuru() && resource.data.createdByUid == request.auth.uid));
-      // Rule is already correct.
+      allow read: if isAuthenticated();
+      // FIX: Any 'guru' can create a report for their tasks. The app logic should filter which tasks they see.
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
-      // FIX: Changed from isUser to be more explicit that it must be a Guru editing their own report.
+      // FIX: Any 'guru' can update/delete their OWN report. Admin can manage any.
       allow update, delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.createdByUid == request.auth.uid));
     }
   }

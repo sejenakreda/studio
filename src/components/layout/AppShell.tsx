@@ -481,7 +481,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   
   return (
     <div className="flex min-h-screen w-full">
-      <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
+      <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r print:hidden">
         <SidebarHeader className="p-4 border-b">
           <Link 
             href={userProfile?.role === 'admin' ? '/protected/admin' : '/protected/guru'} 
@@ -588,7 +588,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Sidebar>
 
       <div className="flex flex-col flex-1">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6 shadow-sm">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6 shadow-sm print:hidden">
           <div className="flex items-center gap-4">
              <SidebarTrigger className="md:hidden" />
              <h1 className="text-lg font-semibold text-foreground font-headline">

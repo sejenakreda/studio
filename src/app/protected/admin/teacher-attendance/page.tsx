@@ -270,73 +270,134 @@ export default function ManageTeacherAttendancePage() {
 
 
   return (
-    <div className="space-y-6 print:space-y-2">
-      <div className="flex items-center gap-4 print:hidden">
-        <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
-        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div>
-      </div>
-      
-       <div className="print:block hidden text-center mb-4">
-        <h2 className="text-xl font-bold">REKAPITULASI KEHADIRAN GURU</h2>
-        <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
-        <p className="text-sm">{printTitle}</p>
-      </div>
+    <div className="space-y-6">
+      <div className="print:hidden">
+        <div className="flex items-center gap-4">
+            <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+            <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Kelola Kehadiran Harian Guru</h1><p className="text-muted-foreground">Lihat, kelola, dan rekapitulasi data kehadiran harian yang dicatat oleh guru.</p></div>
+        </div>
 
-      <Card className="print:shadow-none print:border-none">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 print:hidden">
-            <div><CardTitle>Filter Data</CardTitle><CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription></div>
-             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
-                <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
-                <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto" disabled={monthlySummary.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak Rekap</Button>
+        <Card className="mt-6">
+            <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div><CardTitle>Filter Data</CardTitle><CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription></div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
+                    <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
+                    <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto" disabled={monthlySummary.length === 0 && dailyRecords.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
+                </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="print:hidden">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
-            <div><Label htmlFor="filter-daily-teacher">Filter Guru</Label><Select onValueChange={setDailyFilterTeacherUid} value={dailyFilterTeacherUid} disabled={isLoadingTeachers}><SelectTrigger id="filter-daily-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat..." : "Pilih guru..."} /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) : teachers.map(t => (<SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {dailyFilterMonth !== "all" && (
-        <Card id="rekap-bulanan-card" className="print:shadow-none print:border-none">
-          <CardHeader className="print:hidden"><CardTitle>Rekapitulasi Kehadiran Bulanan</CardTitle><CardDescription>Ringkasan kehadiran untuk periode {MONTHS.find(m => m.value === dailyFilterMonth)?.label} {dailyFilterYear}. Persentase dihitung berdasarkan total hari kerja (Senin-Jumat) dalam sebulan.</CardDescription></CardHeader>
-          <CardContent>
-            {isLoadingSummary || isLoadingDailyRecords ? (<div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin" /></div>)
-            : monthlySummary.length === 0 ? (<div className="text-center p-6 border-2 border-dashed rounded-lg print:hidden"><PieChart className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Tidak Ada Data Rekap</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada data kehadiran yang tercatat untuk direkap pada bulan ini.</p></div>)
-            : (<div className="overflow-x-auto"><Table className="print:text-xs"><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead className="text-center">Hadir</TableHead><TableHead className="text-center">Izin</TableHead><TableHead className="text-center">Sakit</TableHead><TableHead className="text-center">Alpa</TableHead><TableHead className="text-center">Total Tercatat</TableHead><TableHead className="text-center">Total Hari Kerja</TableHead><TableHead className="text-center font-semibold text-primary">Persentase Hadir</TableHead></TableRow></TableHeader><TableBody>
-              {monthlySummary.map(s => (<TableRow key={s.teacherUid}>
-                <TableCell className="font-medium">{s.teacherName}</TableCell>
-                <TableCell className="text-center text-green-600 font-medium">{s.Hadir}</TableCell>
-                <TableCell className="text-center text-blue-600 font-medium">{s.Izin}</TableCell>
-                <TableCell className="text-center text-yellow-600 font-medium">{s.Sakit}</TableCell>
-                <TableCell className="text-center text-red-600 font-medium">{s.Alpa}</TableCell>
-                <TableCell className="text-center">{s.TotalTercatat}</TableCell>
-                <TableCell className="text-center">{s.TotalHariKerja}</TableCell>
-                <TableCell className="text-center font-bold text-primary">{s.PersentaseHadir}%</TableCell>
-              </TableRow>))}
-            </TableBody></Table></div>)
-            }
-          </CardContent>
+            </CardHeader>
+            <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
+                <div><Label htmlFor="filter-daily-teacher">Filter Guru</Label><Select onValueChange={setDailyFilterTeacherUid} value={dailyFilterTeacherUid} disabled={isLoadingTeachers}><SelectTrigger id="filter-daily-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat..." : "Pilih guru..."} /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) : teachers.map(t => (<SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>))}</SelectContent></Select></div>
+                <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
+                <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
+            </div>
+            </CardContent>
         </Card>
-      )}
 
+        {dailyFilterMonth !== "all" && (
+            <Card>
+            <CardHeader><CardTitle>Rekapitulasi Kehadiran Bulanan</CardTitle><CardDescription>Ringkasan kehadiran untuk periode {MONTHS.find(m => m.value === dailyFilterMonth)?.label} {dailyFilterYear}. Persentase dihitung berdasarkan total hari kerja (Senin-Jumat) dalam sebulan.</CardDescription></CardHeader>
+            <CardContent>
+                {isLoadingSummary || isLoadingDailyRecords ? (<div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin" /></div>)
+                : monthlySummary.length === 0 ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><PieChart className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Tidak Ada Data Rekap</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada data kehadiran yang tercatat untuk direkap pada bulan ini.</p></div>)
+                : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead className="text-center">Hadir</TableHead><TableHead className="text-center">Izin</TableHead><TableHead className="text-center">Sakit</TableHead><TableHead className="text-center">Alpa</TableHead><TableHead className="text-center">Total Tercatat</TableHead><TableHead className="text-center">Total Hari Kerja</TableHead><TableHead className="text-center font-semibold text-primary">Persentase Hadir</TableHead></TableRow></TableHeader><TableBody>
+                {monthlySummary.map(s => (<TableRow key={s.teacherUid}>
+                    <TableCell className="font-medium">{s.teacherName}</TableCell>
+                    <TableCell className="text-center text-green-600 font-medium">{s.Hadir}</TableCell>
+                    <TableCell className="text-center text-blue-600 font-medium">{s.Izin}</TableCell>
+                    <TableCell className="text-center text-yellow-600 font-medium">{s.Sakit}</TableCell>
+                    <TableCell className="text-center text-red-600 font-medium">{s.Alpa}</TableCell>
+                    <TableCell className="text-center">{s.TotalTercatat}</TableCell>
+                    <TableCell className="text-center">{s.TotalHariKerja}</TableCell>
+                    <TableCell className="text-center font-bold text-primary">{s.PersentaseHadir}%</TableCell>
+                </TableRow>))}
+                </TableBody></Table></div>)
+                }
+            </CardContent>
+            </Card>
+        )}
 
-      <Card className="print:hidden">
-        <CardHeader><CardTitle>Detail Kehadiran Harian (Sesuai Filter)</CardTitle><CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription></CardHeader>
-        <CardContent>
-          {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
-          {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
-           : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
-           : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes || undefined}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecordClick(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
-          }
-        </CardContent>
-      </Card>
+        <Card>
+            <CardHeader><CardTitle>Detail Kehadiran Harian (Sesuai Filter)</CardTitle><CardDescription>Lihat dan kelola data kehadiran harian yang dicatat oleh masing-masing guru.</CardDescription></CardHeader>
+            <CardContent>
+            {fetchError && !isLoadingDailyRecords && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>)}
+            {isLoadingDailyRecords ? (<div className="space-y-2">{[...Array(3)].map((_, i) => (<Skeleton key={i} className="h-12 w-full rounded-md" />))}</div>)
+            : dailyRecords.length === 0 && !fetchError ? (<div className="text-center p-6 border-2 border-dashed rounded-lg"><Users className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-medium">Belum Ada Data Kehadiran Harian</h3><p className="mt-1 text-sm text-muted-foreground">Belum ada data kehadiran harian guru yang cocok dengan filter ini, atau guru belum mencatat kehadiran.</p></div>)
+            : (<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nama Guru</TableHead><TableHead>Hari, Tanggal</TableHead><TableHead>Status</TableHead><TableHead>Catatan</TableHead><TableHead>Dicatat Pada</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{dailyRecords.map((rec) => (<TableRow key={rec.id}><TableCell className="font-medium">{rec.teacherName || rec.teacherUid}</TableCell><TableCell>{format(rec.date.toDate(), "EEEE, dd MMMM yyyy", { locale: indonesiaLocale })}</TableCell><TableCell>{rec.status}</TableCell><TableCell className="max-w-xs truncate" title={rec.notes || undefined}>{rec.notes || '-'}</TableCell><TableCell>{rec.recordedAt ? format(rec.recordedAt.toDate(), "dd MMM yyyy, HH:mm", { locale: indonesiaLocale }) : '-'}</TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="icon" onClick={() => handleEditDailyRecordClick(rec)} title="Edit Kehadiran Harian (Admin)"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDailyConfirmation(rec)} disabled={isDeletingDaily && dailyRecordToDelete?.id === rec.id} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)
+            }
+            </CardContent>
+        </Card>
+      </div>
 
+      <div className="print:block hidden">
+        <div className="print-header">
+            <h2>REKAPITULASI KEHADIRAN GURU</h2>
+            <h3>SMA PGRI NARINGGUL</h3>
+            <p>{printTitle}</p>
+        </div>
+        {monthlySummary.length > 0 && dailyFilterMonth !== 'all' && (
+            <div className="mb-8">
+                <h3 className="text-lg font-bold mb-2">Rekapitulasi Bulanan</h3>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>No.</TableHead>
+                            <TableHead>Nama Guru</TableHead>
+                            <TableHead>Hadir</TableHead>
+                            <TableHead>Izin</TableHead>
+                            <TableHead>Sakit</TableHead>
+                            <TableHead>Alpa</TableHead>
+                            <TableHead>Persentase</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {monthlySummary.map((s, index) => (
+                            <TableRow key={s.teacherUid}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>{s.teacherName}</TableCell>
+                                <TableCell>{s.Hadir}</TableCell>
+                                <TableCell>{s.Izin}</TableCell>
+                                <TableCell>{s.Sakit}</TableCell>
+                                <TableCell>{s.Alpa}</TableCell>
+                                <TableCell>{s.PersentaseHadir}%</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        )}
+         {dailyRecords.length > 0 && (
+            <div>
+                <h3 className="text-lg font-bold mb-2 page-break-before">Detail Kehadiran Harian</h3>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>No.</TableHead>
+                            <TableHead>Nama Guru</TableHead>
+                            <TableHead>Hari, Tanggal</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Catatan</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {dailyRecords.map((rec, index) => (
+                            <TableRow key={rec.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>{rec.teacherName || rec.teacherUid}</TableCell>
+                                <TableCell>{format(rec.date.toDate(), "EEEE, dd MMM yyyy", { locale: indonesiaLocale })}</TableCell>
+                                <TableCell>{rec.status}</TableCell>
+                                <TableCell className="whitespace-pre-wrap">{rec.notes || '-'}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        )}
+      </div>
+    
       {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "EEEE, PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
     
       {editingRecord && (
@@ -358,21 +419,20 @@ export default function ManageTeacherAttendancePage() {
 
       <style jsx global>{`
         @media print {
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
-          .print\\:hidden { display: none !important; }
-          .print\\:block { display: block !important; }
-          .print\\:space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; margin-bottom: 0 !important; }
-          .print\\:text-center { text-align: center !important; }
-          .print\\:mb-4 { margin-bottom: 1rem !important; }
-          .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:border-none { border: none !important; }
-          .print\\:text-xs table, .print\\:text-xs th, .print\\:text-xs td { font-size: 9pt !important; line-height: 1.2 !important; }
-          .print\\:text-xl { font-size: 1.5rem !important; }
-          .print\\:text-lg { font-size: 1.25rem !important; }
-          .print\\:text-sm { font-size: 0.875rem !important; }
-          table { width: 100%; border-collapse: collapse !important; }
-          th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; }
-          thead { background-color: #f3f4f6 !important; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
+            .print\\:hidden { display: none !important; }
+            .print\\:block { display: block !important; }
+            .print-header { text-align: center; margin-bottom: 1.5rem; }
+            .print-header h2 { font-size: 1.5rem; font-weight: bold; }
+            .print-header h3 { font-size: 1.25rem; font-weight: 600; }
+            .print-header p { font-size: 0.875rem; }
+            .page-break-before { break-before: page; }
+            .page-break-before:first-child { break-before: auto; }
+            table { width: 100%; border-collapse: collapse !important; font-size: 9pt !important; }
+            th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; text-align: left; vertical-align: top; }
+            thead { background-color: #f3f4f6 !important; }
+            tr { break-inside: avoid !important; }
+            .whitespace-pre-wrap { white-space: pre-wrap !important; }
         }
       `}</style>
 

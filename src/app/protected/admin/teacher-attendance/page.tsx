@@ -286,21 +286,20 @@ export default function ManageTeacherAttendancePage() {
 
         <Card className="mt-6">
             <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div><CardTitle>Filter Data</CardTitle><CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription></div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
-                    <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full sm:w-auto" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
-                    <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto" disabled={monthlySummary.length === 0 && dailyRecords.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
-                </div>
-            </div>
+              <CardTitle>Filter Data</CardTitle>
+              <CardDescription>Gunakan filter untuk menampilkan data yang diinginkan.</CardDescription>
             </CardHeader>
-            <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border rounded-md bg-muted/30 items-end">
-                <div><Label htmlFor="filter-daily-teacher">Filter Guru</Label><Select onValueChange={setDailyFilterTeacherUid} value={dailyFilterTeacherUid} disabled={isLoadingTeachers}><SelectTrigger id="filter-daily-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat..." : "Pilih guru..."} /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) : teachers.map(t => (<SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>))}</SelectContent></Select></div>
-                <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
-                <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
-            </div>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div><Label htmlFor="filter-daily-teacher">Filter Guru</Label><Select onValueChange={setDailyFilterTeacherUid} value={dailyFilterTeacherUid} disabled={isLoadingTeachers}><SelectTrigger id="filter-daily-teacher"><SelectValue placeholder={isLoadingTeachers ? "Memuat..." : "Pilih guru..."} /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{isLoadingTeachers ? (<SelectItem value="loading" disabled>Memuat...</SelectItem>) : teachers.map(t => (<SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>))}</SelectContent></Select></div>
+                  <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
+                  <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
+              </div>
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4">
+                    <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
+                    <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
+                    <Button onClick={handlePrint} variant="outline" className="w-full" disabled={monthlySummary.length === 0 && dailyRecords.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
+                </div>
             </CardContent>
         </Card>
 

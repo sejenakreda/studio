@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -380,7 +379,7 @@ export default function ManageAllGradesPage() {
         </CardHeader>
         <CardContent>
           {allGradesData.length > 0 && !isLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
               <div>
                 <Label htmlFor="classFilter" className="text-sm font-medium">Filter Kelas</Label>
                 <Select value={classFilter} onValueChange={setClassFilter}>

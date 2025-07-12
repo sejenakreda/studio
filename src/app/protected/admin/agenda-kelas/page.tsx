@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -122,10 +123,6 @@ export default function LaporanAgendaKelasPage() {
                             <p className="text-muted-foreground">Lihat dan ekspor semua catatan agenda mengajar dari guru.</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Button onClick={handleDownloadExcel} variant="outline" disabled={filteredAgendas.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
-                        <Button onClick={handlePrint} variant="outline" disabled={filteredAgendas.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak/PDF</Button>
-                    </div>
                 </div>
 
                 <Card className="mt-6">
@@ -143,6 +140,24 @@ export default function LaporanAgendaKelasPage() {
                             <div>
                                 <label htmlFor="filter-month" className="text-sm font-medium">Filter Bulan</label>
                                 <Select value={String(filterMonth)} onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))}><SelectTrigger id="filter-month" className="w-full mt-1"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan</SelectItem>{MONTHS.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
+                            </div>
+                        </div>
+                        <div className="pt-4 grid grid-cols-2 gap-4">
+                            <div
+                                onClick={() => !isLoading && filteredAgendas.length > 0 && handleDownloadExcel()}
+                                className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${isLoading || filteredAgendas.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                                title="Unduh Laporan Excel"
+                            >
+                                <Download className="h-7 w-7" />
+                                <p className="text-xs font-medium">Unduh Excel</p>
+                            </div>
+                            <div
+                                onClick={() => !isLoading && filteredAgendas.length > 0 && handlePrint()}
+                                className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${isLoading || filteredAgendas.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                                title="Cetak/PDF Laporan"
+                            >
+                                <Printer className="h-7 w-7" />
+                                <p className="text-xs font-medium">Cetak/PDF</p>
                             </div>
                         </div>
                     </CardHeader>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -135,16 +136,12 @@ export default function ViolationReportsPage() {
               <p className="text-muted-foreground">Lihat dan ekspor semua catatan pelanggaran siswa.</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleDownloadExcel} variant="outline" disabled={filteredViolations.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Excel</Button>
-            <Button onClick={handlePrint} variant="outline" disabled={filteredViolations.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
-          </div>
         </div>
         
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Filter Laporan</CardTitle>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
               <div>
                 <label htmlFor="filter-kelas" className="text-sm font-medium">Filter Kelas</label>
                 <Select value={filterKelas} onValueChange={setFilterKelas}><SelectTrigger id="filter-kelas" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{uniqueClasses.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent></Select>
@@ -170,6 +167,24 @@ export default function ViolationReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="pt-4 grid grid-cols-2 gap-4">
+                 <div
+                    onClick={() => !isLoading && filteredViolations.length > 0 && handleDownloadExcel()}
+                    className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${isLoading || filteredViolations.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                    title="Unduh Laporan Excel"
+                >
+                    <Download className="h-7 w-7" />
+                    <p className="text-xs font-medium">Unduh Excel</p>
+                </div>
+                 <div
+                    onClick={() => !isLoading && filteredViolations.length > 0 && handlePrint()}
+                    className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${isLoading || filteredViolations.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                    title="Cetak/PDF Laporan"
+                >
+                    <Printer className="h-7 w-7" />
+                    <p className="text-xs font-medium">Cetak/PDF</p>
+                </div>
             </div>
           </CardHeader>
           <CardContent>

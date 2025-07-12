@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -295,10 +296,31 @@ export default function ManageTeacherAttendancePage() {
                   <div><Label htmlFor="filter-daily-year">Filter Tahun</Label><Select onValueChange={(v) => setDailyFilterYear(parseInt(v))} value={String(dailyFilterYear)}><SelectTrigger id="filter-daily-year"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}</SelectContent></Select></div>
                   <div><Label htmlFor="filter-daily-month">Filter Bulan</Label><Select onValueChange={(v) => setDailyFilterMonth(v === "all" ? "all" : parseInt(v))} value={String(dailyFilterMonth)}><SelectTrigger id="filter-daily-month"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan (Tahun Dipilih)</SelectItem>{MONTHS.map(m => (<SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>))}</SelectContent></Select></div>
               </div>
-               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4">
-                    <Button onClick={handleDownloadMonthlySummaryExcel} variant="outline" className="w-full" disabled={dailyFilterMonth === "all" || monthlySummary.length === 0} title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk rekap bulanan" : "Unduh rekapitulasi bulanan"}><CalendarRange className="mr-2 h-4 w-4" />Unduh Rekap Bulanan</Button>
-                    <Button onClick={handleDownloadDailyExcel} variant="outline" className="w-full" disabled={dailyRecords.length === 0}><Download className="mr-2 h-4 w-4" />Unduh Detail Harian</Button>
-                    <Button onClick={handlePrint} variant="outline" className="w-full" disabled={monthlySummary.length === 0 && dailyRecords.length === 0}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
+               <div className="pt-4 grid grid-cols-3 gap-4">
+                    <div
+                        onClick={() => dailyFilterMonth !== "all" && monthlySummary.length > 0 && handleDownloadMonthlySummaryExcel()}
+                        className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${dailyFilterMonth === "all" || monthlySummary.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                        title={dailyFilterMonth === "all" ? "Pilih bulan spesifik untuk mengunduh rekap" : "Unduh Rekap Bulanan"}
+                    >
+                        <CalendarRange className="h-7 w-7" />
+                        <p className="text-xs font-medium">Rekap Bulanan</p>
+                    </div>
+                     <div
+                        onClick={() => dailyRecords.length > 0 && handleDownloadDailyExcel()}
+                        className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${dailyRecords.length === 0 ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                        title="Unduh Detail Harian"
+                    >
+                        <Download className="h-7 w-7" />
+                        <p className="text-xs font-medium">Detail Harian</p>
+                    </div>
+                     <div
+                        onClick={() => (monthlySummary.length > 0 || dailyRecords.length > 0) && handlePrint()}
+                        className={`flex flex-col items-center justify-center text-center gap-2 group p-4 rounded-lg border transition-colors ${(monthlySummary.length === 0 && dailyRecords.length === 0) ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' : 'bg-card hover:bg-primary/5 hover:border-primary cursor-pointer'}`}
+                        title="Cetak/PDF"
+                    >
+                        <Printer className="h-7 w-7" />
+                        <p className="text-xs font-medium">Cetak/PDF</p>
+                    </div>
                 </div>
             </CardContent>
         </Card>

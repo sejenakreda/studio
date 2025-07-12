@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { id as indonesiaLocale } from 'date-fns/locale';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, Award, Download, Info, Printer } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Award, Download, Info, Printer, Users2, Library, CircleDollarSign, HeartHandshake, Briefcase, DatabaseZap, ShieldQuestion, ShieldAlert } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -21,6 +22,26 @@ import { getActivityName } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
+
+const activityIconMap: Record<TugasTambahan, React.ElementType> = {
+    kesiswaan: Users2,
+    kurikulum: Library,
+    bendahara: CircleDollarSign,
+    pembina_osis: Award,
+    pembina_eskul_pmr: Award,
+    pembina_eskul_paskibra: Award,
+    pembina_eskul_pramuka: Award,
+    pembina_eskul_karawitan: Award,
+    pembina_eskul_pencak_silat: Award,
+    pembina_eskul_volly_ball: Award,
+    bk: HeartHandshake,
+    kepala_sekolah: Award, // Or other appropriate icon
+    operator: DatabaseZap,
+    kepala_tata_usaha: Briefcase,
+    staf_tu: Users,
+    satpam: ShieldQuestion,
+    penjaga_sekolah: ShieldAlert,
+};
 
 
 export default function KegiatanReportsPage() {
@@ -174,23 +195,27 @@ export default function KegiatanReportsPage() {
                   renderReportList(Array.from(filteredReportGroups.values())[0])
               ) : (
                   <Accordion type="multiple" className="w-full">
-                  {Array.from(filteredReportGroups.entries()).map(([activityId, groupReports]) => (
+                  {Array.from(filteredReportGroups.entries()).map(([activityId, groupReports]) => {
+                    const Icon = activityIconMap[activityId] || Award;
+                    return (
                       <AccordionItem key={activityId} value={activityId}>
-                      <AccordionTrigger className="hover:no-underline text-base font-semibold">
-                          <div className="flex items-center gap-4">
-                              <span>{groupReports[0]?.activityName || activityId}</span>
-                              <Badge variant="secondary">{groupReports.length} Laporan</Badge>
-                          </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="p-2">
-                          {groupReports.length === 0 ? (
-                              <p className="text-sm text-muted-foreground px-4 py-6 text-center">Belum ada laporan untuk kegiatan ini.</p>
-                          ) : (
-                              renderReportList(groupReports)
-                          )}
-                      </AccordionContent>
+                        <AccordionTrigger className="hover:no-underline text-base font-semibold">
+                            <div className="flex items-center gap-4">
+                                <Icon className="h-5 w-5 text-muted-foreground" />
+                                <span>{groupReports[0]?.activityName || activityId}</span>
+                                <Badge variant="secondary">{groupReports.length} Laporan</Badge>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-2">
+                            {groupReports.length === 0 ? (
+                                <p className="text-sm text-muted-foreground px-4 py-6 text-center">Belum ada laporan untuk kegiatan ini.</p>
+                            ) : (
+                                renderReportList(groupReports)
+                            )}
+                        </AccordionContent>
                       </AccordionItem>
-                  ))}
+                    )
+                  })}
                   </Accordion>
               )}
               </>

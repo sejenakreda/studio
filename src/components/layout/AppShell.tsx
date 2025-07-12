@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -329,7 +330,7 @@ function BottomNavBar() {
     const dashboardPath = userProfile?.role === 'admin' ? '/protected/admin' : '/protected/guru';
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-card border-t border-border shadow-md">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-card border-t border-border shadow-md print:hidden">
             <div className="flex justify-around items-center h-16">
                 <Button variant="ghost" className="flex flex-col h-full justify-center rounded-none" onClick={() => router.back()}>
                     <ArrowLeft className="h-6 w-6" />

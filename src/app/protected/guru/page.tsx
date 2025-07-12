@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, Database, Users2, Building } from "lucide-react";
+import { BookUser, Edit3, Users, Loader2, BarChartHorizontalBig, Megaphone, ArrowRight, GraduationCap, UserSquare, Briefcase, School, Database, Users2, Building, BellRing } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext"; 
 import { getStudents, getPengumumanUntukGuru, getSchoolProfile } from '@/lib/firestoreService';
@@ -13,14 +13,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
+import { initializeNotifications } from '@/lib/notificationService'; // Import the new service
 
 export default function GuruDashboardPage() {
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [announcements, setAnnouncements] = useState<Pengumuman[]>([]);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNotifLoading, setIsNotifLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -51,6 +53,24 @@ export default function GuruDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const handleEnableNotifications = async () => {
+    if (!user) return;
+    setIsNotifLoading(true);
+    try {
+        await initializeNotifications(user.uid, toast);
+    } catch (error: any) {
+        console.error('Error during notification initialization:', error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Mengaktifkan Notifikasi",
+            description: error.message || "Silakan coba lagi atau periksa pengaturan browser Anda."
+        });
+    } finally {
+        setIsNotifLoading(false);
+    }
+  };
+
 
   const totalSiswaAktif = React.useMemo(() => {
       if (!schoolProfile || !schoolProfile.classDetails) return 0;
@@ -94,6 +114,22 @@ export default function GuruDashboardPage() {
         </Button>
       </div>
 
+       <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle>Notifikasi Pengingat Absen</CardTitle>
+                <BellRing className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Aktifkan notifikasi untuk mendapatkan pengingat di perangkat Anda jika Anda belum mencatat kehadiran harian.
+                </p>
+                <Button onClick={handleEnableNotifications} disabled={isNotifLoading}>
+                    {isNotifLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Aktifkan Notifikasi Pengingat
+                </Button>
+            </CardContent>
+        </Card>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="lg:col-span-3">
           <CardHeader>
@@ -108,7 +144,7 @@ export default function GuruDashboardPage() {
             </Link>
             <Link href="/protected/guru/grades">
               <Button variant="outline" className="w-full justify-start gap-2 py-6 text-base hover:bg-primary/10 hover:border-primary hover:text-primary">
-                <Edit3 className="h-6 w-6" /> Input & Lihat Nilai
+                <Edit3 className="h-6 w-6" /> Input &amp; Lihat Nilai
               </Button>
             </Link>
             <Link href="/protected/guru/rekap-nilai">
@@ -126,7 +162,7 @@ export default function GuruDashboardPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Pengumuman & Info Penting</CardTitle>
+            <CardTitle>Pengumuman &amp; Info Penting</CardTitle>
             <CardDescription>Daftar pengumuman terbaru dari admin (maks. 3).</CardDescription>
           </CardHeader>
           <CardContent>
@@ -222,7 +258,7 @@ export default function GuruDashboardPage() {
                 </div>
             </div>
             <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Building className="h-4 w-4 text-muted-foreground" />Sarana & Prasarana</h4>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Building className="h-4 w-4 text-muted-foreground" />Sarana &amp; Prasarana</h4>
                 {isLoading ? (
                     <div className="grid grid-cols-2 gap-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full"/>)}</div>
                 ) : !schoolProfile || !schoolProfile.sarana || schoolProfile.sarana.length === 0 ? (

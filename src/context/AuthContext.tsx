@@ -1,9 +1,10 @@
+
 "use client";
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
-import { doc, getDoc, Firestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, Firestore, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigValid } from '@/lib/firebase';
 import type { UserProfile, Role, TugasTambahan } from '@/types';
 
@@ -80,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: profileDataFromDb.role as Role,
                 assignedMapel: profileDataFromDb.assignedMapel || [],
                 tugasTambahan: profileDataFromDb.tugasTambahan || [],
+                fcmToken: profileDataFromDb.fcmToken,
                 createdAt: profileDataFromDb.createdAt,
                 updatedAt: profileDataFromDb.updatedAt,
               };
@@ -166,4 +168,18 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+// Function to update the user's FCM token in Firestore.
+export const updateUserFCMToken = async (uid: string, token: string | null): Promise<void> => {
+  if (!db) return;
+  const userDocRef = doc(db, 'users', uid);
+  try {
+    await updateDoc(userDocRef, {
+      fcmToken: token, // Store the token or null if permission is revoked
+      updatedAt: new Date(), // Update timestamp
+    });
+  } catch (error) {
+    console.error("Failed to update FCM token:", error);
+  }
 };

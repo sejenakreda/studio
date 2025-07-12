@@ -30,6 +30,7 @@ export interface UserProfile {
   role: Role;
   assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
   tugasTambahan?: TugasTambahan[]; // Daftar tugas tambahan guru
+  fcmToken?: string | null; // Token for Firebase Cloud Messaging
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

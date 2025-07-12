@@ -1,210 +1,73 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { 
-    BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, 
-    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building, FileWarning, Users2, Award, ShieldCheck
-} from "lucide-react";
+import React from 'react';
 import Link from "next/link";
-import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
-import { useToast } from '@/hooks/use-toast';
-import type { ActivityLog } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
-import { id as indonesiaLocale } from 'date-fns/locale';
-import { Skeleton } from '@/components/ui/skeleton';
+import { 
+    Users, Settings, FileText, CalendarCog, 
+    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3
+} from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
 
-interface AdminDashboardItem {
+interface AdminMenuItem {
   title: string;
-  description: string;
   href: string;
   icon: React.ElementType;
   color?: string;
+  requiredTugas?: (authContext: ReturnType<typeof useAuth>) => boolean;
 }
 
-interface AdminDashboardGroup {
-  title: string;
-  items: AdminDashboardItem[];
-}
+const allMenuItems: AdminMenuItem[] = [
+    // Manajemen Akademik & Sistem
+    { title: "Kelola Guru", href: "/protected/admin/teachers", icon: Users, color: "text-blue-500" },
+    { title: "Kelola Siswa", href: "/protected/admin/students", icon: BookUser, color: "text-sky-500" },
+    { title: "Kelola Mapel", href: "/protected/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
+    { title: "Atur KKM", href: "/protected/admin/kkm", icon: ShieldCheck, color: "text-emerald-500" },
+    { title: "Atur Bobot", href: "/protected/admin/weights", icon: Settings, color: "text-slate-500" },
+    { title: "Tahun Ajaran", href: "/protected/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
+    { title: "Pengumuman", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
+    { title: "Profil Sekolah", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" },
+
+    // Laporan & Rekapitulasi
+    { title: "Semua Nilai", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
+    { title: "Rekap Kehadiran", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
+    { title: "Agenda Kelas", href: "/protected/admin/agenda-kelas", icon: BookCopy, color: "text-lime-500" },
+    { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
+    { title: "Laporan Kegiatan", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-fuchsia-500" },
+    { title: "Statistik", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
+];
+
 
 export default function AdminDashboardPage() {
-  const { toast } = useToast();
-  const [teacherCount, setTeacherCount] = useState<number | null>(null);
-  const [studentCount, setStudentCount] = useState<number | null>(null);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
-
-  const fetchDashboardData = useCallback(async () => {
-    setIsLoadingStats(true);
-    setIsLoadingLogs(true);
-    try {
-      const [guruUsers, studentList, logs] = await Promise.all([
-        getAllUsersByRole('guru'),
-        getStudents(),
-        getRecentActivityLogs(5) 
-      ]);
-      setTeacherCount(guruUsers?.length || 0);
-      setStudentCount(studentList?.length || 0);
-      setActivityLogs(logs || []);
-    } catch (error: any) {
-      console.error("Error fetching dashboard data:", error);
-      toast({
-        variant: "destructive",
-        title: "Error Memuat Data Dasbor",
-        description: error.message || "Gagal mengambil data untuk dasbor.",
-      });
-      setTeacherCount(0); 
-      setStudentCount(0); 
-      setActivityLogs([]);
-    } finally {
-      setIsLoadingStats(false);
-      setIsLoadingLogs(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  const dashboardGroups: AdminDashboardGroup[] = [
-    {
-      title: "Manajemen Akademik",
-      items: [
-        { title: "Kelola Siswa", description: "Tambah & impor data siswa.", href: "/protected/admin/students", icon: BookUser, color: "text-sky-500" },
-        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran.", href: "/protected/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
-        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot penilaian.", href: "/protected/admin/weights", icon: Settings, color: "text-green-500" },
-        { title: "Atur KKM", description: "Tetapkan KKM per mapel.", href: "/protected/admin/kkm", icon: ShieldCheck, color: "text-blue-500" },
-        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran aktif.", href: "/protected/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
-      ]
-    },
-    {
-      title: "Manajemen Pengguna & Sistem",
-      items: [
-        { title: "Kelola Guru", description: "Tambah & edit data guru.", href: "/protected/admin/teachers", icon: Users, color: "text-blue-500" },
-        { title: "Pengumuman Guru", description: "Buat pengumuman untuk guru.", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
-        { title: "Profil Sekolah", description: "Kelola data statistik sekolah.", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" }
-      ]
-    },
-     {
-      title: "Laporan & Rekapitulasi",
-      items: [
-        { title: "Statistik Sistem", description: "Statistik umum sistem.", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
-        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai.", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
-        { title: "Laporan Pelanggaran", description: "Lihat data pelanggaran.", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
-        { title: "Rekap Kehadiran Guru", description: "Lihat rekapitulasi kehadiran.", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
-        { title: "Laporan Agenda Kelas", description: "Lihat semua agenda mengajar.", href: "/protected/admin/agenda-kelas", icon: BookCopy, color: "text-lime-500" },
-        { title: "Laporan Kegiatan Staf", description: "Lihat laporan dari Pembina & Staf.", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-fuchsia-500" },
-      ]
-    }
-  ];
+  const authContext = useAuth();
+  
+  const visibleMenuItems = allMenuItems.filter(item => 
+      !item.requiredTugas || item.requiredTugas(authContext)
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Admin</h1>
-          <p className="text-muted-foreground">Ringkasan dan manajemen sistem SiAP Smapna.</p>
-        </div>
-         <Button onClick={fetchDashboardData} variant="outline" disabled={isLoadingStats || isLoadingLogs}>
-          {(isLoadingStats || isLoadingLogs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Muat Ulang Data
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Admin</h1>
+        <p className="text-muted-foreground">Manajemen Sistem & Laporan SiAP Smapna.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="md:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-primary/10">
-                <CardTitle className="text-sm font-medium text-primary">Total Guru Terdaftar</CardTitle>
-                <Users className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent className="pt-2">
-                <div className="text-2xl font-bold text-primary">
-                    {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : (teacherCount !== null ? teacherCount : "N/A")}
-                </div>
-            </CardContent>
-        </Card>
-        <Card className="md:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-accent/10">
-                <CardTitle className="text-sm font-medium text-accent">Total Siswa Terdaftar</CardTitle>
-                <BookUser className="h-5 w-5 text-accent" />
-            </CardHeader>
-            <CardContent className="pt-2">
-                <div className="text-2xl font-bold text-accent">
-                    {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : (studentCount !== null ? studentCount : "N/A")}
-                </div>
-            </CardContent>
-        </Card>
-         <Card className="md:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-muted">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Aktivitas Terkini</CardTitle>
-                <History className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="pt-2">
-                <div className="text-2xl font-bold text-muted-foreground">
-                    {isLoadingLogs ? <Loader2 className="h-6 w-6 animate-spin" /> : `${activityLogs.length} Log`}
-                </div>
-            </CardContent>
-        </Card>
-      </div>
-
-      <div className="space-y-8">
-        {dashboardGroups.map((group) => (
-          <div key={group.title}>
-            <h2 className="text-xl font-semibold tracking-tight mb-4">{group.title}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {group.items.map((item) => (
-                <Link href={item.href} key={item.title} className="block group">
-                  <Card className="h-full hover:shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-primary/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-base font-medium">{item.title}</CardTitle>
-                      <item.icon className={`h-6 w-6 ${item.color || 'text-muted-foreground'} transition-colors`} />
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-x-4 gap-y-8 pt-4">
+        {visibleMenuItems.map((item) => (
+          <Link
+            href={item.href}
+            key={item.title}
+            className="flex flex-col items-center justify-center text-center gap-2 group"
+          >
+            <div className="p-4 rounded-full bg-muted/60 group-hover:bg-primary/10 transition-colors duration-200">
+              <item.icon className={`h-8 w-8 transition-colors duration-200 ${item.color || 'text-muted-foreground'} group-hover:text-primary`} />
             </div>
-          </div>
+            <p className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors duration-200">
+              {item.title}
+            </p>
+          </Link>
         ))}
       </div>
-        
-      <Card id="activity-log" className="mt-8">
-        <CardHeader>
-          <CardTitle>Log Aktivitas Terbaru</CardTitle>
-          <CardDescription>Perubahan penting dalam sistem (5 terbaru).</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingLogs ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : activityLogs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
-          ) : (
-            <ul className="space-y-3 max-h-96 overflow-y-auto">
-              {activityLogs.map((log) => (
-                <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
-                  <History className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="flex-grow min-w-0"> 
-                    <p className="text-sm font-medium text-foreground truncate" title={log.action}>{log.action}</p>
-                    {log.details && <p className="text-xs text-muted-foreground truncate" title={log.details}>{log.details}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      Oleh: <span className="font-medium">{log.userName || "Sistem"}</span> - 
-                      {' '}
-                      {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: indonesiaLocale }) : 'Beberapa saat lalu'}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

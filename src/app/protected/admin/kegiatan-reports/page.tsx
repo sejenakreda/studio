@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -34,7 +35,7 @@ const activityIconMap: Record<TugasTambahan, React.ElementType> = {
     pembina_eskul_pencak_silat: Award,
     pembina_eskul_volly_ball: Award,
     bk: HeartHandshake,
-    kepala_sekolah: Award, // Or other appropriate icon
+    kepala_sekolah: Award,
     operator: DatabaseZap,
     kepala_tata_usaha: Briefcase,
     staf_tu: Users,
@@ -182,15 +183,13 @@ export default function KegiatanReportsPage() {
             : error ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>)
             : (
               <>
-              {filteredReportGroups.size === 0 && !isLoading && (
+              {filteredReportGroups.size === 0 && !isLoading ? (
                 <Alert variant="default">
                     <Info className="h-4 w-4" />
                     <AlertTitle>Informasi</AlertTitle>
                     <AlertDescription>Belum ada laporan kegiatan yang cocok dengan filter ini.</AlertDescription>
                 </Alert>
-              )}
-              
-              {activityFilter && filteredReportGroups.size > 0 ? (
+              ) : activityFilter && filteredReportGroups.size > 0 ? (
                   renderReportList(Array.from(filteredReportGroups.values())[0])
               ) : (
                   <Accordion type="multiple" className="w-full">
@@ -199,7 +198,7 @@ export default function KegiatanReportsPage() {
                     return (
                       <AccordionItem key={activityId} value={activityId}>
                         <AccordionTrigger className="hover:no-underline text-base font-semibold">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 flex-1">
                                 <Icon className="h-5 w-5 text-muted-foreground" />
                                 <span className="flex-1 text-left">{getActivityName(activityId)}</span>
                                 <Badge variant="secondary">{groupReports.length} Laporan</Badge>

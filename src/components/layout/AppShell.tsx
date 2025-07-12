@@ -27,9 +27,6 @@ import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { getAllPengumuman } from "@/lib/firestoreService"; 
-import type { Pengumuman, TugasTambahan } from "@/types";
-import { Timestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
 
@@ -332,57 +329,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const authContext = useAuth();
   const { userProfile, loading } = authContext;
   const router = useRouter();
-  const [announcementBadgeCount, setAnnouncementBadgeCount] = React.useState<number>(0);
-  const [isLoadingBadge, setIsLoadingBadge] = React.useState(false);
   const { isMobile, setOpenMobile } = useSidebar();
-
-  React.useEffect(() => {
-    if (userProfile?.role === 'guru' && userProfile.uid) {
-      setIsLoadingBadge(true);
-      const lastSeenKey = `lastSeenAnnouncementTimestamp_${userProfile.uid}`;
-
-      const updateBadgeLogic = async () => {
-        try {
-          const allFetchedAnnouncements = await getAllPengumuman(); 
-
-          if (pathname === '/protected/guru/announcements') {
-            if (allFetchedAnnouncements.length > 0 && allFetchedAnnouncements[0].createdAt) {
-              const newestTimestamp = allFetchedAnnouncements[0].createdAt.toMillis();
-              localStorage.setItem(lastSeenKey, newestTimestamp.toString());
-            } else {
-              localStorage.setItem(lastSeenKey, Timestamp.now().toMillis().toString());
-            }
-            setAnnouncementBadgeCount(0); 
-          } else {
-            const storedLastSeen = localStorage.getItem(lastSeenKey);
-            const lastSeenTimestamp = storedLastSeen ? parseInt(storedLastSeen, 10) : 0;
-
-            if (allFetchedAnnouncements.length > 0) {
-              const unreadAnnouncements = allFetchedAnnouncements.filter(
-                (ann) => ann.createdAt && ann.createdAt.toMillis() > lastSeenTimestamp
-              );
-              setAnnouncementBadgeCount(unreadAnnouncements.length);
-            } else {
-              setAnnouncementBadgeCount(0);
-            }
-          }
-        } catch (error) {
-          console.error("Error updating announcement badge:", error);
-          setAnnouncementBadgeCount(0); 
-        } finally {
-          setIsLoadingBadge(false);
-        }
-      };
-
-      updateBadgeLogic();
-    } else {
-      setAnnouncementBadgeCount(0);
-      if(userProfile?.uid) { 
-        localStorage.removeItem(`lastSeenAnnouncementTimestamp_${userProfile.uid}`);
-      }
-      setIsLoadingBadge(false);
-    }
-  }, [userProfile, pathname]);
 
 
   const handleLogout = async () => {
@@ -512,13 +459,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           <Link href={item.href!} className="relative">
                             {item.icon && <item.icon className="h-5 w-5" />}
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                             {item.href === "/protected/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
-                                <SidebarMenuBadge 
-                                className="absolute top-1.5 right-2 h-4 min-w-[16px] px-1 flex items-center justify-center text-xs"
-                                >
-                                {announcementBadgeCount}
-                                </SidebarMenuBadge>
-                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -554,13 +494,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <Link href={item.href!} className="relative">
                                     {item.icon && <item.icon className="h-4 w-4" />}
                                     <span>{item.label}</span>
-                                    {item.href === "/protected/guru/announcements" && announcementBadgeCount > 0 && !isLoadingBadge && (
-                                      <SidebarMenuBadge 
-                                        className="absolute top-1 right-1 h-4 min-w-[16px] px-1 flex items-center justify-center text-xs"
-                                      >
-                                        {announcementBadgeCount}
-                                      </SidebarMenuBadge>
-                                    )}
                                   </Link>
                                 </SidebarMenuButton>
                               </SidebarMenuItem>

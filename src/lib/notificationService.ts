@@ -1,170 +1,227 @@
-"use client";
+import type { User as FirebaseUser } from 'firebase/auth';
+import type { Timestamp } from 'firebase/firestore';
 
-import type React from 'react';
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
-import { doc, getDoc, Firestore, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
-import { auth, db, isFirebaseConfigValid } from '@/lib/firebase';
-import type { UserProfile, Role, TugasTambahan } from '@/types';
+export type Role = 'admin' | 'guru';
 
-interface AuthContextType {
-  user: FirebaseUser | null;
-  userProfile: UserProfile | null;
-  loading: boolean;
-  isAdmin: boolean;
-  isGuru: boolean;
-  // Tugas Tambahan helpers
-  isKesiswaan: boolean;
-  isKurikulum: boolean;
-  isPembinaOsis: boolean;
-  isKepalaSekolah: boolean;
-  isOperator: boolean;
-  isBendahara: boolean;
-  isBk: boolean;
-  isPembinaEskul: boolean;
-  isKepalaTataUsaha: boolean;
-  isStafTu: boolean;
-  isSatpam: boolean;
-  isPenjagaSekolah: boolean;
+export type TugasTambahan = 
+  | 'kesiswaan' 
+  | 'kurikulum' 
+  | 'pembina_osis' 
+  | 'kepala_sekolah'
+  | 'operator'
+  | 'bendahara'
+  | 'bk'
+  | 'kepala_tata_usaha'
+  | 'staf_tu'
+  | 'satpam'
+  | 'penjaga_sekolah'
+  | 'pembina_eskul_pmr'
+  | 'pembina_eskul_paskibra'
+  | 'pembina_eskul_pramuka'
+  | 'pembina_eskul_karawitan'
+  | 'pembina_eskul_pencak_silat'
+  | 'pembina_eskul_volly_ball';
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  role: Role;
+  assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
+  tugasTambahan?: TugasTambahan[]; // Daftar tugas tambahan guru
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export interface AppUser extends FirebaseUser {
+  profile?: UserProfile;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+export interface Siswa {
+  id?: string; // Firestore document ID
+  id_siswa: string; // Student's unique ID
+  nama: string;
+  nis: string;
+  kelas: string;
+  kegiatan?: TugasTambahan[];
+}
 
-  useEffect(() => {
-    // Safety check: If Firebase isn't configured, don't set up the listener.
-    // This prevents the app from crashing if environment variables are missing.
-    if (!isFirebaseConfigValid || !auth) {
-      console.warn("AuthContext: Firebase is not configured correctly. Please check your environment variables. Auth features will be disabled.");
-      setLoading(false);
-      return; // Early return
-    }
+export interface Nilai {
+  id?: string; // Firestore document ID
+  id_siswa: string;
+  mapel: string; // Mata Pelajaran
+  semester: number; // e.g., 1 or 2
+  tahun_ajaran: string; // e.g., "2023/2024"
+  tugas: number[];
+  tes: number;
+  pts: number; // Penilaian Tengah Semester
+  pas: number; // Penilaian Akhir Semester
+  kehadiran: number; // Stores attendance as a percentage
+  eskul: number;
+  osis: number;
+  nilai_akhir?: number; // Calculated final grade
+  teacherUid?: string; // UID of the teacher who created/owns this grade entry
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
 
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
+export interface Bobot {
+  id?: string; // Should be a single document, e.g., "global_weights"
+  tugas: number;
+  tes: number;
+  pts: number;
+  pas: number;
+  kehadiran: number; // Weight for the attendance component in final grade calculation
+  eskul: number; // Max bonus points
+  osis: number;  // Max bonus points
+  totalHariEfektifGanjil?: number;
+  totalHariEfektifGenap?: number;
+}
 
-      if (fbUser) {
-        try {
-          // First, try to get the user document directly by UID
-          const userDocRef = doc(db as Firestore, 'users', fbUser.uid);
-          let userDocSnap = await getDoc(userDocRef);
+export interface ActivityLog {
+  id?: string; // Firestore document ID
+  timestamp: Timestamp;
+  action: string; // e.g., "Bobot diperbarui", "Guru ditambahkan"
+  details?: string; // e.g., "Bobot Tugas menjadi 25%" or "Guru: Budi S."
+  userId?: string; // UID of the admin performing the action
+  userName?: string; // Display name of the admin
+}
 
-          // Fallback: If not found by UID (e.g., mismatch), query by email
-          if (!userDocSnap.exists()) {
-              console.warn(`AuthContext: User document not found for UID ${fbUser.uid}. Attempting fallback query by email.`);
-              const usersCollection = collection(db as Firestore, 'users');
-              const q = query(usersCollection, where("email", "==", fbUser.email), limit(1));
-              const querySnapshot = await getDocs(q);
+export interface StudentTableEntry extends Siswa {
+  [key: string]: any; // For dynamic grade columns if needed
+  nilai_akhir_semester_1?: number;
+  nilai_akhir_semester_2?: number;
+}
 
-              if (!querySnapshot.empty) {
-                  userDocSnap = querySnapshot.docs[0];
-                  console.log(`AuthContext: Fallback successful. Found user document for email ${fbUser.email} with doc ID ${userDocSnap.id}.`);
-              }
-          }
+export interface AcademicYearSetting {
+  id?: string; // Firestore document ID (e.g., "2023_2024")
+  year: string; // Display string (e.g., "2023/2024")
+  isActive: boolean;
+}
 
-          if (userDocSnap.exists()) {
-            const profileDataFromDb = userDocSnap.data();
+export interface KkmSetting {
+  id?: string; // Firestore document ID, could be composite like mapel_tahunAjaran
+  mapel: string;
+  tahun_ajaran: string;
+  kkmValue: number;
+  updatedAt?: Timestamp;
+}
 
-            if (profileDataFromDb &&
-                typeof profileDataFromDb.role === 'string' &&
-                (profileDataFromDb.role === 'admin' || profileDataFromDb.role === 'guru')) {
+export interface MataPelajaranMaster {
+  id?: string; // Firestore document ID
+  namaMapel: string;
+  createdAt?: Timestamp;
+}
 
-              const constructedProfile: UserProfile = {
-                uid: fbUser.uid, // Always use the auth UID
-                email: fbUser.email,
-                displayName: profileDataFromDb.displayName || fbUser.displayName || fbUser.email?.split('@')[0] || 'Pengguna',
-                role: profileDataFromDb.role as Role,
-                assignedMapel: profileDataFromDb.assignedMapel || [],
-                tugasTambahan: profileDataFromDb.tugasTambahan || [],
-                fcmToken: profileDataFromDb.fcmToken,
-                createdAt: profileDataFromDb.createdAt,
-                updatedAt: profileDataFromDb.updatedAt,
-              };
-              
-              setUser(fbUser); 
-              setUserProfile(constructedProfile);
+export type PrioritasPengumuman = 'Tinggi' | 'Sedang' | 'Rendah';
 
-            } else {
-              console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has missing, malformed, or invalid 'role'. Logging out. Firestore Data:`, profileDataFromDb);
-              await signOut(auth);
-            }
-          } else {
-            console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found, even with email fallback. Logging out.`);
-            await signOut(auth);
-          }
-        } catch (error) {
-          console.error(`AuthContext: Error fetching/processing user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
-          await signOut(auth);
-        } finally {
-            setLoading(false);
-        }
-      } else {
-        setUser(null);
-        setUserProfile(null);
-        setLoading(false);
-      }
-    });
+export interface Pengumuman {
+  id?: string; // Firestore document ID
+  judul: string;
+  isi: string;
+  prioritas: PrioritasPengumuman;
+  infoTambahan?: string; // e.g., "Semua Guru", "Wali Kelas XII", "Untuk Mapel Matematika"
+  createdAt: Timestamp;
+  createdByUid?: string;
+  createdByDisplayName?: string;
+}
 
-    return () => unsubscribe();
-  }, []);
+export interface TeacherAttendance { // Rekap bulanan oleh Admin
+  id?: string; // Firestore document ID (e.g., teacherUid_year_month)
+  teacherUid: string;
+  teacherName?: string; // For display convenience
+  month: number; // 1-12
+  year: number;
+  daysPresent: number;
+  daysAbsentWithReason: number; // Izin, Sakit
+  daysAbsentWithoutReason: number; // Alpa
+  totalSchoolDaysInMonth: number; // Configurable total school days in that month
+  notes?: string;
+  recordedByUid: string;
+  recordedAt: Timestamp;
+  updatedAt?: Timestamp;
+}
 
+export type TeacherDailyAttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Alpa';
 
-  const isAdmin = useMemo(() => userProfile?.role === 'admin', [userProfile]);
-  const isGuru = useMemo(() => userProfile?.role === 'guru', [userProfile]);
-  
-  const hasTugas = (tugas: TugasTambahan): boolean => {
-    return userProfile?.tugasTambahan?.includes(tugas) ?? false;
-  }
+export interface TeacherDailyAttendance {
+  id?: string; // Composite ID: teacherUid_YYYY-MM-DD
+  teacherUid: string;
+  teacherName?: string;
+  date: Timestamp;
+  status: TeacherDailyAttendanceStatus;
+  notes?: string;
+  recordedAt: Timestamp; // First time this daily record was created
+  updatedAt?: Timestamp; // Last time this record was updated
+  lastUpdatedByUid?: string; // UID of user who last updated (guru on initial, admin on edit)
+}
 
-  const isKesiswaan = useMemo(() => hasTugas('kesiswaan'), [userProfile]);
-  const isKurikulum = useMemo(() => hasTugas('kurikulum'), [userProfile]);
-  const isPembinaOsis = useMemo(() => hasTugas('pembina_osis'), [userProfile]);
-  const isKepalaSekolah = useMemo(() => hasTugas('kepala_sekolah'), [userProfile]);
-  const isOperator = useMemo(() => hasTugas('operator'), [userProfile]);
-  const isBendahara = useMemo(() => hasTugas('bendahara'), [userProfile]);
-  const isBk = useMemo(() => hasTugas('bk'), [userProfile]);
-  const isPembinaEskul = useMemo(() => userProfile?.tugasTambahan?.some(t => t.startsWith('pembina_eskul_')) ?? false, [userProfile]);
-  const isKepalaTataUsaha = useMemo(() => hasTugas('kepala_tata_usaha'), [userProfile]);
-  const isStafTu = useMemo(() => hasTugas('staf_tu'), [userProfile]);
-  const isSatpam = useMemo(() => hasTugas('satpam'), [userProfile]);
-  const isPenjagaSekolah = useMemo(() => hasTugas('penjaga_sekolah'), [userProfile]);
+export interface ClassDetail {
+  className: string;
+  male: { ril: number; dapodik: number };
+  female: { ril: number; dapodik: number };
+}
 
-  const value = useMemo(() => ({
-    user,
-    userProfile,
-    loading,
-    isAdmin,
-    isGuru,
-    isKesiswaan,
-    isKurikulum,
-    isPembinaOsis,
-    isKepalaSekolah,
-    isOperator,
-    isBendahara,
-    isBk,
-    isPembinaEskul,
-    isKepalaTataUsaha,
-    isStafTu,
-    isSatpam,
-    isPenjagaSekolah,
-  }), [
-    user, userProfile, loading, isAdmin, isGuru, 
-    isKesiswaan, isKurikulum, isPembinaOsis, isKepalaSekolah,
-    isOperator, isBendahara, isBk, isPembinaEskul, isKepalaTataUsaha,
-    isStafTu, isSatpam, isPenjagaSekolah
-  ]);
+export interface SaranaDetail {
+  name: string;
+  quantity: number;
+}
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+export interface SchoolStats {
+    alumni: { ril: number; dapodik: number };
+    guru: { ril: number; dapodik: number };
+    tendik: { ril: number; dapodik: number };
+}
 
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export interface SchoolProfile {
+  id?: string; // Will be a single doc, e.g. "main_profile"
+  stats: SchoolStats;
+  totalSiswa: number; // This will be auto-calculated from classDetails sum
+  classDetails: ClassDetail[];
+  sarana: SaranaDetail[];
+  updatedAt?: Timestamp;
+}
+
+export interface PelanggaranSiswa {
+  id?: string;
+  id_siswa: string;
+  namaSiswa: string;
+  kelasSiswa: string;
+  tanggal: Timestamp;
+  pelanggaran: string;
+  catatan?: string;
+  poin: number;
+  recordedByUid: string;
+  recordedByName: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LaporanKegiatan {
+  id?: string;
+  activityId: TugasTambahan; // e.g., 'pembina_osis'
+  activityName: string; // e.g., 'OSIS'
+  title: string;
+  content: string;
+  date: Timestamp;
+  createdByUid: string;
+  createdByDisplayName: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface AgendaKelas {
+  id?: string;
+  teacherUid: string;
+  teacherName: string;
+  kelas: string;
+  mapel: string;
+  tanggal: Timestamp;
+  jamKe: string;
+  tujuanPembelajaran: string;
+  pokokBahasan: string;
+  siswaAbsen: { idSiswa: string; namaSiswa: string }[];
+  refleksi: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}

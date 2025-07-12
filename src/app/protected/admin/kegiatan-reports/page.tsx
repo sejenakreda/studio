@@ -210,15 +210,15 @@ function LaporanDetail({ activity }: { activity: TugasTambahan }) {
 }
 
 // Main component that decides which view to show
-export default function LaporanKegiatanPage() {
+export default function KegiatanReportsPage() {
     return (
         <Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="h-10 w-10 animate-spin"/></div>}>
-            <LaporanKegiatanSwitcher />
+            <KegiatanReportsSwitcher />
         </Suspense>
     )
 }
 
-function LaporanKegiatanSwitcher() {
+function KegiatanReportsSwitcher() {
     const searchParams = useSearchParams();
     const activity = searchParams.get('activity') as TugasTambahan | null;
 

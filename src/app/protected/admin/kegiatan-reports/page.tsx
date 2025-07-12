@@ -223,7 +223,7 @@ export default function KegiatanReportsPage() {
         </Card>
       </div>
 
-      <div className="print:block hidden">
+      <div className="print-area">
           <PrintHeader imageUrl={printSettings?.headerImageUrl} />
           <div className="text-center my-4">
             <h2 className="text-lg font-bold uppercase">{printTitle}</h2>
@@ -266,7 +266,7 @@ export default function KegiatanReportsPage() {
         @media print {
             body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
             .print\\:hidden { display: none !important; }
-            .print\\:block { display: block !important; }
+            .print-area { display: block !important; }
             .print-header { text-align: center; margin-bottom: 0.5rem; }
             .page-break-before { break-before: page; }
             .page-break-before:first-child { break-before: auto; }
@@ -275,6 +275,9 @@ export default function KegiatanReportsPage() {
             thead { background-color: #f3f4f6 !important; }
             tr { break-inside: avoid !important; }
             .whitespace-pre-wrap { white-space: pre-wrap !important; }
+        }
+        .print-area {
+            display: none;
         }
       `}</style>
     </div>

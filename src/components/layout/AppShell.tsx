@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -323,6 +323,31 @@ const navigationStructure: NavGroup[] = [
 ];
 
 
+function BottomNavBar() {
+    const router = useRouter();
+    const { userProfile } = useAuth();
+    const dashboardPath = userProfile?.role === 'admin' ? '/protected/admin' : '/protected/guru';
+
+    return (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-card border-t border-border shadow-md">
+            <div className="flex justify-around items-center h-16">
+                <Button variant="ghost" className="flex flex-col h-full justify-center rounded-none" onClick={() => router.back()}>
+                    <ArrowLeft className="h-6 w-6" />
+                    <span className="text-xs">Kembali</span>
+                </Button>
+                <Button variant="ghost" className="flex flex-col h-full justify-center rounded-none" onClick={() => router.push(dashboardPath)}>
+                    <Home className="h-6 w-6" />
+                    <span className="text-xs">Beranda</span>
+                </Button>
+                <Button variant="ghost" className="flex flex-col h-full justify-center rounded-none" onClick={() => router.refresh()}>
+                    <RefreshCw className="h-6 w-6" />
+                    <span className="text-xs">Segarkan</span>
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -530,9 +555,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <UserNav />
         </header>
-        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background overflow-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background overflow-auto pb-20 md:pb-8">
             {children}
         </main>
+        <BottomNavBar />
       </div>
     </div>
   );

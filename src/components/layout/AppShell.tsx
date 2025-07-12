@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -22,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -125,6 +124,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['admin'],
     items: [
       { href: "/protected/admin/school-profile", label: "Profil Sekolah", icon: Building },
+      { href: "/protected/admin/print-settings", label: "Pengaturan Cetak", icon: Printer },
     ],
   },
   

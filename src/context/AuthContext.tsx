@@ -169,17 +169,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
-// Function to update the user's FCM token in Firestore.
-export const updateUserFCMToken = async (uid: string, token: string | null): Promise<void> => {
-  if (!db) return;
-  const userDocRef = doc(db, 'users', uid);
-  try {
-    await updateDoc(userDocRef, {
-      fcmToken: token, // Store the token or null if permission is revoked
-      updatedAt: new Date(), // Update timestamp
-    });
-  } catch (error) {
-    console.error("Failed to update FCM token:", error);
-  }
-};

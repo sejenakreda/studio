@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -13,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
-import { initializeNotifications } from '@/lib/notificationService'; // Import the new service
 
 export default function GuruDashboardPage() {
   const { user, userProfile } = useAuth();
@@ -22,7 +20,6 @@ export default function GuruDashboardPage() {
   const [announcements, setAnnouncements] = useState<Pengumuman[]>([]);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNotifLoading, setIsNotifLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -53,24 +50,6 @@ export default function GuruDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  const handleEnableNotifications = async () => {
-    if (!user) return;
-    setIsNotifLoading(true);
-    try {
-        await initializeNotifications(user.uid, toast);
-    } catch (error: any) {
-        console.error('Error during notification initialization:', error);
-        toast({
-            variant: "destructive",
-            title: "Gagal Mengaktifkan Notifikasi",
-            description: error.message || "Silakan coba lagi atau periksa pengaturan browser Anda."
-        });
-    } finally {
-        setIsNotifLoading(false);
-    }
-  };
-
 
   const totalSiswaAktif = React.useMemo(() => {
       if (!schoolProfile || !schoolProfile.classDetails) return 0;
@@ -113,22 +92,6 @@ export default function GuruDashboardPage() {
           Muat Ulang Data
         </Button>
       </div>
-
-       <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle>Notifikasi Pengingat Absen</CardTitle>
-                <BellRing className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                    Aktifkan notifikasi untuk mendapatkan pengingat di perangkat Anda jika Anda belum mencatat kehadiran harian.
-                </p>
-                <Button onClick={handleEnableNotifications} disabled={isNotifLoading}>
-                    {isNotifLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Aktifkan Notifikasi Pengingat
-                </Button>
-            </CardContent>
-        </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="lg:col-span-3">

@@ -1,4 +1,3 @@
-
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -214,7 +213,7 @@ export interface AgendaKelas {
 export interface PrintSettings {
   id?: string;
   headerImageUrl?: string;
-  placeAndDate?: string; // e.g., "Naringgul, 17 Agustus 2024"
+  place?: string; // e.g., "Cianjur"
   signerOneName?: string; // e.g., "Nama Kepala Sekolah"
   signerOnePosition?: string; // e.g., "Kepala Sekolah"
   signerTwoName?: string; // e.g., "Nama Wali Kelas"

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { format } from 'date-fns';
+import { id as indonesiaLocale } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 
 const printSettingsSchema = z.object({
-  placeAndDate: z.string().max(100, "Maksimal 100 karakter").optional(),
+  place: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerOneName: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerOnePosition: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerTwoName: z.string().max(100, "Maksimal 100 karakter").optional(),
@@ -44,7 +46,7 @@ export default function ManagePrintSettingsPage() {
   const form = useForm<PrintSettingsFormData>({
     resolver: zodResolver(printSettingsSchema),
     defaultValues: {
-      placeAndDate: "",
+      place: "Cianjur",
       signerOneName: "",
       signerOnePosition: "",
       signerTwoName: "",
@@ -52,15 +54,15 @@ export default function ManagePrintSettingsPage() {
     },
   });
 
-  const fetchSettings = useCallback(async () => {
-    setIsLoadingData(true);
+  const fetchSettings = useCallback(async (forceReload: boolean = false) => {
+    if (!forceReload) setIsLoadingData(true);
     setFetchError(null);
     try {
       const settings = await getPrintSettings();
       setCurrentSettings(settings);
       setImagePreview(settings.headerImageUrl || null);
       form.reset({
-        placeAndDate: settings.placeAndDate || "",
+        place: settings.place || "Cianjur",
         signerOneName: settings.signerOneName || "",
         signerOnePosition: settings.signerOnePosition || "",
         signerTwoName: settings.signerTwoName || "",
@@ -70,17 +72,21 @@ export default function ManagePrintSettingsPage() {
       setFetchError("Gagal memuat pengaturan cetak. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
-      setIsLoadingData(false);
+      if (!forceReload) setIsLoadingData(false);
     }
   }, [form, toast]);
 
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+  }, []); // Remove fetchSettings from dependency array to prevent re-running on every render
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({ variant: "destructive", title: "Ukuran File Terlalu Besar", description: "Ukuran gambar maksimal adalah 2MB." });
+        return;
+      }
       setSelectedImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -103,7 +109,8 @@ export default function ManagePrintSettingsPage() {
       if (userProfile) {
         addActivityLog("Gambar Kop Surat Diperbarui", `Admin ${userProfile.displayName} memperbarui gambar kop surat.`, userProfile.uid, userProfile.displayName);
       }
-      setSelectedImageFile(null);
+      setSelectedImageFile(null); // Clear selected file after successful upload
+      fetchSettings(true); // Force reload settings to show new image from URL
     } catch (error: any) {
       toast({ variant: "destructive", title: "Gagal Unggah", description: error.message });
     } finally {
@@ -152,12 +159,12 @@ export default function ManagePrintSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Kop Surat</CardTitle>
-          <CardDescription>Unggah gambar kop surat sekolah. Gunakan gambar dengan format landscape (memanjang) dan resolusi tinggi untuk hasil terbaik.</CardDescription>
+          <CardDescription>Unggah gambar kop surat sekolah. Gunakan gambar dengan format landscape (memanjang) dan resolusi tinggi untuk hasil terbaik (maks. 2MB).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-4 border-2 border-dashed rounded-lg flex justify-center items-center min-h-[150px]">
             {imagePreview ? (
-              <Image src={imagePreview} alt="Pratinjau Kop Surat" width={800} height={200} className="max-w-full h-auto" />
+              <Image src={imagePreview} alt="Pratinjau Kop Surat" width={800} height={200} className="max-w-full h-auto" unoptimized />
             ) : (
               <div className="text-center text-muted-foreground">
                 <ImageIcon className="mx-auto h-12 w-12" />
@@ -180,13 +187,13 @@ export default function ManagePrintSettingsPage() {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
               <CardTitle>Pengaturan Tanda Tangan</CardTitle>
-              <CardDescription>Isi nama dan jabatan untuk dua penanda tangan yang akan muncul di bagian bawah laporan.</CardDescription>
+              <CardDescription>Isi nama dan jabatan untuk dua penanda tangan yang akan muncul di bagian bawah laporan. Tanggal akan ditambahkan secara otomatis.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <FormField control={form.control} name="placeAndDate" render={({ field }) => (
+              <FormField control={form.control} name="place" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tempat dan Tanggal (Titi Mangsa)</FormLabel>
-                  <FormControl><Input placeholder="Contoh: Naringgul, 17 Agustus 2024" {...field} /></FormControl>
+                  <FormLabel>Tempat Cetak (Titi Mangsa)</FormLabel>
+                  <FormControl><Input placeholder="Contoh: Cianjur" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

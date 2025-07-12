@@ -464,7 +464,7 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
   toFirestore(settings: Partial<Omit<PrintSettings, 'id'>>): DocumentData {
     return {
       headerImageUrl: settings.headerImageUrl || null,
-      placeAndDate: settings.placeAndDate || '',
+      place: settings.place || '',
       signerOneName: settings.signerOneName || '',
       signerOnePosition: settings.signerOnePosition || '',
       signerTwoName: settings.signerTwoName || '',
@@ -477,7 +477,7 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
     return {
       id: snapshot.id,
       headerImageUrl: data.headerImageUrl,
-      placeAndDate: data.placeAndDate,
+      place: data.place,
       signerOneName: data.signerOneName,
       signerOnePosition: data.signerOnePosition,
       signerTwoName: data.signerTwoName,
@@ -748,7 +748,7 @@ export const createUserProfile = async (
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
     const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-    const docSnap = await getDoc(userDocRef);
+    const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'profil pengguna');
@@ -1075,7 +1075,7 @@ export const getPrintSettings = async (): Promise<PrintSettings> => {
     if (docSnap.exists()) return docSnap.data();
     return {
       id: PRINT_SETTINGS_DOC_ID,
-      placeAndDate: "Naringgul, ", // Default value
+      place: "Cianjur", // Default value
       signerOneName: "Kepala Sekolah",
       signerOnePosition: "Kepala Sekolah",
       signerTwoName: "Wali Kelas",

@@ -339,13 +339,13 @@ export default function ManageTeacherAttendancePage() {
         </Card>
       </div>
 
-      <div className="print:block hidden">
+      <div className="print-area">
         <PrintHeader imageUrl={printSettings?.headerImageUrl} />
         <div className="text-center my-4">
             <h2 className="text-lg font-bold uppercase">REKAPITULASI KEHADIRAN GURU</h2>
             <p className="text-sm">{printTitle}</p>
         </div>
-        {monthlySummary.length > 0 && dailyFilterMonth !== 'all' && (
+        {monthlySummary.length > 0 && dailyFilterMonth !== 'all' ? (
             <div className="mb-8">
                 <h3 className="text-lg font-bold mb-2">Rekapitulasi Bulanan</h3>
                 <Table>
@@ -375,34 +375,7 @@ export default function ManageTeacherAttendancePage() {
                     </TableBody>
                 </Table>
             </div>
-        )}
-         {dailyRecords.length > 0 && (
-            <div>
-                <h3 className="text-lg font-bold mb-2 page-break-before">Detail Kehadiran Harian</h3>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>No.</TableHead>
-                            <TableHead>Nama Guru</TableHead>
-                            <TableHead>Hari, Tanggal</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Catatan</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {dailyRecords.map((rec, index) => (
-                            <TableRow key={rec.id}>
-                                <TableCell>{index + 1}</TableCell>
-                                <TableCell>{rec.teacherName || rec.teacherUid}</TableCell>
-                                <TableCell>{format(rec.date.toDate(), "EEEE, dd MMM yyyy", { locale: indonesiaLocale })}</TableCell>
-                                <TableCell>{rec.status}</TableCell>
-                                <TableCell className="whitespace-pre-wrap">{rec.notes || '-'}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-        )}
+        ): null}
         <PrintFooter settings={printSettings} />
       </div>
     
@@ -428,8 +401,8 @@ export default function ManageTeacherAttendancePage() {
       <style jsx global>{`
         @media print {
             body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
+            .print-area { display: block !important; }
             .print\\:hidden { display: none !important; }
-            .print\\:block { display: block !important; }
             .print-header { text-align: center; margin-bottom: 0.5rem; }
             .page-break-before { break-before: page; }
             .page-break-before:first-child { break-before: auto; }
@@ -438,6 +411,9 @@ export default function ManageTeacherAttendancePage() {
             thead { background-color: #f3f4f6 !important; }
             tr { break-inside: avoid !important; }
             .whitespace-pre-wrap { white-space: pre-wrap !important; }
+        }
+        .print-area {
+            display: none;
         }
       `}</style>
 

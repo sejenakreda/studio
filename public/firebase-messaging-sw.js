@@ -1,37 +1,30 @@
-// This file must be in the public folder.
-// It handles background notifications for the Progressive Web App.
+// This service worker file is intentionally left almost empty.
+// It will be populated with the necessary Firebase scripts and configuration
+// dynamically when it's registered by the application.
 
-// Import the Firebase app and messaging services.
-// Note: This uses the modular SDK syntax.
-import { initializeApp } from 'firebase/app';
-import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
+// The importScripts line will be added by the Firebase SDK automatically.
+// We just need this file to exist.
+self.addEventListener('push', (event) => {
+  // Optional: Handle push events if needed, but for simple notifications,
+  // Firebase handles this automatically when the app is in the background.
+  console.log('[Service Worker] Push Received.');
+  console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
 
-// IMPORTANT: Replace this with your project's measurement ID if you have one,
-// but it is not strictly required for FCM to work. For now, we can omit it.
-const firebaseConfig = {
-    apiKey: self.location.search.split('apiKey=')[1].split('&')[0],
-    authDomain: self.location.search.split('authDomain=')[1].split('&')[0],
-    projectId: self.location.search.split('projectId=')[1].split('&')[0],
-    storageBucket: self.location.search.split('storageBucket=')[1].split('&')[0],
-    messagingSenderId: self.location.search.split('messagingSenderId=')[1].split('&')[0],
-    appId: self.location.search.split('appId=')[1].split('&')[0],
-};
-
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
-
-onBackgroundMessage(messaging, (payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-  if (!payload.notification) {
-    return;
-  }
-
-  const notificationTitle = payload.notification.title || 'Pemberitahuan Baru';
+  // To display a notification:
+  const notificationTitle = event.data.json().notification.title;
   const notificationOptions = {
-    body: payload.notification.body || 'Anda memiliki pesan baru.',
-    icon: '/icons/icon-192x192.png' // Use an icon from your PWA manifest
+    body: event.data.json().notification.body,
+    icon: '/icons/icon-192x192.png' // Optional: path to an icon
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  event.waitUntil(self.registration.showNotification(notificationTitle, notificationOptions));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('[Service Worker] Notification click Received.');
+  event.notification.close();
+  // Optional: define what happens when the user clicks the notification
+  event.waitUntil(
+    clients.openWindow('/')
+  );
 });

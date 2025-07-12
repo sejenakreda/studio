@@ -47,8 +47,7 @@ export const sendAttendanceReminder = functions.pubsub
       const teachersWhoAttended = new Set(
           attendanceSnapshot.docs.map((doc) => doc.data().teacherUid),
       );
-      console.log(`${teachersWhoAttended.size} teachers have already
-       recorded attendance today.`);
+      console.log(`${teachersWhoAttended.size} teachers have already recorded attendance today.`);
 
       // 3. Find teachers who have NOT attended and have an FCM token.
       const teachersToNotify = allTeachers.filter((teacher) =>
@@ -63,7 +62,12 @@ export const sendAttendanceReminder = functions.pubsub
       console.log(`Found ${teachersToNotify.length} teachers to notify.`);
 
       // 4. Prepare and send notifications.
-      const tokens = teachersToNotify.map((teacher) => teacher.fcmToken);
+      const tokens = teachersToNotify.map((teacher) => teacher.fcmToken) as string[];
+
+      if (tokens.length === 0) {
+        console.log("No valid FCM tokens found for teachers to be notified.");
+        return null;
+      }
 
       const message = {
         notification: {
@@ -91,3 +95,4 @@ export const sendAttendanceReminder = functions.pubsub
     }
     return null;
   });
+

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -14,12 +13,14 @@ import { ArrowLeft, Loader2, AlertCircle, Award, Download, Info, Printer } from 
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllLaporanKegiatan } from '@/lib/firestoreService';
-import type { LaporanKegiatan, TugasTambahan } from '@/types';
+import { getAllLaporanKegiatan, getPrintSettings } from '@/lib/firestoreService';
+import type { LaporanKegiatan, TugasTambahan, PrintSettings } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { getActivityName } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PrintHeader } from '@/components/layout/PrintHeader';
+import { PrintFooter } from '@/components/layout/PrintFooter';
 
 
 export default function KegiatanReportsPage() {
@@ -28,6 +29,7 @@ export default function KegiatanReportsPage() {
   const activityFilter = searchParams.get('activity') as TugasTambahan | null;
 
   const [reports, setReports] = useState<LaporanKegiatan[]>([]);
+  const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,8 +37,12 @@ export default function KegiatanReportsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedReports = await getAllLaporanKegiatan();
+      const [fetchedReports, fetchedPrintSettings] = await Promise.all([
+        getAllLaporanKegiatan(),
+        getPrintSettings(),
+      ]);
       setReports(fetchedReports);
+      setPrintSettings(fetchedPrintSettings);
     } catch (err: any) {
       setError("Gagal memuat data laporan kegiatan.");
       toast({ variant: "destructive", title: "Error", description: err.message });
@@ -194,13 +200,13 @@ export default function KegiatanReportsPage() {
       </div>
 
       <div className="print:block hidden">
-        <div className="print-header">
-            <h2>LAPORAN KEGIATAN</h2>
-            <h3>SMA PGRI NARINGGUL</h3>
-        </div>
+          <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+          <div className="text-center my-4">
+            <h2 className="text-lg font-bold uppercase">{printTitle}</h2>
+          </div>
         {Array.from(filteredReportGroups.entries()).map(([activityId, groupReports]) => (
             <div key={activityId} className="mb-8 page-break-before">
-            <h3 className="text-lg font-bold mb-2">Laporan: {groupReports[0]?.activityName || activityId}</h3>
+            <h3 className="text-md font-bold mb-2">Laporan: {groupReports[0]?.activityName || activityId}</h3>
             {groupReports.length > 0 ? (
                 <Table>
                 <TableHeader>
@@ -229,6 +235,7 @@ export default function KegiatanReportsPage() {
             )}
             </div>
         ))}
+        <PrintFooter settings={printSettings} />
       </div>
       
       <style jsx global>{`
@@ -236,9 +243,7 @@ export default function KegiatanReportsPage() {
             body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
             .print\\:hidden { display: none !important; }
             .print\\:block { display: block !important; }
-            .print-header { text-align: center; margin-bottom: 1.5rem; }
-            .print-header h2 { font-size: 1.5rem; font-weight: bold; }
-            .print-header h3 { font-size: 1.25rem; font-weight: 600; }
+            .print-header { text-align: center; margin-bottom: 0.5rem; }
             .page-break-before { break-before: page; }
             .page-break-before:first-child { break-before: auto; }
             table { width: 100%; border-collapse: collapse !important; font-size: 9pt !important; }

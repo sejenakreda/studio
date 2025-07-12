@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -14,8 +13,11 @@ import { ArrowLeft, Loader2, AlertCircle, BookCheck, Filter, Download, Printer }
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllAgendas, getAllUsersByRole } from '@/lib/firestoreService';
-import type { AgendaKelas, UserProfile } from '@/types';
+import { getAllAgendas, getAllUsersByRole, getPrintSettings } from '@/lib/firestoreService';
+import type { AgendaKelas, UserProfile, PrintSettings } from '@/types';
+import { PrintHeader } from '@/components/layout/PrintHeader';
+import { PrintFooter } from '@/components/layout/PrintFooter';
+
 
 const currentYear = new Date().getFullYear();
 const startYearRange = currentYear - 10;
@@ -27,6 +29,7 @@ export default function LaporanAgendaKelasPage() {
     const { toast } = useToast();
     const [agendas, setAgendas] = useState<AgendaKelas[]>([]);
     const [teachers, setTeachers] = useState<UserProfile[]>([]);
+    const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -38,12 +41,14 @@ export default function LaporanAgendaKelasPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const [fetchedAgendas, fetchedTeachers] = await Promise.all([
+            const [fetchedAgendas, fetchedTeachers, fetchedPrintSettings] = await Promise.all([
                 getAllAgendas(),
-                getAllUsersByRole('guru')
+                getAllUsersByRole('guru'),
+                getPrintSettings()
             ]);
             setAgendas(fetchedAgendas);
             setTeachers(fetchedTeachers);
+            setPrintSettings(fetchedPrintSettings);
         } catch (err: any) {
             setError("Gagal memuat data. Silakan coba lagi.");
             toast({ variant: "destructive", title: "Error", description: err.message });
@@ -171,10 +176,10 @@ export default function LaporanAgendaKelasPage() {
             </div>
             
             <div className="print:block hidden">
-                <div className="print-header">
-                    <h2>LAPORAN AGENDA KELAS</h2>
-                    <h3>SMA PGRI NARINGGUL</h3>
-                    <p>{printTitle}</p>
+                <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+                <div className="text-center my-4">
+                    <h2 className="text-lg font-bold uppercase">LAPORAN AGENDA KELAS</h2>
+                    <p className="text-sm">{printTitle}</p>
                 </div>
                 {filteredAgendas.length > 0 ? (
                     <Table>
@@ -206,6 +211,7 @@ export default function LaporanAgendaKelasPage() {
                         </TableBody>
                     </Table>
                 ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
+                <PrintFooter settings={printSettings} />
             </div>
 
             <style jsx global>{`
@@ -213,10 +219,7 @@ export default function LaporanAgendaKelasPage() {
                     body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
                     .print\\:hidden { display: none !important; }
                     .print\\:block { display: block !important; }
-                    .print-header { text-align: center; margin-bottom: 1.5rem; }
-                    .print-header h2 { font-size: 1.5rem; font-weight: bold; }
-                    .print-header h3 { font-size: 1.25rem; font-weight: 600; }
-                    .print-header p { font-size: 0.875rem; }
+                    .print-header { text-align: center; margin-bottom: 0.5rem; }
                     table { width: 100%; border-collapse: collapse !important; font-size: 9pt !important; }
                     th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; text-align: left; vertical-align: top; }
                     thead { background-color: #f3f4f6 !important; }

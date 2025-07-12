@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherAttendance, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -297,38 +297,6 @@ const pengumumanConverter: FirestoreDataConverter<Pengumuman> = {
   }
 };
 
-const teacherAttendanceConverter: FirestoreDataConverter<TeacherAttendance> = {
-  toFirestore: (attendance: Omit<TeacherAttendance, 'id'>): DocumentData => {
-    const data: any = { ...attendance };
-    if (!data.recordedAt) {
-      data.recordedAt = serverTimestamp();
-    }
-    data.updatedAt = serverTimestamp();
-    return data;
-  },
-  fromFirestore: (
-    snapshot: QueryDocumentSnapshot,
-    options: SnapshotOptions
-  ): TeacherAttendance => {
-    const data = snapshot.data(options)!;
-    return {
-      id: snapshot.id,
-      teacherUid: data.teacherUid,
-      teacherName: data.teacherName,
-      month: data.month,
-      year: data.year,
-      daysPresent: data.daysPresent,
-      daysAbsentWithReason: data.daysAbsentWithReason,
-      daysAbsentWithoutReason: data.daysAbsentWithoutReason,
-      totalSchoolDaysInMonth: data.totalSchoolDaysInMonth,
-      notes: data.notes,
-      recordedByUid: data.recordedByUid,
-      recordedAt: data.recordedAt,
-      updatedAt: data.updatedAt,
-    };
-  }
-};
-
 const teacherDailyAttendanceConverter: FirestoreDataConverter<TeacherDailyAttendance> = {
   toFirestore: (attendance: Omit<TeacherDailyAttendance, 'id'>): DocumentData => {
     return {
@@ -490,6 +458,33 @@ const agendaKelasConverter: FirestoreDataConverter<AgendaKelas> = {
             updatedAt: data.updatedAt,
         };
     }
+};
+
+const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
+  toFirestore(settings: Partial<Omit<PrintSettings, 'id'>>): DocumentData {
+    return {
+      headerImageUrl: settings.headerImageUrl || null,
+      placeAndDate: settings.placeAndDate || '',
+      signerOneName: settings.signerOneName || '',
+      signerOnePosition: settings.signerOnePosition || '',
+      signerTwoName: settings.signerTwoName || '',
+      signerTwoPosition: settings.signerTwoPosition || '',
+      updatedAt: serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PrintSettings {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      headerImageUrl: data.headerImageUrl,
+      placeAndDate: data.placeAndDate,
+      signerOneName: data.signerOneName,
+      signerOnePosition: data.signerOnePosition,
+      signerTwoName: data.signerTwoName,
+      signerTwoPosition: data.signerTwoPosition,
+      updatedAt: data.updatedAt,
+    };
+  }
 };
 
 
@@ -945,63 +940,6 @@ export const deletePengumuman = async (id: string): Promise<void> => {
   }
 };
 
-// --- Teacher Attendance Service (Monthly Rekap by Admin) ---
-const TEACHER_ATTENDANCE_COLLECTION = 'teacherAttendance';
-export const addOrUpdateTeacherAttendance = async (attendanceData: Omit<TeacherAttendance, 'id' | 'recordedAt' | 'updatedAt'>): Promise<TeacherAttendance> => {
-  try {
-    const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
-    const docId = `${attendanceData.teacherUid}_${attendanceData.year}_${attendanceData.month}`;
-    const docRef = doc(collRef, docId);
-    const docSnap = await getDoc(docRef);
-    let finalData: TeacherAttendance;
-    if (docSnap.exists()) {
-      const existingData = docSnap.data();
-      finalData = { ...existingData, ...attendanceData, id: docId, updatedAt: serverTimestamp() as Timestamp };
-      await updateDoc(docRef, { ...finalData, id: undefined });
-    } else {
-      finalData = { ...attendanceData, id: docId, recordedAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
-      await setDoc(docRef, { ...finalData, id: undefined });
-    }
-    const now = Timestamp.now();
-    return { ...finalData, recordedAt: finalData.recordedAt instanceof Timestamp ? finalData.recordedAt : now, updatedAt: now };
-  } catch (error) {
-    handleFirestoreError(error, 'menyimpan', 'rekap kehadiran guru');
-  }
-};
-export const getTeacherAttendance = async (teacherUid: string, year: number, month: number): Promise<TeacherAttendance | null> => {
-  try {
-    const docId = `${teacherUid}_${year}_${month}`;
-    const docRef = doc(db, TEACHER_ATTENDANCE_COLLECTION, docId).withConverter(teacherAttendanceConverter);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() : null;
-  } catch (error) {
-    handleFirestoreError(error, 'membaca', 'rekap kehadiran guru');
-  }
-};
-export const getAllTeacherAttendanceRecords = async (filters?: { year?: number, month?: number, teacherUid?: string }): Promise<TeacherAttendance[]> => {
-  try {
-    const collRef = collection(db, TEACHER_ATTENDANCE_COLLECTION).withConverter(teacherAttendanceConverter);
-    const qConstraints = [];
-    if (filters?.year) qConstraints.push(where('year', '==', filters.year));
-    if (filters?.month) qConstraints.push(where('month', '==', filters.month));
-    if (filters?.teacherUid) qConstraints.push(where('teacherUid', '==', filters.teacherUid));
-    if (filters?.year) qConstraints.push(orderBy('month', 'asc'));
-    qConstraints.push(orderBy('teacherName', 'asc'));
-    const q = query(collRef, ...qConstraints);
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data());
-  } catch (error) {
-    handleFirestoreError(error, 'membaca semua', 'rekap kehadiran guru');
-  }
-};
-export const deleteTeacherAttendance = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, TEACHER_ATTENDANCE_COLLECTION, id));
-  } catch (error) {
-    handleFirestoreError(error, 'menghapus', 'rekap kehadiran guru');
-  }
-};
-
 // --- Teacher Daily Attendance Service (Input by Guru) ---
 const TEACHER_DAILY_ATTENDANCE_COLLECTION = 'teacherDailyAttendance';
 export const addOrUpdateTeacherDailyAttendance = async (attendanceData: Omit<TeacherDailyAttendance, 'id' | 'recordedAt' | 'updatedAt' | 'lastUpdatedByUid'> & { lastUpdatedByUid: string }): Promise<TeacherDailyAttendance> => {
@@ -1102,9 +1040,11 @@ export const getAllTeachersDailyAttendanceForPeriod = async (year: number, month
   }
 };
 
-// --- School Profile Service ---
+// --- School Config Service (for School Profile & Print Settings) ---
 const SCHOOL_CONFIG_COLLECTION = 'schoolConfig';
 const SCHOOL_PROFILE_DOC_ID = 'main_profile';
+const PRINT_SETTINGS_DOC_ID = 'print_settings';
+
 export const getSchoolProfile = async (): Promise<SchoolProfile> => {
   try {
     const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, SCHOOL_PROFILE_DOC_ID).withConverter(schoolProfileConverter);
@@ -1128,6 +1068,43 @@ export const updateSchoolProfile = async (profileData: Partial<Omit<SchoolProfil
   }
 };
 
+export const getPrintSettings = async (): Promise<PrintSettings> => {
+  try {
+    const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, PRINT_SETTINGS_DOC_ID).withConverter(printSettingsConverter);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) return docSnap.data();
+    return {
+      id: PRINT_SETTINGS_DOC_ID,
+      placeAndDate: "Naringgul, ", // Default value
+      signerOneName: "Kepala Sekolah",
+      signerOnePosition: "Kepala Sekolah",
+      signerTwoName: "Wali Kelas",
+      signerTwoPosition: "Wali Kelas",
+    };
+  } catch (error) {
+    handleFirestoreError(error, 'membaca', 'pengaturan cetak');
+  }
+};
+
+export const updatePrintSettings = async (settings: Partial<Omit<PrintSettings, 'id' | 'updatedAt'>>): Promise<void> => {
+  try {
+    const docRef = doc(db, SCHOOL_CONFIG_COLLECTION, PRINT_SETTINGS_DOC_ID);
+    await setDoc(docRef, { ...settings, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'memperbarui', 'pengaturan cetak');
+  }
+};
+
+export const uploadPrintHeaderImage = async (file: File): Promise<string> => {
+  try {
+    const storageRef = ref(storage, 'print_settings/header_image.png');
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw new Error("Gagal mengunggah gambar kop surat.");
+  }
+};
 
 // --- Pelanggaran Siswa (Student Violation) Service ---
 const PELANGGARAN_COLLECTION = 'pelanggaran_siswa';

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -23,8 +22,9 @@ import {
   deleteTeacherDailyAttendance,
   addActivityLog,
   addOrUpdateTeacherDailyAttendance, 
+  getPrintSettings
 } from '@/lib/firestoreService';
-import type { UserProfile, TeacherDailyAttendance, TeacherDailyAttendanceStatus } from '@/types';
+import type { UserProfile, TeacherDailyAttendance, TeacherDailyAttendanceStatus, PrintSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/dialog";
 import { Timestamp } from 'firebase/firestore';
 import { getWorkdaysInMonth } from '@/lib/utils';
+import { PrintHeader } from '@/components/layout/PrintHeader';
+import { PrintFooter } from '@/components/layout/PrintFooter';
 
 const MONTHS = [
   { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
@@ -89,6 +91,7 @@ export default function ManageTeacherAttendancePage() {
   const { toast } = useToast();
   const { userProfile: adminProfile } = useAuth();
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
+  const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
 
   const [dailyRecords, setDailyRecords] = useState<TeacherDailyAttendance[]>([]);
   const [isLoadingDailyRecords, setIsLoadingDailyRecords] = useState(false);
@@ -116,8 +119,12 @@ export default function ManageTeacherAttendancePage() {
   const fetchTeachersList = useCallback(async () => {
     setIsLoadingTeachers(true);
     try {
-      const guruUsers = await getAllUsersByRole('guru');
+      const [guruUsers, settings] = await Promise.all([
+        getAllUsersByRole('guru'),
+        getPrintSettings(),
+      ]);
       setTeachers(guruUsers || []);
+      setPrintSettings(settings);
     } catch (error) {
       setFetchError("Gagal memuat daftar guru.");
       toast({ variant: "destructive", title: "Error", description: "Gagal memuat daftar guru." });
@@ -333,10 +340,10 @@ export default function ManageTeacherAttendancePage() {
       </div>
 
       <div className="print:block hidden">
-        <div className="print-header">
-            <h2>REKAPITULASI KEHADIRAN GURU</h2>
-            <h3>SMA PGRI NARINGGUL</h3>
-            <p>{printTitle}</p>
+        <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+        <div className="text-center my-4">
+            <h2 className="text-lg font-bold uppercase">REKAPITULASI KEHADIRAN GURU</h2>
+            <p className="text-sm">{printTitle}</p>
         </div>
         {monthlySummary.length > 0 && dailyFilterMonth !== 'all' && (
             <div className="mb-8">
@@ -396,6 +403,7 @@ export default function ManageTeacherAttendancePage() {
                 </Table>
             </div>
         )}
+        <PrintFooter settings={printSettings} />
       </div>
     
       {dailyRecordToDelete && (<AlertDialog open={!!dailyRecordToDelete} onOpenChange={(isOpen) => !isOpen && setDailyRecordToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Yakin Hapus Kehadiran Harian Ini?</AlertDialogTitle><AlertDialogDescription>Kehadiran guru <span className="font-semibold">{dailyRecordToDelete.teacherName}</span> tanggal {format(dailyRecordToDelete.date.toDate(), "EEEE, PPP", { locale: indonesiaLocale })} akan dihapus. Ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setDailyRecordToDelete(null)} disabled={isDeletingDaily}>Batal</AlertDialogCancel><AlertDialogAction onClick={handleActualDailyDelete} disabled={isDeletingDaily} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isDeletingDaily ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Ya, Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
@@ -422,10 +430,7 @@ export default function ManageTeacherAttendancePage() {
             body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
             .print\\:hidden { display: none !important; }
             .print\\:block { display: block !important; }
-            .print-header { text-align: center; margin-bottom: 1.5rem; }
-            .print-header h2 { font-size: 1.5rem; font-weight: bold; }
-            .print-header h3 { font-size: 1.25rem; font-weight: 600; }
-            .print-header p { font-size: 0.875rem; }
+            .print-header { text-align: center; margin-bottom: 0.5rem; }
             .page-break-before { break-before: page; }
             .page-break-before:first-child { break-before: auto; }
             table { width: 100%; border-collapse: collapse !important; font-size: 9pt !important; }

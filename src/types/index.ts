@@ -127,22 +127,6 @@ export interface Pengumuman {
   createdByDisplayName?: string;
 }
 
-export interface TeacherAttendance { // Rekap bulanan oleh Admin
-  id?: string; // Firestore document ID (e.g., teacherUid_year_month)
-  teacherUid: string;
-  teacherName?: string; // For display convenience
-  month: number; // 1-12
-  year: number;
-  daysPresent: number;
-  daysAbsentWithReason: number; // Izin, Sakit
-  daysAbsentWithoutReason: number; // Alpa
-  totalSchoolDaysInMonth: number; // Configurable total school days in that month
-  notes?: string;
-  recordedByUid: string;
-  recordedAt: Timestamp;
-  updatedAt?: Timestamp;
-}
-
 export type TeacherDailyAttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Alpa';
 
 export interface TeacherDailyAttendance {
@@ -224,5 +208,16 @@ export interface AgendaKelas {
   siswaAbsen: { idSiswa: string; namaSiswa: string }[];
   refleksi: string;
   createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface PrintSettings {
+  id?: string;
+  headerImageUrl?: string;
+  placeAndDate?: string; // e.g., "Naringgul, 17 Agustus 2024"
+  signerOneName?: string; // e.g., "Nama Kepala Sekolah"
+  signerOnePosition?: string; // e.g., "Kepala Sekolah"
+  signerTwoName?: string; // e.g., "Nama Wali Kelas"
+  signerTwoPosition?: string; // e.g., "Wali Kelas"
   updatedAt?: Timestamp;
 }

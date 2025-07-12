@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -8,12 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Loader2, AlertCircle, User, BookOpen, CalendarDays, Info, Printer } from "lucide-react";
-import { getStudentById, getGradesByStudent } from '@/lib/firestoreService';
-import type { Siswa, Nilai } from '@/types';
+import { getStudentById, getGradesByStudent, getPrintSettings } from '@/lib/firestoreService';
+import type { Siswa, Nilai, PrintSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateAverage } from '@/lib/utils';
+import { PrintHeader } from '@/components/layout/PrintHeader';
+import { PrintFooter } from '@/components/layout/PrintFooter';
 
 interface GroupedGrades {
   [tahunAjaran: string]: {
@@ -29,6 +30,7 @@ export default function StudentReportPage() {
 
   const [student, setStudent] = useState<Siswa | null>(null);
   const [grades, setGrades] = useState<Nilai[]>([]);
+  const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,15 +45,24 @@ export default function StudentReportPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedStudent = await getStudentById(docId);
+      const [fetchedStudent, fetchedGrades, fetchedPrintSettings] = await Promise.all([
+        getStudentById(docId),
+        getGradesByStudent(docId), // Assuming getGradesByStudent takes the document ID
+        getPrintSettings(),
+      ]);
+      
       if (!fetchedStudent) {
         throw new Error("Data siswa tidak ditemukan.");
       }
       setStudent(fetchedStudent);
+      setPrintSettings(fetchedPrintSettings);
 
-      const fetchedGrades = await getGradesByStudent(fetchedStudent.id_siswa);
+      // Now fetch grades using the student's specific ID (id_siswa)
+      const studentSpecificId = fetchedStudent.id_siswa;
+      const gradesForStudent = await getGradesByStudent(studentSpecificId);
+      
       // Sort by tahun_ajaran desc, semester asc, then mapel asc for consistent display
-      setGrades(fetchedGrades.sort((a, b) => {
+      setGrades(gradesForStudent.sort((a, b) => {
         if (a.tahun_ajaran > b.tahun_ajaran) return -1;
         if (a.tahun_ajaran < b.tahun_ajaran) return 1;
         if (a.semester < b.semester) return -1;
@@ -162,15 +173,17 @@ export default function StudentReportPage() {
         </Button>
       </div>
       
-      <div className="print:block hidden text-center mb-4">
-        <h2 className="text-xl font-bold">LAPORAN HASIL BELAJAR SISWA</h2>
-        <h3 className="text-lg font-semibold">SMA PGRI NARINGGUL</h3>
+      <div className="print:block hidden">
+        <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+        <div className="text-center my-4">
+            <h2 className="text-lg font-bold uppercase">LAPORAN HASIL BELAJAR SISWA</h2>
+        </div>
       </div>
 
 
       <Card className="print:shadow-none print:border-none">
         <CardHeader className="border-b print:border-b-2 print:border-black print:py-2">
-          <CardTitle className="text-2xl text-center sm:text-left font-headline print:text-lg print:text-left">Profil Siswa</CardTitle>
+          <CardTitle className="text-2xl text-center sm:text-left font-headline print:text-base print:text-left">Profil Siswa</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 print:grid-cols-2 print:gap-x-4 print:pt-2 print:text-xs">
           <div className="flex items-start gap-3 print:items-center">
@@ -266,33 +279,10 @@ export default function StudentReportPage() {
               </CardContent>
             </Card>
           ))}
+          <PrintFooter settings={printSettings} waliKelasName={null} />
         </div>
       ))}
       
-      <div className="print:block hidden mt-8 text-xs">
-        <div className="grid grid-cols-2 gap-8">
-            <div>
-                <p className="mb-16">Mengetahui,</p>
-                <p>Orang Tua/Wali Siswa</p>
-                <br/><br/><br/>
-                <p className="border-b border-black w-48"></p>
-            </div>
-            <div className="text-right">
-                <p className="mb-16">Naringgul, ........................... {new Date().getFullYear()}</p>
-                <p>Wali Kelas</p>
-                <br/><br/><br/>
-                <p className="border-b border-black w-48 ml-auto">(....................................)</p>
-            </div>
-        </div>
-         <div className="mt-12 text-center">
-            <p>Kepala Sekolah SMA PGRI Naringgul</p>
-            <br/><br/><br/><br/>
-            <p className="font-bold border-b border-black w-60 mx-auto">( .................................... )</p>
-            <p>NUPTK. ................................</p>
-         </div>
-      </div>
-
-
        <style jsx global>{`
         @media print {
           body {
@@ -300,6 +290,7 @@ export default function StudentReportPage() {
             print-color-adjust: exact !important;
             font-size: 10pt !important;
           }
+          .print-header { text-align: center; margin-bottom: 0.5rem; }
           .print\\:hidden { display: none !important; }
           .print\\:block { display: block !important; }
           .print\\:text-center { text-align: center !important; }

@@ -1096,6 +1096,9 @@ export const updatePrintSettings = async (settings: Partial<Omit<PrintSettings, 
 };
 
 export const uploadPrintHeaderImage = async (file: File): Promise<string> => {
+  if (!storage) {
+    throw new Error("Layanan Firebase Storage tidak tersedia. Pastikan konfigurasi Firebase sudah benar.");
+  }
   try {
     const storageRef = ref(storage, 'print_settings/header_image.png');
     await uploadBytes(storageRef, file);

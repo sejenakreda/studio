@@ -4,10 +4,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
     BarChart3, Users, Settings, FileText, Loader2, History, CalendarCog, 
-    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building, FileWarning, Users2, Award
+    ListChecks, Megaphone, BookUser, ArrowRight, BookCopy, CalendarCheck, Building, FileWarning, Users2, Award, ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import { getAllUsersByRole, getStudents, getRecentActivityLogs } from '@/lib/firestoreService';
@@ -17,19 +16,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface AdminDashboardGroup {
-  title: string;
-  icon: React.ElementType;
-  items: AdminDashboardItem[];
-  defaultOpen?: boolean;
-}
-
 interface AdminDashboardItem {
   title: string;
   description: string;
   href: string;
   icon: React.ElementType;
   color?: string;
+}
+
+interface AdminDashboardGroup {
+  title: string;
+  items: AdminDashboardItem[];
 }
 
 export default function AdminDashboardPage() {
@@ -74,46 +71,32 @@ export default function AdminDashboardPage() {
 
   const dashboardGroups: AdminDashboardGroup[] = [
     {
-      title: "Sistem Akademik & Penilaian",
-      icon: BookCopy,
-      defaultOpen: true,
+      title: "Manajemen Akademik",
       items: [
-        { title: "Kelola Siswa", description: "Tambah, edit, atau impor data siswa.", href: "/protected/admin/students", icon: BookUser, color: "text-sky-500" },
-        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran master.", href: "/protected/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
-        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot komponen penilaian.", href: "/protected/admin/weights", icon: Settings, color: "text-green-500" },
-        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran yang aktif.", href: "/protected/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
-        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai siswa.", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
+        { title: "Kelola Siswa", description: "Tambah & impor data siswa.", href: "/protected/admin/students", icon: BookUser, color: "text-sky-500" },
+        { title: "Kelola Mapel", description: "Atur daftar mata pelajaran.", href: "/protected/admin/mapel", icon: ListChecks, color: "text-indigo-500" },
+        { title: "Atur Bobot Nilai", description: "Konfigurasi bobot penilaian.", href: "/protected/admin/weights", icon: Settings, color: "text-green-500" },
+        { title: "Atur KKM", description: "Tetapkan KKM per mapel.", href: "/protected/admin/kkm", icon: ShieldCheck, color: "text-blue-500" },
+        { title: "Tahun Ajaran Aktif", description: "Kelola tahun ajaran aktif.", href: "/protected/admin/academic-years", icon: CalendarCog, color: "text-amber-500" },
       ]
     },
     {
       title: "Manajemen Pengguna & Sistem",
-      icon: Users,
       items: [
-        { title: "Kelola Guru", description: "Tambah atau edit data profil guru.", href: "/protected/admin/teachers", icon: Users, color: "text-blue-500" },
-        { title: "Laporan Sistem", description: "Statistik dan laporan umum sistem.", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
-        { title: "Laporan Pelanggaran", description: "Lihat dan ekspor data pelanggaran.", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
-        { title: "Laporan Kegiatan", description: "Lihat laporan dari Pembina & Kesiswaan.", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-teal-500" },
+        { title: "Kelola Guru", description: "Tambah & edit data guru.", href: "/protected/admin/teachers", icon: Users, color: "text-blue-500" },
+        { title: "Pengumuman Guru", description: "Buat pengumuman untuk guru.", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
+        { title: "Profil Sekolah", description: "Kelola data statistik sekolah.", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" }
       ]
     },
-    {
-      title: "Kehadiran Guru",
-      icon: CalendarCheck,
+     {
+      title: "Laporan & Rekapitulasi",
       items: [
-        { title: "Rekap Kehadiran Guru", description: "Kelola rekapitulasi kehadiran guru.", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" }
-      ]
-    },
-    {
-      title: "Komunikasi & Informasi",
-      icon: Megaphone,
-      items: [
-        { title: "Pengumuman Guru", description: "Buat dan kelola pengumuman untuk guru.", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" }
-      ]
-    },
-    {
-      title: "Pengaturan Umum",
-      icon: Settings,
-      items: [
-        { title: "Profil Sekolah", description: "Kelola data statistik sekolah seperti jumlah siswa, guru, dan sarana.", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" }
+        { title: "Statistik Sistem", description: "Statistik umum sistem.", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
+        { title: "Semua Nilai Siswa", description: "Lihat semua data nilai.", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
+        { title: "Laporan Pelanggaran", description: "Lihat data pelanggaran.", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
+        { title: "Rekap Kehadiran Guru", description: "Lihat rekapitulasi kehadiran.", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
+        { title: "Laporan Agenda Kelas", description: "Lihat semua agenda mengajar.", href: "/protected/admin/agenda-kelas", icon: BookCopy, color: "text-lime-500" },
+        { title: "Laporan Kegiatan Staf", description: "Lihat laporan dari Pembina & Staf.", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-fuchsia-500" },
       ]
     }
   ];
@@ -167,89 +150,61 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Menu Manajemen Sistem</CardTitle>
-            <CardDescription>Akses cepat ke berbagai fitur manajemen.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion 
-              type="multiple" 
-              className="w-full"
-              defaultValue={dashboardGroups.filter(g => g.defaultOpen).map(g => g.title)}
-            >
-              {dashboardGroups.map((group) => (
-                <AccordionItem value={group.title} key={group.title}>
-                  <AccordionTrigger className="text-lg hover:no-underline">
-                    <div className="flex items-center gap-3">
-                      <group.icon className="h-6 w-6 text-primary" />
-                      {group.title}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                      {group.items.map((item) => (
-                        <Link href={item.href} key={item.title} className="block group">
-                          <Card className="h-full hover:shadow-md transition-shadow hover:border-primary/50">
-                            <CardHeader className="pb-3">
-                              <div className="flex items-center gap-3">
-                                <item.icon className={`h-6 w-6 ${item.color || 'text-muted-foreground'} group-hover:text-primary transition-colors`} />
-                                <CardTitle className={`text-base ${item.color || 'text-foreground'} group-hover:text-primary transition-colors`}>{item.title}</CardTitle>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                              <p className="text-sm text-muted-foreground">{item.description}</p>
-                            </CardContent>
-                            <CardFooter className="pt-2 pb-3">
-                                <Button variant="link" size="sm" className="p-0 h-auto text-primary group-hover:underline">
-                                    Buka Halaman <ArrowRight className="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-1"/>
-                                </Button>
-                            </CardFooter>
-                          </Card>
-                        </Link>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+      <div className="space-y-8">
+        {dashboardGroups.map((group) => (
+          <div key={group.title}>
+            <h2 className="text-xl font-semibold tracking-tight mb-4">{group.title}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {group.items.map((item) => (
+                <Link href={item.href} key={item.title} className="block group">
+                  <Card className="h-full hover:shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-primary/50">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-base font-medium">{item.title}</CardTitle>
+                      <item.icon className={`h-6 w-6 ${item.color || 'text-muted-foreground'} transition-colors`} />
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
-            </Accordion>
-          </CardContent>
-        </Card>
-        
-        <Card id="activity-log" className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Log Aktivitas Terbaru</CardTitle>
-            <CardDescription>Perubahan penting dalam sistem (5 terbaru).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingLogs ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
-            ) : activityLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
-            ) : (
-              <ul className="space-y-3 max-h-96 overflow-y-auto">
-                {activityLogs.map((log) => (
-                  <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
-                    <History className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex-grow min-w-0"> 
-                      <p className="text-sm font-medium text-foreground truncate" title={log.action}>{log.action}</p>
-                      {log.details && <p className="text-xs text-muted-foreground truncate" title={log.details}>{log.details}</p>}
-                      <p className="text-xs text-muted-foreground">
-                        Oleh: <span className="font-medium">{log.userName || "Sistem"}</span> - 
-                        {' '}
-                        {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: indonesiaLocale }) : 'Beberapa saat lalu'}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        ))}
       </div>
+        
+      <Card id="activity-log" className="mt-8">
+        <CardHeader>
+          <CardTitle>Log Aktivitas Terbaru</CardTitle>
+          <CardDescription>Perubahan penting dalam sistem (5 terbaru).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingLogs ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_,i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : activityLogs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas tercatat.</p>
+          ) : (
+            <ul className="space-y-3 max-h-96 overflow-y-auto">
+              {activityLogs.map((log) => (
+                <li key={log.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
+                  <History className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="flex-grow min-w-0"> 
+                    <p className="text-sm font-medium text-foreground truncate" title={log.action}>{log.action}</p>
+                    {log.details && <p className="text-xs text-muted-foreground truncate" title={log.details}>{log.details}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      Oleh: <span className="font-medium">{log.userName || "Sistem"}</span> - 
+                      {' '}
+                      {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: indonesiaLocale }) : 'Beberapa saat lalu'}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

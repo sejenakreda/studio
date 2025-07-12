@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -10,7 +9,7 @@ import { id as indonesiaLocale } from 'date-fns/locale';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, Award, Download, Info, Printer, Users2, Users, Library, CircleDollarSign, HeartHandshake, Briefcase, DatabaseZap, ShieldQuestion, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Award, Download, Info, Printer, Users2, Library, CircleDollarSign, HeartHandshake, Briefcase, DatabaseZap, ShieldQuestion, ShieldAlert, Users } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -91,8 +90,8 @@ export default function KegiatanReportsPage() {
     });
     
     const sortedEntries = Array.from(groups.entries()).sort((a, b) => {
-        const nameA = a[1][0]?.activityName || '';
-        const nameB = b[1][0]?.activityName || '';
+        const nameA = getActivityName(a[0]);
+        const nameB = getActivityName(b[0]);
         return nameA.localeCompare(nameB);
     });
     return new Map(sortedEntries);
@@ -108,7 +107,7 @@ export default function KegiatanReportsPage() {
 
     filteredReportGroups.forEach((groupReports, activityId) => {
       if (groupReports.length > 0) {
-        const sheetName = groupReports[0].activityName.substring(0, 31);
+        const sheetName = getActivityName(activityId).substring(0, 31);
         const dataForExcel = groupReports.map(report => ({
           'Judul Laporan': report.title,
           'Tanggal Kegiatan': report.date ? format(report.date.toDate(), "yyyy-MM-dd") : 'N/A',
@@ -157,7 +156,7 @@ export default function KegiatanReportsPage() {
   return (
     <div className="space-y-6">
       <div className="print:hidden">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-0 bg-background/80 backdrop-blur-sm pt-2 pb-4 -mt-2 -mx-4 px-4 z-10">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <Link href="/protected/admin"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
             <div>
@@ -202,7 +201,7 @@ export default function KegiatanReportsPage() {
                         <AccordionTrigger className="hover:no-underline text-base font-semibold">
                             <div className="flex items-center gap-4">
                                 <Icon className="h-5 w-5 text-muted-foreground" />
-                                <span>{groupReports[0]?.activityName || activityId}</span>
+                                <span className="flex-1 text-left">{getActivityName(activityId)}</span>
                                 <Badge variant="secondary">{groupReports.length} Laporan</Badge>
                             </div>
                         </AccordionTrigger>
@@ -231,7 +230,7 @@ export default function KegiatanReportsPage() {
           </div>
         {Array.from(filteredReportGroups.entries()).map(([activityId, groupReports]) => (
             <div key={activityId} className="mb-8 page-break-before">
-            <h3 className="text-md font-bold mb-2">Laporan: {groupReports[0]?.activityName || activityId}</h3>
+            <h3 className="text-md font-bold mb-2">Laporan: {getActivityName(activityId)}</h3>
             {groupReports.length > 0 ? (
                 <Table>
                 <TableHeader>

@@ -2,134 +2,129 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper function to check if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    // Helper function to check if the user has a specific role
-    function hasRole(role) {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
-    }
     
     // Helper function to check if the user is an admin
     function isAdmin() {
-      return hasRole('admin');
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Helper function to check if the user is a guru
     function isGuru() {
-      return hasRole('guru');
-    }
-    
-    // Helper function to check if user is admin or guru
-    function isAdminOrGuru() {
-      return isAdmin() || isGuru();
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guru';
     }
 
-    // Collection: users
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Admins can read/write any user profile.
-      // Users can only read/write their own profile.
-      allow read, write: if isAdmin() || request.auth.uid == userId;
+      // Admins can manage any user profile
+      allow read, write: if isAdmin();
+      // Users can read and update their own profile, but not change their role
+      allow read: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == userId
+                      && !('role' in request.resource.data);
     }
     
-    // Collection: siswa
-    match /siswa/{studentId} {
+    // Rules for 'bobot' (weights) collection
+    match /bobot/{docId} {
+      // Only admins can read or write weight configurations
+      allow read, write: if isAdmin();
+    }
+    
+    // Rules for 'siswa' (students) collection
+    match /siswa/{docId} {
       // Admins can manage student data
-      // Gurus can only read student data
-      allow read: if isAdminOrGuru();
-      allow write: if isAdmin();
+      allow read, write, delete: if isAdmin();
+      // Gurus can read student data
+      allow read: if isGuru();
     }
     
-    // Collection: bobot
-    match /bobot/{weightId} {
-      // Admins can manage grade weights
-      // Gurus can read them for calculations
-      allow read: if isAdminOrGuru();
-      allow write: if isAdmin();
-    }
-
-    // Collection: nilai
-    match /nilai/{gradeId} {
-      // Admin can read/delete any grade
-      allow read, delete: if isAdmin();
+    // Rules for 'nilai' (grades) collection
+    match /nilai/{docId} {
+      // Admins can manage all grade data
+      allow read, write, delete: if isAdmin();
       
-      // A guru can create/update/delete a grade if they are the owner of that grade record.
-      allow create, update: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      allow delete: if isGuru() && resource.data.teacherUid == request.auth.uid;
+      // Gurus can read any grade
+      allow read: if isGuru();
+      
+      // Gurus can create/update/delete grades they own
+      allow create, update, delete: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
     }
 
-    // Collection: academicYearConfigs
-    match /academicYearConfigs/{yearId} {
-        allow read: if isAdminOrGuru();
+    // Rules for 'activity_logs' collection
+    match /activity_logs/{docId} {
+        // Admins can read all logs
+        allow read: if isAdmin();
+        // Any authenticated user (admin or guru) can create logs
+        allow create: if isAuthenticated();
+        // No one can update or delete logs to ensure integrity
+        allow update, delete: if false;
+    }
+    
+    // Rules for 'academicYearConfigs' collection
+    match /academicYearConfigs/{docId} {
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
-    // Collection: kkm_settings
-    match /kkm_settings/{kkmId} {
-        allow read: if isAdminOrGuru();
+    // Rules for 'kkm_settings' collection
+    match /kkm_settings/{docId} {
+        allow read: if isAuthenticated();
         allow write: if isAdmin();
-    }
-
-    // Collection: mataPelajaranMaster
-    match /mataPelajaranMaster/{mapelId} {
-        allow read: if isAdminOrGuru();
-        allow write: if isAdmin();
-    }
-
-    // Collection: pengumuman
-    match /pengumuman/{pengumumanId} {
-        allow read: if isAdminOrGuru();
-        allow create, delete: if isAdmin();
     }
     
-    // Collection: teacherDailyAttendance
-    match /teacherDailyAttendance/{attendanceId} {
-        // Any authenticated user (guru) can create their own record
-        allow create: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
-        // Admins can read all records and update/delete them
-        allow read, update, delete: if isAdmin();
+    // Rules for 'mataPelajaranMaster' collection
+    match /mataPelajaranMaster/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+    }
+    
+    // Rules for 'pengumuman' collection
+    match /pengumuman/{docId} {
+        allow read: if isAuthenticated(); // All authenticated users can read
+        allow write, delete: if isAdmin(); // Only admins can create/update/delete
+    }
+
+    // Rules for 'teacherDailyAttendance' collection
+    match /teacherDailyAttendance/{docId} {
+        // Admins can read and write/delete any record
+        allow read, write: if isAdmin();
+        
         // Gurus can read their own records
         allow read: if isGuru() && resource.data.teacherUid == request.auth.uid;
+        
+        // Gurus can create their own record, but not update it through this rule
+        allow create: if isGuru() && request.resource.data.teacherUid == request.auth.uid;
     }
     
-    // Collection: schoolConfig
-    match /schoolConfig/{configId} {
-        allow read: if isAdminOrGuru();
-        allow write: if isAdmin();
-    }
-    
-    // Collection: pelanggaran_siswa
-    match /pelanggaran_siswa/{pelanggaranId} {
-        // Any guru can read all violations
-        allow read: if isAdminOrGuru();
-        // Only specific guru roles (Kesiswaan, BK) or Admins can create/update/delete
-        allow write: if isAdmin() || (isGuru() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tugasTambahan.hasAny(['kesiswaan', 'bk'])));
-    }
-    
-    // Collection: laporan_kegiatan
-    match /laporan_kegiatan/{laporanId} {
-        // Admins can see all reports
-        allow read: if isAdmin();
-        // Gurus can only manage their own reports
-        allow create: if isGuru();
-        allow read, update, delete: if isGuru() && resource.data.createdByUid == request.auth.uid;
-    }
-    
-    // Collection: agenda_kelas
-    match /agenda_kelas/{agendaId} {
-        allow read: if isAdminOrGuru();
-        allow create, update, delete: if isGuru() && request.auth.uid == resource.data.teacherUid;
+    // Rules for general school configuration (profile, print settings)
+    match /schoolConfig/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
-    // Collection: activity_logs (FIXED)
-    match /activity_logs/{logId} {
-      // Any authenticated user (admin or guru) can create a log.
-      // No one can update or delete logs for data integrity.
-      allow create: if isAuthenticated();
-      allow read, update, delete: if false; // Logs should be immutable
+    // Rules for 'pelanggaran_siswa' (student violations)
+    match /pelanggaran_siswa/{docId} {
+      // Admins can read/delete any record
+      allow read, delete: if isAdmin();
+      // Gurus with specific roles (Kesiswaan or BK) can create and read
+      allow create, read: if isGuru();
     }
+    
+    // Rules for 'laporan_kegiatan'
+    match /laporan_kegiatan/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete, read: if isGuru() && request.auth.uid == resource.data.createdByUid;
+    }
+
+    // Rules for 'agenda_kelas'
+    match /agenda_kelas/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete, read: if isGuru() && request.auth.uid == resource.data.teacherUid;
+    }
+
   }
 }

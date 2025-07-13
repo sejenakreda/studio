@@ -648,7 +648,7 @@ export const getGrade = async (id_siswa: string, semester: number, tahun_ajaran:
     handleFirestoreError(error, 'membaca', 'nilai');
   }
 }
-export const getGradesByStudent = async (id_siswa: string): Promise<Nilai[]> => {
+export const getGradesByStudentId = async (id_siswa: string): Promise<Nilai[]> => {
   try {
     const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
     const q = query(collRef,
@@ -681,17 +681,15 @@ export const getGradesForTeacherDisplay = async (
 
     const gradesQuery = query(
       collection(db, 'nilai').withConverter(nilaiConverter),
-      where('teacherUid', '==', teacherUid)
+      where('teacherUid', '==', teacherUid),
+      where('mapel', 'in', mapelList),
+      where('tahun_ajaran', '==', tahunAjaran),
+      where('semester', '==', semester)
     );
 
     const querySnapshot = await getDocs(gradesQuery);
-    const allTeacherGrades = querySnapshot.docs.map(doc => doc.data());
+    return querySnapshot.docs.map(doc => doc.data());
 
-    return allTeacherGrades.filter(grade =>
-      grade.tahun_ajaran === tahunAjaran &&
-      grade.semester === semester &&
-      mapelList.includes(grade.mapel)
-    );
   } catch (error) {
     handleFirestoreError(error, 'membaca nilai', 'guru');
   }
@@ -994,20 +992,14 @@ export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year
     
     const collRef = collection(db, TEACHER_DAILY_ATTENDANCE_COLLECTION).withConverter(teacherDailyAttendanceConverter);
     
-    const q = query(collRef, where('teacherUid', '==', teacherUid));
+    const q = query(collRef, 
+      where('teacherUid', '==', teacherUid),
+      where('date', '>=', startDate),
+      where('date', '<=', endDate)
+    );
     const querySnapshot = await getDocs(q);
-    const allUserRecords = querySnapshot.docs.map(doc => doc.data());
-
-    const recordsInMonth = allUserRecords.filter(record => {
-      if (!record || !record.date || typeof record.date.toDate !== 'function') {
-        console.warn("Skipping invalid attendance record without a valid Timestamp 'date' field:", record);
-        return false;
-      }
-      const recordDate = record.date.toDate();
-      return recordDate >= startDate && recordDate <= endDate;
-    });
     
-    return recordsInMonth.sort((a, b) => (a.date.toDate().getTime()) - (b.date.toDate().getTime()));
+    return querySnapshot.docs.map(doc => doc.data()).sort((a, b) => (a.date.toDate().getTime()) - (b.date.toDate().getTime()));
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'rekap kehadiran bulanan');
   }

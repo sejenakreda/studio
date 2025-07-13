@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Loader2, AlertCircle, User, BookOpen, CalendarDays, Info, Printer } from "lucide-react";
-import { getStudentById, getGradesByStudent, getPrintSettings } from '@/lib/firestoreService';
+import { getStudentById, getGradesByStudentId, getPrintSettings } from '@/lib/firestoreService';
 import type { Siswa, Nilai, PrintSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +18,7 @@ import { PrintFooter } from '@/components/layout/PrintFooter';
 
 interface GroupedGrades {
   [tahunAjaran: string]: {
-    [semester: string]: Nilai[]; // Changed to Nilai[] to group by mapel within a semester
+    [semester: string]: Nilai[];
   };
 }
 
@@ -45,9 +45,8 @@ export default function StudentReportPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [fetchedStudent, fetchedGrades, fetchedPrintSettings] = await Promise.all([
+      const [fetchedStudent, fetchedPrintSettings] = await Promise.all([
         getStudentById(docId),
-        getGradesByStudent(docId), // Assuming getGradesByStudent takes the document ID
         getPrintSettings(),
       ]);
       
@@ -57,11 +56,9 @@ export default function StudentReportPage() {
       setStudent(fetchedStudent);
       setPrintSettings(fetchedPrintSettings);
 
-      // Now fetch grades using the student's specific ID (id_siswa)
       const studentSpecificId = fetchedStudent.id_siswa;
-      const gradesForStudent = await getGradesByStudent(studentSpecificId);
+      const gradesForStudent = await getGradesByStudentId(studentSpecificId);
       
-      // Sort by tahun_ajaran desc, semester asc, then mapel asc for consistent display
       setGrades(gradesForStudent.sort((a, b) => {
         if (a.tahun_ajaran > b.tahun_ajaran) return -1;
         if (a.tahun_ajaran < b.tahun_ajaran) return 1;
@@ -87,7 +84,7 @@ export default function StudentReportPage() {
 
   const groupedGradesByTAAndSemester = React.useMemo(() => {
     return grades.reduce<GroupedGrades>((acc, grade) => {
-      const { tahun_ajaran, semester, mapel } = grade;
+      const { tahun_ajaran, semester } = grade;
       const semesterLabel = semester === 1 ? 'Ganjil' : 'Genap';
       if (!acc[tahun_ajaran]) {
         acc[tahun_ajaran] = {};

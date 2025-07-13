@@ -73,7 +73,7 @@ service cloud.firestore {
     }
     
     match /activity_logs/{docId} {
-        // Admins and Gurus can create logs after an action.
+        // Admins and Gurus can create logs.
         allow create: if isAdmin() || isGuru();
         // Only admins can read, update, or delete logs.
         allow read, update, delete: if isAdmin();

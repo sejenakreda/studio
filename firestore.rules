@@ -80,13 +80,13 @@ service cloud.firestore {
         allow read, update, delete: if isAdmin();
     }
     
-    // All authenticated users (gurus) need to read these configs for grade pages to load.
+    // FIX: All authenticated users (gurus) need to read these configs for grade pages to load.
     match /academicYearConfigs/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
     
-    // All authenticated users (gurus) need to read these configs for grade pages to load.
+    // FIX: All authenticated users (gurus) need to read these configs for grade pages to load.
     match /kkm_settings/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
@@ -127,11 +127,13 @@ service cloud.firestore {
     match /agenda_kelas/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
       allow list: if isAuthenticated();
+      // FIX: Separated write rule to handle delete operations correctly for gurus.
       allow create, update: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
       allow delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
     
     match /laporan_kegiatan/{docId} {
+      // FIX: Added `isKepalaTataUsaha()` to allow them to read staff reports.
       allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isUser(resource.data.createdByUid));

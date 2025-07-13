@@ -56,6 +56,8 @@ export default function StudentReportPage() {
       setStudent(fetchedStudent);
       setPrintSettings(fetchedPrintSettings);
 
+      // This was the logical error: we must use the student's unique ID (`id_siswa`)
+      // which is consistent across all records, not the Firestore document ID.
       const studentSpecificId = fetchedStudent.id_siswa;
       const gradesForStudent = await getGradesByStudentId(studentSpecificId);
       
@@ -280,7 +282,7 @@ export default function StudentReportPage() {
         </div>
       ))}
       
-       <style jsx global>{\`
+       <style jsx global>{`
         @media print {
           body {
             -webkit-print-color-adjust: exact !important;
@@ -356,7 +358,7 @@ export default function StudentReportPage() {
             padding: 2px 4px !important;
           }
         }
-      \`}</style>
+      `}</style>
     </div>
   );
 }

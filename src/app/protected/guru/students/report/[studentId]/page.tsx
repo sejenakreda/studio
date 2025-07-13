@@ -280,7 +280,7 @@ export default function StudentReportPage() {
         </div>
       ))}
       
-       <style jsx global>{`
+       <style jsx global>{\`
         @media print {
           body {
             -webkit-print-color-adjust: exact !important;
@@ -356,7 +356,7 @@ export default function StudentReportPage() {
             padding: 2px 4px !important;
           }
         }
-      `}</style>
+      \`}</style>
     </div>
   );
 }

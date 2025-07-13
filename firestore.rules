@@ -108,6 +108,10 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
+
+    match /teacherAttendance/{docId} {
+       allow read, write: if isAdmin() || isKepalaSekolah();
+    }
     
     match /schoolConfig/{docId} {
         allow read: if isAuthenticated();

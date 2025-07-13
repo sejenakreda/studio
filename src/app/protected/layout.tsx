@@ -20,48 +20,37 @@ export default function ProtectedLayout({
     if (!loading) {
       if (!user || !userProfile) {
         router.replace('/login');
-      } else {
-        const isAdminRoute = pathname.startsWith('/protected/admin');
-        const isGuruRoute = pathname.startsWith('/protected/guru');
+        return; // Early return to prevent further checks
+      }
 
-        if (userProfile.role === 'admin') {
-          if (isGuruRoute) router.replace('/protected/admin');
-        } else if (userProfile.role === 'guru') {
-          if (isAdminRoute) {
-            let isAllowed = false;
+      const isAdminRoute = pathname.startsWith('/protected/admin');
+      const isGuruRoute = pathname.startsWith('/protected/guru');
 
-            // Define allowed routes for special roles
-            const allowedForSpecialRoles = [
-              '/protected/admin/reports', 
-              '/protected/admin/grades', 
-              '/protected/admin/kegiatan-reports',
-              '/protected/admin/agenda-kelas',
-              '/protected/admin/teacher-attendance',
-              '/protected/admin/school-profile',
-            ];
-
-            if (isKepalaSekolah) {
-              // Kepala Sekolah can access the main admin dashboard and a wide range of reports
-              isAllowed = pathname === '/protected/admin' || allowedForSpecialRoles.some(route => pathname.startsWith(route)) || pathname.startsWith('/protected/admin/violation-reports');
-            } else if (isKesiswaan) {
-              // Kesiswaan can only access violation reports
-              isAllowed = pathname.startsWith('/protected/admin/violation-reports');
-            } else if (isKepalaTataUsaha) {
-              // Kepala TU can only access the activity reports of their staff
-              isAllowed = pathname.startsWith('/protected/admin/kegiatan-reports');
-            }
-
-
-            if (!isAllowed) {
-              router.replace('/protected/guru');
-            }
-          }
-        } else {
-          router.replace('/login');
+      // Admin logic: Admins should not be on guru routes
+      if (userProfile.role === 'admin' && isGuruRoute) {
+        router.replace('/protected/admin');
+        return;
+      }
+      
+      // Guru logic: Check if a guru is trying to access an admin route
+      if (userProfile.role === 'guru' && isAdminRoute) {
+        // Define which special roles are allowed to access *any* admin routes
+        const canAccessAdminArea = isKepalaSekolah || isKepalaTataUsaha || isKesiswaan;
+        
+        if (!canAccessAdminArea) {
+          // If the guru does not have any special role, redirect them away from admin area
+          router.replace('/protected/guru');
+          return;
         }
+
+        // Further granular checks for special roles if needed in the future
+        // For now, if they have any of the special roles, we allow them into the /admin space,
+        // and the AppShell will filter the menu items they can see.
+        // This is a simpler and more robust approach than listing allowed routes here.
       }
     }
   }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKesiswaan, isKepalaTataUsaha]);
+
 
   if (loading || !user || !userProfile) {
     return (
@@ -88,13 +77,17 @@ export default function ProtectedLayout({
     );
   }
 
+  // Fallback loading/redirecting state for gurus on admin routes to prevent flashing content
   const isAdminRoute = pathname.startsWith('/protected/admin');
-  if (userProfile.role === 'guru' && isAdminRoute && !isKepalaSekolah && !isKesiswaan && !isKepalaTataUsaha) {
-    return (
-         <div className="flex min-h-screen w-full items-center justify-center">
-            <p>Mengalihkan...</p>
-         </div>
-    );
+  if (userProfile.role === 'guru' && isAdminRoute) {
+    const canAccessAdminArea = isKepalaSekolah || isKepalaTataUsaha || isKesiswaan;
+    if (!canAccessAdminArea) {
+         return (
+             <div className="flex min-h-screen w-full items-center justify-center">
+                <p>Mengalihkan...</p>
+             </div>
+        );
+    }
   }
 
   return <AppShell>{children}</AppShell>;

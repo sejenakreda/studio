@@ -170,6 +170,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       role: data.role as Role,
       assignedMapel: Array.isArray(data.assignedMapel) ? data.assignedMapel : [],
       tugasTambahan: Array.isArray(data.tugasTambahan) ? data.tugasTambahan : [],
+      fcmToken: data.fcmToken,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -902,7 +903,7 @@ export const addMataPelajaranMaster = async (namaMapel: string): Promise<MataPel
 export const getMataPelajaranMaster = async (): Promise<MataPelajaranMaster[]> => {
   try {
     const collRef = collection(db, MATA_PELAJARAN_MASTER_COLLECTION).withConverter(mataPelajaranMasterConverter);
-    const q = query(collRef);
+    const q = query(collRef, orderBy("namaMapel", "asc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
   } catch (error) {

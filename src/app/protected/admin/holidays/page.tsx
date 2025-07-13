@@ -13,6 +13,7 @@ import { getSchoolHolidays, setSchoolHoliday, deleteSchoolHoliday, addActivityLo
 import type { SchoolHoliday } from '@/types';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function ManageHolidaysPage() {
   const { toast } = useToast();
@@ -92,11 +93,13 @@ export default function ManageHolidaysPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
-          <Info>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Informasi</AlertTitle>
             <AlertDescription>
                 Hari Sabtu dan Minggu secara otomatis dianggap libur dan tidak perlu ditandai. Tandai hanya hari libur yang jatuh pada hari kerja (Senin-Jumat).
             </AlertDescription>
-          </Info>
+          </Alert>
           <div className="relative">
             <Calendar
               mode="multiple"

@@ -5,7 +5,7 @@ import React from 'react';
 import Link from "next/link";
 import { 
     BookUser, Edit3, BarChartHorizontalBig, Megaphone, Building, 
-    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion
+    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion, CalendarCheck, FileWarning
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; 
 
@@ -29,7 +29,7 @@ const menuItems: GuruMenuItem[] = [
     { title: "Profil Sekolah", href: "/protected/guru/school-profile", icon: Building, color: "text-gray-500", requiredTugas: () => true },
 
     // Special Roles Menu
-    { title: "Laporan Kegiatan", href: "/protected/guru/laporan-kegiatan", icon: BookCheck, color: "text-rose-500", requiredTugas: ({ isKesiswaan, isKurikulum, isPembinaEskul, isPembinaOsis, isBendahara, isBk, isOperator, isKepalaTataUsaha, isStafTu, isSatpam, isPenjagaSekolah }) => isKesiswaan || isKurikulum || isPembinaEskul || isPembinaOsis || isBendahara || isBk || isOperator || isKepalaTataUsaha || isStafTu || isSatpam || isPenjagaSekolah },
+    { title: "Laporan Kegiatan", href: "/protected/guru/laporan-kegiatan", icon: BookCheck, color: "text-rose-500", requiredTugas: ({ isKesiswaan, isKurikulum, isPembinaEskul, isPembinaOsis, isBendahara, isBk, isOperator, isKepalaTataUsaha, isStafTu, isSatpam, isPenjagaSekolah, isKepalaSekolah }) => isKesiswaan || isKurikulum || isPembinaEskul || isPembinaOsis || isBendahara || isBk || isOperator || isKepalaTataUsaha || isStafTu || isSatpam || isPenjagaSekolah || isKepalaSekolah },
     { title: "Catat Pelanggaran", href: "/protected/guru/pelanggaran-siswa", icon: ShieldAlert, color: "text-red-500", requiredTugas: ({ isKesiswaan, isBk }) => isKesiswaan || isBk },
     
     // Links to Dashboards for those with multiple roles (these will be filtered out if not needed)
@@ -40,6 +40,12 @@ const menuItems: GuruMenuItem[] = [
     { title: "Dasbor BK", href: "/protected/guru/bk", icon: HeartHandshake, color: "text-pink-500", requiredTugas: ({ isBk }) => isBk },
     { title: "Dasbor Operator", href: "/protected/guru/operator", icon: DatabaseZap, color: "text-teal-500", requiredTugas: ({ isOperator }) => isOperator },
     { title: "Dasbor Ka. TU", href: "/protected/guru/tata-usaha", icon: Briefcase, color: "text-teal-500", requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha },
+
+    // --- Headmaster Specific Admin-Level Reports ---
+    { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
+    { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
+    { title: "Laporan Kegiatan Staf", href: "/protected/admin/kegiatan-reports", icon: Briefcase, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
+
 ];
 
 export default function GuruDashboardPage() {

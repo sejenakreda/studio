@@ -55,7 +55,7 @@ export default function RekapKehadiranSayaPage() {
       setRecords(fetchedRecords);
 
       // Calculate summary
-      const workdays = getWorkdaysInMonth(filterYear, filterMonth);
+      const workdays = await getWorkdaysInMonth(filterYear, filterMonth);
       const summaryData: Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja'> = { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 };
       
       fetchedRecords.forEach(rec => {

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Nilai, Bobot, TugasTambahan } from "@/types";
+import type { Nilai, Bobot, TugasTambahan, SchoolHoliday } from "@/types";
+import { getSchoolHolidaysForMonth } from "./firestoreService";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -71,27 +72,34 @@ export const SEMESTERS = [
 ];
 
 /**
- * Calculates the number of working days (Monday-Friday) in a given month and year.
+ * Calculates the number of working days in a given month and year,
+ * excluding weekends (Sat, Sun) and custom holidays from Firestore.
  * @param year The full year (e.g., 2024).
  * @param month The month, 1-indexed (1 for January, 12 for December).
  * @returns The number of working days in that month.
  */
-export function getWorkdaysInMonth(year: number, month: number): number {
+export async function getWorkdaysInMonth(year: number, month: number): Promise<number> {
   if (month < 1 || month > 12) {
     throw new Error("Month must be between 1 and 12.");
   }
+
+  // Fetch custom holidays for the given month and year
+  const holidays = await getSchoolHolidaysForMonth(year, month);
+  const holidayDateStrings = new Set(holidays.map(h => h.dateString));
   
-  // Get the number of days in the specified month.
-  // Using month - 1 because Date constructor months are 0-indexed.
-  // Using day 0 of the *next* month gives the last day of the current month.
   const daysInMonth = new Date(year, month, 0).getDate();
   let workdays = 0;
 
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month - 1, day);
     const dayOfWeek = currentDate.getDay(); // Sunday = 0, Saturday = 6
+    const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    // A day is a workday if it's NOT a weekend AND it's NOT a custom holiday.
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isCustomHoliday = holidayDateStrings.has(dateString);
+
+    if (!isWeekend && !isCustomHoliday) {
       workdays++;
     }
   }

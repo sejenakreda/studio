@@ -220,3 +220,10 @@ export interface PrintSettings {
   signerTwoPosition?: string; // e.g., "Wali Kelas"
   updatedAt?: Timestamp;
 }
+
+export interface SchoolHoliday {
+  id?: string; // Doc ID will be YYYY-MM-DD
+  dateString: string; // "2024-08-17"
+  description: string;
+  createdAt?: Timestamp;
+}

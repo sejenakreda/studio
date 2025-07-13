@@ -160,42 +160,47 @@ export default function ManageTeacherAttendancePage() {
   useEffect(() => { fetchDailyAttendanceRecords(); }, [fetchDailyAttendanceRecords]);
 
   useEffect(() => {
-    if (dailyFilterMonth !== "all" && !isLoadingDailyRecords && dailyRecords.length > 0) {
+    if (dailyFilterMonth !== "all" && !isLoadingDailyRecords) {
       setIsLoadingSummary(true);
-      const workdaysInMonth = getWorkdaysInMonth(dailyFilterYear, dailyFilterMonth);
-      const summaryMap = new Map<string, Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja'>>();
+      getWorkdaysInMonth(dailyFilterYear, dailyFilterMonth).then(workdaysInMonth => {
+        const summaryMap = new Map<string, Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja'>>();
 
-      dailyRecords.forEach(rec => {
-        if (!summaryMap.has(rec.teacherUid)) {
-          summaryMap.set(rec.teacherUid, { teacherUid: rec.teacherUid, teacherName: rec.teacherName || rec.teacherUid, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 });
-        }
-        const teacherSummary = summaryMap.get(rec.teacherUid)!;
-        
-        switch (rec.status) {
-            case 'Hadir': teacherSummary.Hadir++; break;
-            case 'Izin': teacherSummary.Izin++; break;
-            case 'Sakit': teacherSummary.Sakit++; break;
-            case 'Alpa': teacherSummary.Alpa++; break;
-            default: teacherSummary.Alpa++; break; // Fallback for unexpected status
-        }
-        teacherSummary.TotalTercatat++;
+        dailyRecords.forEach(rec => {
+            if (!summaryMap.has(rec.teacherUid)) {
+                summaryMap.set(rec.teacherUid, { teacherUid: rec.teacherUid, teacherName: rec.teacherName || rec.teacherUid, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 });
+            }
+            const teacherSummary = summaryMap.get(rec.teacherUid)!;
+            
+            switch (rec.status) {
+                case 'Hadir': teacherSummary.Hadir++; break;
+                case 'Izin': teacherSummary.Izin++; break;
+                case 'Sakit': teacherSummary.Sakit++; break;
+                case 'Alpa': teacherSummary.Alpa++; break;
+                default: teacherSummary.Alpa++; break; // Fallback for unexpected status
+            }
+            teacherSummary.TotalTercatat++;
+        });
+
+        const fullSummary = Array.from(summaryMap.values()).map(summary => {
+            const percentage = workdaysInMonth > 0 ? (summary.Hadir / workdaysInMonth) * 100 : 0;
+            return {
+                ...summary,
+                PersentaseHadir: parseFloat(percentage.toFixed(1)),
+                TotalHariKerja: workdaysInMonth
+            };
+        }).sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+
+        setMonthlySummary(fullSummary);
+        setIsLoadingSummary(false);
+      }).catch(err => {
+        console.error("Failed to get workdays:", err);
+        toast({variant: 'destructive', title: "Error", description: "Gagal menghitung hari kerja efektif."})
+        setIsLoadingSummary(false);
       });
-      
-      const fullSummary = Array.from(summaryMap.values()).map(summary => {
-        const percentage = workdaysInMonth > 0 ? (summary.Hadir / workdaysInMonth) * 100 : 0;
-        return {
-          ...summary,
-          PersentaseHadir: parseFloat(percentage.toFixed(1)),
-          TotalHariKerja: workdaysInMonth
-        };
-      }).sort((a, b) => a.teacherName.localeCompare(b.teacherName));
-
-      setMonthlySummary(fullSummary);
-      setIsLoadingSummary(false);
     } else {
       setMonthlySummary([]);
     }
-  }, [dailyRecords, dailyFilterMonth, dailyFilterYear, isLoadingDailyRecords]);
+}, [dailyRecords, dailyFilterMonth, dailyFilterYear, isLoadingDailyRecords, toast]);
 
 
   const handleDeleteDailyConfirmation = (record: TeacherDailyAttendance) => { setDailyRecordToDelete(record); };

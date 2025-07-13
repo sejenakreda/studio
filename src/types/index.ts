@@ -27,6 +27,7 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   role: Role;
+  fcmToken?: string;
   assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
   tugasTambahan?: TugasTambahan[]; // Daftar tugas tambahan guru
   createdAt?: Timestamp;

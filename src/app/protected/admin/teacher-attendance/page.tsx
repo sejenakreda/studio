@@ -160,47 +160,58 @@ export default function ManageTeacherAttendancePage() {
   useEffect(() => { fetchDailyAttendanceRecords(); }, [fetchDailyAttendanceRecords]);
 
   useEffect(() => {
-    if (dailyFilterMonth !== "all" && !isLoadingDailyRecords) {
-      setIsLoadingSummary(true);
-      getWorkdaysInMonth(dailyFilterYear, dailyFilterMonth).then(workdaysInMonth => {
-        const summaryMap = new Map<string, Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja'>>();
+    async function calculateSummary() {
+        if (dailyFilterMonth === "all" || isLoadingDailyRecords) {
+            setMonthlySummary([]);
+            return;
+        }
 
-        dailyRecords.forEach(rec => {
-            if (!summaryMap.has(rec.teacherUid)) {
-                summaryMap.set(rec.teacherUid, { teacherUid: rec.teacherUid, teacherName: rec.teacherName || rec.teacherUid, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0 });
-            }
-            const teacherSummary = summaryMap.get(rec.teacherUid)!;
-            
-            switch (rec.status) {
-                case 'Hadir': teacherSummary.Hadir++; break;
-                case 'Izin': teacherSummary.Izin++; break;
-                case 'Sakit': teacherSummary.Sakit++; break;
-                case 'Alpa': teacherSummary.Alpa++; break;
-                default: teacherSummary.Alpa++; break; // Fallback for unexpected status
-            }
-            teacherSummary.TotalTercatat++;
+        setIsLoadingSummary(true);
+        const summaryMap = new Map<string, Omit<MonthlySummary, 'PersentaseHadir' | 'TotalHariKerja' | 'teacherUid' | 'teacherName'> & { records: TeacherDailyAttendance[] }>();
+
+        teachers.forEach(teacher => {
+            summaryMap.set(teacher.uid, { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0, records: [] });
         });
 
-        const fullSummary = Array.from(summaryMap.values()).map(summary => {
+        dailyRecords.forEach(rec => {
+            if (summaryMap.has(rec.teacherUid)) {
+                const teacherSummary = summaryMap.get(rec.teacherUid)!;
+                if(teacherSummary[rec.status] !== undefined) teacherSummary[rec.status]++;
+                teacherSummary.TotalTercatat++;
+                teacherSummary.records.push(rec);
+            }
+        });
+        
+        const fullSummaryPromises = teachers.map(async (teacher) => {
+            const summary = summaryMap.get(teacher.uid) || { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, TotalTercatat: 0, records: [] };
+            const workdaysInMonth = await getWorkdaysInMonth(dailyFilterYear, dailyFilterMonth, summary.records);
             const percentage = workdaysInMonth > 0 ? (summary.Hadir / workdaysInMonth) * 100 : 0;
             return {
-                ...summary,
+                teacherUid: teacher.uid,
+                teacherName: teacher.displayName || teacher.uid,
+                Hadir: summary.Hadir,
+                Izin: summary.Izin,
+                Sakit: summary.Sakit,
+                Alpa: summary.Alpa,
+                TotalTercatat: summary.TotalTercatat,
                 PersentaseHadir: parseFloat(percentage.toFixed(1)),
                 TotalHariKerja: workdaysInMonth
             };
-        }).sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+        });
 
-        setMonthlySummary(fullSummary);
-        setIsLoadingSummary(false);
-      }).catch(err => {
-        console.error("Failed to get workdays:", err);
-        toast({variant: 'destructive', title: "Error", description: "Gagal menghitung hari kerja efektif."})
-        setIsLoadingSummary(false);
-      });
-    } else {
-      setMonthlySummary([]);
+        try {
+            const results = await Promise.all(fullSummaryPromises);
+            setMonthlySummary(results.sort((a,b) => a.teacherName.localeCompare(b.teacherName)));
+        } catch (err) {
+            console.error("Failed to calculate monthly summaries:", err);
+            toast({variant: 'destructive', title: "Error", description: "Gagal menghitung rekap bulanan."})
+        } finally {
+            setIsLoadingSummary(false);
+        }
     }
-}, [dailyRecords, dailyFilterMonth, dailyFilterYear, isLoadingDailyRecords, toast]);
+
+    calculateSummary();
+}, [dailyRecords, dailyFilterMonth, dailyFilterYear, isLoadingDailyRecords, toast, teachers]);
 
 
   const handleDeleteDailyConfirmation = (record: TeacherDailyAttendance) => { setDailyRecordToDelete(record); };

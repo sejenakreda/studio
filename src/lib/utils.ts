@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Nilai, Bobot, TugasTambahan, SchoolHoliday } from "@/types";
+import type { Nilai, Bobot, TugasTambahan, SchoolHoliday, TeacherDailyAttendance } from "@/types";
 import { getSchoolHolidaysForMonth } from "./firestoreService";
 
 export function cn(...inputs: ClassValue[]) {
@@ -48,7 +48,7 @@ export function getAcademicYears(startYear = 2020): string[] {
   const endYear = 2049; // Target end year for the academic period like 2049/2050
   const years: string[] = [];
   for (let year = startYear; year <= endYear; year++) {
-    years.push(`${year}/${year + 1}`); // Re-typed this line carefully
+    years.push(`${year}/${year + 1}`);
   }
   return years.reverse(); // Show most recent first
 }
@@ -72,13 +72,15 @@ export const SEMESTERS = [
 ];
 
 /**
- * Calculates the number of working days in a given month and year,
- * excluding weekends (Sat, Sun) and custom holidays from Firestore.
+ * Calculates the number of working days in a given month and year.
+ * It assumes Monday-Friday as workdays, excludes custom holidays,
+ * and smartly adds weekend days if attendance was recorded on them.
  * @param year The full year (e.g., 2024).
  * @param month The month, 1-indexed (1 for January, 12 for December).
+ * @param attendanceRecords The attendance records for the user for that month.
  * @returns The number of working days in that month.
  */
-export async function getWorkdaysInMonth(year: number, month: number): Promise<number> {
+export async function getWorkdaysInMonth(year: number, month: number, attendanceRecords: TeacherDailyAttendance[] = []): Promise<number> {
   if (month < 1 || month > 12) {
     throw new Error("Month must be between 1 and 12.");
   }
@@ -89,23 +91,43 @@ export async function getWorkdaysInMonth(year: number, month: number): Promise<n
   
   const daysInMonth = new Date(year, month, 0).getDate();
   let workdays = 0;
+  const weekendAttendanceDays = new Set<string>();
 
+  // First, find any weekend days where attendance was recorded
+  attendanceRecords.forEach(rec => {
+    const recDate = rec.date.toDate();
+    const dayOfWeek = recDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+      const dateString = `${recDate.getFullYear()}-${String(recDate.getMonth() + 1).padStart(2, '0')}-${String(recDate.getDate()).padStart(2, '0')}`;
+      weekendAttendanceDays.add(dateString);
+    }
+  });
+
+  // Calculate workdays
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month - 1, day);
     const dayOfWeek = currentDate.getDay(); // Sunday = 0, Saturday = 6
     const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    // A day is a workday if it's NOT a weekend AND it's NOT a custom holiday.
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const isCustomHoliday = holidayDateStrings.has(dateString);
 
-    if (!isWeekend && !isCustomHoliday) {
-      workdays++;
+    if (isWeekend) {
+      // If it's a weekend, only count it as a workday if attendance was explicitly recorded
+      if (weekendAttendanceDays.has(dateString)) {
+        workdays++;
+      }
+    } else {
+      // If it's a weekday, count it unless it's a custom holiday
+      if (!isCustomHoliday) {
+        workdays++;
+      }
     }
   }
 
   return workdays;
 }
+
 
 export const getActivityName = (activityId: TugasTambahan | string): string => {
     const nameMap: Record<TugasTambahan, string> = {

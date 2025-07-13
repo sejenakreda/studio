@@ -223,7 +223,7 @@ export interface PrintSettings {
 }
 
 export interface SchoolHoliday {
-  id?: string; // Doc ID will be YYYY-MM-DD
+  id?: string; // Auto-generated ID from Firestore
   dateString: string; // "2024-08-17"
   description: string;
   createdAt?: Timestamp;

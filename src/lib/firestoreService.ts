@@ -1282,7 +1282,7 @@ const SCHOOL_HOLIDAYS_COLLECTION = 'schoolHolidays';
 export const getSchoolHolidays = async (from: Date, to: Date): Promise<SchoolHoliday[]> => {
   try {
     const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
-    const q = query(collRef, where('__name__', '>=', from.toISOString().split('T')[0]), where('__name__', '<=', to.toISOString().split('T')[0]));
+    const q = query(collRef, where('dateString', '>=', from.toISOString().split('T')[0]), where('dateString', '<=', to.toISOString().split('T')[0]));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
   } catch (error) {
@@ -1298,7 +1298,7 @@ export const getSchoolHolidaysForMonth = async (year: number, month: number): Pr
         const endString = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
         
         const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
-        const q = query(collRef, where('__name__', '>=', startString), where('__name__', '<=', endString));
+        const q = query(collRef, where('dateString', '>=', startString), where('dateString', '<=', endString));
         
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => doc.data());
@@ -1309,8 +1309,14 @@ export const getSchoolHolidaysForMonth = async (year: number, month: number): Pr
 
 export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'createdAt'>): Promise<void> => {
   try {
-    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, holiday.dateString);
-    await setDoc(docRef, { ...holiday, createdAt: serverTimestamp() }, { merge: true });
+    const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
+    const q = query(collRef, where('dateString', '==', holiday.dateString));
+    const existing = await getDocs(q);
+    if (existing.empty) {
+      await addDoc(collRef, holiday);
+    } else {
+      console.warn(`Holiday for ${holiday.dateString} already exists. Skipping.`);
+    }
   } catch (error) {
     handleFirestoreError(error, 'mengatur', 'hari libur sekolah');
   }
@@ -1318,8 +1324,13 @@ export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'crea
 
 export const deleteSchoolHoliday = async (dateString: string): Promise<void> => {
   try {
-    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, dateString);
-    await deleteDoc(docRef);
+    const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION);
+    const q = query(collRef, where('dateString', '==', dateString));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const docToDelete = snapshot.docs[0];
+      await deleteDoc(docToDelete.ref);
+    }
   } catch (error) {
     handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }

@@ -30,7 +30,7 @@ export default function ManageHolidaysPage() {
       const from = startOfMonth(month);
       const to = endOfMonth(month);
       const holidayDocs = await getSchoolHolidays(from, to);
-      const holidayDates = holidayDocs.map(doc => new Date(doc.dateString));
+      const holidayDates = holidayDocs.map(doc => new Date(doc.dateString.replace(/-/g, '/'))); // More robust date parsing
       setHolidays(holidayDates);
     } catch (error: any) {
       console.error('Error fetching holidays:', error);

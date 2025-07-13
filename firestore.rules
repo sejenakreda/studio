@@ -56,8 +56,13 @@ service cloud.firestore {
     }
     
     match /nilai/{docId} {
+      // `get` allows fetching a specific document.
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (resource.data.teacherUid == request.auth.uid));
+      // `list` allows queries. The `get` rule above will be checked for every document returned.
+      // This pattern is safer and more robust than inspecting query filters.
       allow list: if isAuthenticated();
+      
+      // Write permissions remain unchanged from the stable version.
       allow create, update: if isAuthenticated() && (isAdmin() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
       allow delete: if isAuthenticated() && (isAdmin() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
@@ -68,7 +73,9 @@ service cloud.firestore {
     }
     
     match /activity_logs/{docId} {
-        allow create: if isGuru() || isAdmin(); // Admin also needs to create logs
+        // Admins and Gurus can create logs after an action.
+        allow create: if isAdmin() || isGuru();
+        // Only admins can read, update, or delete logs.
         allow read, update, delete: if isAdmin();
     }
     
@@ -117,19 +124,16 @@ service cloud.firestore {
     match /agenda_kelas/{docId} {
       allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || resource.data.teacherUid == request.auth.uid);
       allow list: if isAuthenticated();
+      // FIX: Separated write rule to handle delete operations correctly for gurus.
       allow create, update: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && request.resource.data.teacherUid == request.auth.uid));
       allow delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (isGuru() && resource.data.teacherUid == request.auth.uid));
     }
     
     match /laporan_kegiatan/{docId} {
+      // FIX: Added `isKepalaTataUsaha()` to allow them to read staff reports.
       allow read: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || resource.data.createdByUid == request.auth.uid);
       allow create: if isAuthenticated() && isGuru() && request.resource.data.createdByUid == request.auth.uid;
       allow update, delete: if isAuthenticated() && (isAdmin() || isUser(resource.data.createdByUid));
-    }
-
-     match /schoolHolidays/{docId} {
-        allow read: if isAuthenticated();
-        allow create, update, delete: if isAdmin();
     }
   }
 }

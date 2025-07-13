@@ -231,16 +231,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
     items: [
-      { href: "/protected/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan?context=kepala_tata_usaha", label: "Laporan Saya", icon: BookCheck },
-      { isSeparator: true },
-      ...reportableRolesForTU
-        .map(role => ({
-            href: `/protected/admin/kegiatan-reports?activity=${role.id}`,
-            label: `Laporan ${role.label}`,
-            icon: role.icon,
-            isExact: false,
-        }))
+      { href: "/protected/guru/tata-usaha", label: "Dasbor TU", icon: Home },
     ],
   },
   {

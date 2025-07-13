@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Briefcase, DatabaseZap, Users, ShieldQuestion, ShieldAlert } from "lucide-react";
 import type { TugasTambahan } from '@/types';
@@ -36,36 +35,27 @@ export default function TataUsahaDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Kepala Tata Usaha</h1>
           <p className="text-muted-foreground">
-            Menu dan alat bantu untuk manajemen Tata Usaha.
+            Akses cepat ke laporan kegiatan Anda dan staf di bawah Anda.
           </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Menu Laporan</CardTitle>
-          <CardDescription>
-            Akses cepat ke laporan kegiatan Anda dan staf di bawah Anda.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {reportCategories.map((item) => (
-                <Link href={item.href} key={item.title}>
-                    <Card className="hover:bg-primary/5 hover:border-primary cursor-pointer h-full transition-colors">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <item.icon className={`h-5 w-5 ${item.color}`} />
-                                {item.title}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground">Lihat dan kelola laporan untuk {item.title.toLowerCase()}.</p>
-                        </CardContent>
-                    </Card>
-                </Link>
-            ))}
-        </CardContent>
-      </Card>
+       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-x-4 gap-y-8 pt-4">
+        {reportCategories.map((item) => (
+          <Link
+            href={item.href}
+            key={item.title}
+            className="flex flex-col items-center justify-center text-center gap-2 group"
+          >
+            <div className="p-4 rounded-full bg-muted/60 group-hover:bg-primary/10 transition-colors duration-200">
+              <item.icon className={`h-8 w-8 transition-colors duration-200 ${item.color || 'text-muted-foreground'} group-hover:text-primary`} />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors duration-200">
+              {item.title}
+            </p>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

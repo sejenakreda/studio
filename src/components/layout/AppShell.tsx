@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer, CalendarOff } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -125,6 +125,7 @@ const navigationStructure: NavGroup[] = [
     roles: ['admin'],
     items: [
       { href: "/protected/admin/school-profile", label: "Profil Sekolah", icon: Building },
+      { href: "/protected/admin/holidays", label: "Kalender Libur", icon: CalendarOff },
       { href: "/protected/admin/print-settings", label: "Pengaturan Cetak", icon: Printer },
     ],
   },
@@ -231,7 +232,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha,
     items: [
       { href: "/protected/guru/tata-usaha", label: "Dasbor Saya", icon: Home },
-      { href: "/protected/guru/laporan-kegiatan?context=tu", label: "Laporan Saya", icon: BookCheck },
+      { href: "/protected/guru/laporan-kegiatan?context=kepala_tata_usaha", label: "Laporan Saya", icon: BookCheck },
       { isSeparator: true },
       ...reportableRolesForTU
         .map(role => ({
@@ -318,7 +319,7 @@ const navigationStructure: NavGroup[] = [
     groupLabel: "Laporan Tata Usaha & Staf",
     groupIcon: Briefcase,
     roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin }) => isKepalaSekolah || isAdmin,
+    requiredTugas: ({ isKepalaSekolah, isAdmin, isKepalaTataUsaha }) => isKepalaSekolah || isAdmin || isKepalaTataUsaha,
     items: tuAndSecurityReportItems,
   },
 ];

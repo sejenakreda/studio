@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -487,6 +487,25 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
   }
 };
 
+const schoolHolidayConverter: FirestoreDataConverter<SchoolHoliday> = {
+  toFirestore: (holiday: Omit<SchoolHoliday, 'id'>): DocumentData => {
+    return {
+      dateString: holiday.dateString,
+      description: holiday.description,
+      createdAt: holiday.createdAt || serverTimestamp(),
+    };
+  },
+  fromFirestore: (snapshot: QueryDocumentSnapshot, options: SnapshotOptions): SchoolHoliday => {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      dateString: data.dateString,
+      description: data.description,
+      createdAt: data.createdAt,
+    };
+  },
+};
+
 
 // --- Service Functions with Error Handling ---
 
@@ -746,7 +765,7 @@ export const createUserProfile = async (
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
     const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getDoc(userDocRef);
     return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'profil pengguna');
@@ -1253,5 +1272,54 @@ export const deleteAgenda = async (id: string): Promise<void> => {
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, 'menghapus', 'agenda kelas');
+  }
+};
+
+// --- School Holiday Service ---
+const SCHOOL_HOLIDAYS_COLLECTION = 'schoolHolidays';
+
+export const getSchoolHolidays = async (from: Date, to: Date): Promise<SchoolHoliday[]> => {
+  try {
+    const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
+    const q = query(collRef, where('__name__', '>=', from.toISOString().split('T')[0]), where('__name__', '<=', to.toISOString().split('T')[0]));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data());
+  } catch (error) {
+    handleFirestoreError(error, 'membaca', 'hari libur sekolah');
+  }
+};
+
+export const getSchoolHolidaysForMonth = async (year: number, month: number): Promise<SchoolHoliday[]> => {
+    try {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        const startString = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endString = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        
+        const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
+        const q = query(collRef, where('__name__', '>=', startString), where('__name__', '<=', endString));
+        
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data());
+    } catch (error) {
+        handleFirestoreError(error, 'membaca hari libur untuk bulan', 'hari libur sekolah');
+    }
+};
+
+export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'createdAt'>): Promise<void> => {
+  try {
+    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, holiday.dateString);
+    await setDoc(docRef, { ...holiday, createdAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'mengatur', 'hari libur sekolah');
+  }
+};
+
+export const deleteSchoolHoliday = async (dateString: string): Promise<void> => {
+  try {
+    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, dateString);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }
 };

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Suspense } from 'react';
@@ -27,6 +28,8 @@ import type { LaporanKegiatan, UserProfile, PrintSettings } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { getActivityName } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+
 
 // --- Data for the Menu View ---
 interface ReportCategory {
@@ -99,6 +102,8 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: form
 
 function LaporanDetail({ activity }: { activity: TugasTambahan }) {
     const { toast } = useToast();
+    const { isKepalaTataUsaha } = useAuth();
+    
     const [reports, setReports] = useState<LaporanKegiatan[]>([]);
     const [teachers, setTeachers] = useState<UserProfile[]>([]);
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
@@ -110,16 +115,26 @@ function LaporanDetail({ activity }: { activity: TugasTambahan }) {
     const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
 
     const activityName = getActivityName(activity);
+    const backLink = isKepalaTataUsaha ? "/protected/guru/tata-usaha" : "/protected/admin/kegiatan-reports";
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const [allReports, guruUsers, settings] = await Promise.all([
+            const promises = [
                 getAllLaporanKegiatan(),
-                getAllUsersByRole('guru'),
                 getPrintSettings()
-            ]);
+            ];
+
+            // Only fetch all users if the current user is NOT Ka. TU
+            if (!isKepalaTataUsaha) {
+                promises.push(getAllUsersByRole('guru'));
+            }
+
+            const results = await Promise.all(promises);
+            const allReports = results[0] as LaporanKegiatan[];
+            const settings = results[1] as PrintSettings;
+            const guruUsers = isKepalaTataUsaha ? [] : results[2] as UserProfile[];
             
             const relevantReports = allReports.filter(r => r.activityId === activity);
             setReports(relevantReports);
@@ -135,7 +150,7 @@ function LaporanDetail({ activity }: { activity: TugasTambahan }) {
         } finally {
             setIsLoading(false);
         }
-    }, [activity, toast]);
+    }, [activity, toast, isKepalaTataUsaha]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -175,7 +190,7 @@ function LaporanDetail({ activity }: { activity: TugasTambahan }) {
             <div className="print:hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-4">
-                        <Link href="/protected/admin/kegiatan-reports"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
+                        <Link href={backLink}><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
                         <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-headline flex items-center gap-2"><BookOpen className="h-8 w-8 text-primary" /> Laporan {activityName}</h1><p className="text-muted-foreground">Lihat dan ekspor semua laporan untuk kegiatan ini.</p></div>
                     </div>
                     <div className="flex gap-2">
@@ -186,7 +201,9 @@ function LaporanDetail({ activity }: { activity: TugasTambahan }) {
                 <Card className="mt-6">
                     <CardHeader><CardTitle>Filter Laporan</CardTitle>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                            <div><label htmlFor="filter-teacher" className="text-sm font-medium">Filter Pembuat</label><Select value={filterTeacher} onValueChange={setFilterTeacher}><SelectTrigger id="filter-teacher" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih guru..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Pembuat</SelectItem>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>)}</SelectContent></Select></div>
+                            {!isKepalaTataUsaha && (
+                                <div><label htmlFor="filter-teacher" className="text-sm font-medium">Filter Pembuat</label><Select value={filterTeacher} onValueChange={setFilterTeacher}><SelectTrigger id="filter-teacher" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih guru..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Pembuat</SelectItem>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>)}</SelectContent></Select></div>
+                            )}
                             <div><label htmlFor="filter-year" className="text-sm font-medium">Filter Tahun</label><Select value={String(filterYear)} onValueChange={(v) => setFilterYear(parseInt(v))}><SelectTrigger id="filter-year" className="w-full mt-1"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select></div>
                             <div><label htmlFor="filter-month" className="text-sm font-medium">Filter Bulan</label><Select value={String(filterMonth)} onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))}><SelectTrigger id="filter-month" className="w-full mt-1"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan</SelectItem>{MONTHS.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select></div>
                         </div>

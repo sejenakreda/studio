@@ -131,10 +131,6 @@ export default function AdminManageStudentsPage() {
     return filteredStudents.slice(startIndex, endIndex);
   }, [filteredStudents, currentPage]);
   
-  useEffect(() => {
-    setSelectedStudentIds([]);
-  }, [currentPage]);
-
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
     if (!currentAdminProfile) {
@@ -366,9 +362,9 @@ export default function AdminManageStudentsPage() {
     reader.readAsBinaryString(selectedFile);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedStudentIds(paginatedStudents.map(s => s.id!));
+  const handleSelectAll = (checked: boolean | "indeterminate") => {
+    if (checked === true) {
+      setSelectedStudentIds(filteredStudents.map(s => s.id!));
     } else {
       setSelectedStudentIds([]);
     }
@@ -621,9 +617,19 @@ export default function AdminManageStudentsPage() {
                     <TableRow>
                       <TableHead padding="checkbox" className="w-12">
                         <Checkbox
-                            checked={selectedStudentIds.length === paginatedStudents.length && paginatedStudents.length > 0}
-                            onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                            checked={
+                                filteredStudents.length > 0 &&
+                                selectedStudentIds.length === filteredStudents.length
+                            }
+                            onCheckedChange={(checked) => handleSelectAll(checked)}
                             aria-label="Pilih semua"
+                             onPointerDown={(e) => {
+                                // This prevents the row from being selected when clicking the checkbox
+                                e.stopPropagation();
+                            }}
+                             onClick={(e) => {
+                                e.stopPropagation();
+                            }}
                         />
                       </TableHead>
                       <TableHead>Nama Siswa</TableHead>
@@ -641,6 +647,8 @@ export default function AdminManageStudentsPage() {
                                 checked={selectedStudentIds.includes(student.id!)}
                                 onCheckedChange={(checked) => handleSelectRow(student.id!, checked as boolean)}
                                 aria-label={`Pilih ${student.nama}`}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
                             />
                         </TableCell>
                         <TableCell className="font-medium">{student.nama}</TableCell>
@@ -750,3 +758,4 @@ export default function AdminManageStudentsPage() {
     </div>
   );
 }
+

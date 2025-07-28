@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, Users, Edit, Trash2, Filter, ChevronLeft, ChevronRight, Download, FileUp, Info } from "lucide-react";
-import { addStudent, getStudents, deleteStudent, addActivityLog, updateStudent } from '@/lib/firestoreService';
+import { addStudent, getStudents, deleteStudent, addActivityLog, updateStudent, deleteMultipleStudents } from '@/lib/firestoreService';
 import type { Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from '@/context/AuthContext';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const studentSchema = z.object({
   nama: z.string().min(3, "Nama minimal 3 karakter"),
@@ -61,6 +62,10 @@ export default function AdminManageStudentsPage() {
   const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -105,6 +110,7 @@ export default function AdminManageStudentsPage() {
 
   useEffect(() => {
     setCurrentPage(1); 
+    setSelectedStudentIds([]); // Reset selection when filter changes
   }, [selectedClass]);
 
   const filteredStudents = useMemo(() => {
@@ -124,6 +130,10 @@ export default function AdminManageStudentsPage() {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filteredStudents.slice(startIndex, endIndex);
   }, [filteredStudents, currentPage]);
+  
+  useEffect(() => {
+    setSelectedStudentIds([]);
+  }, [currentPage]);
 
   const onSubmit = async (data: StudentFormData) => {
     setIsSubmitting(true);
@@ -356,6 +366,46 @@ export default function AdminManageStudentsPage() {
     reader.readAsBinaryString(selectedFile);
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedStudentIds(paginatedStudents.map(s => s.id!));
+    } else {
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const handleSelectRow = (studentId: string, checked: boolean) => {
+    setSelectedStudentIds(prev =>
+      checked ? [...prev, studentId] : prev.filter(id => id !== studentId)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStudentIds.length === 0 || !currentAdminProfile) {
+        toast({ variant: "destructive", title: "Tidak ada siswa dipilih", description: "Silakan pilih siswa yang ingin dihapus." });
+        return;
+    }
+    setIsBulkDeleting(true);
+    try {
+        await deleteMultipleStudents(selectedStudentIds);
+        await addActivityLog(
+            "Siswa Dihapus (Massal)",
+            `${selectedStudentIds.length} siswa dihapus oleh Admin: ${currentAdminProfile.displayName || currentAdminProfile.email}`,
+            currentAdminProfile.uid,
+            currentAdminProfile.displayName || "Admin"
+        );
+        toast({ title: "Sukses", description: `${selectedStudentIds.length} siswa berhasil dihapus.` });
+        setSelectedStudentIds([]);
+        setShowBulkDeleteConfirm(false);
+        fetchStudents(); // Refresh data
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Gagal Hapus Massal", description: error.message || "Terjadi kesalahan." });
+    } finally {
+        setIsBulkDeleting(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -516,6 +566,15 @@ export default function AdminManageStudentsPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {selectedStudentIds.length > 0 && (
+            <div className="mb-4 p-3 bg-muted/50 border rounded-lg flex items-center justify-between">
+                <p className="text-sm font-medium">{selectedStudentIds.length} siswa dipilih.</p>
+                <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteConfirm(true)} disabled={isBulkDeleting}>
+                    {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                    Hapus yang Dipilih
+                </Button>
+            </div>
+          )}
           {fetchError && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -560,6 +619,13 @@ export default function AdminManageStudentsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead padding="checkbox" className="w-12">
+                        <Checkbox
+                            checked={selectedStudentIds.length === paginatedStudents.length && paginatedStudents.length > 0}
+                            onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                            aria-label="Pilih semua"
+                        />
+                      </TableHead>
                       <TableHead>Nama Siswa</TableHead>
                       <TableHead>NIS</TableHead>
                       <TableHead>Kelas</TableHead>
@@ -569,7 +635,14 @@ export default function AdminManageStudentsPage() {
                   </TableHeader>
                   <TableBody>
                     {paginatedStudents.map((student) => (
-                      <TableRow key={student.id_siswa}>
+                      <TableRow key={student.id_siswa} data-state={selectedStudentIds.includes(student.id!) && "selected"}>
+                        <TableCell padding="checkbox">
+                            <Checkbox
+                                checked={selectedStudentIds.includes(student.id!)}
+                                onCheckedChange={(checked) => handleSelectRow(student.id!, checked as boolean)}
+                                aria-label={`Pilih ${student.nama}`}
+                            />
+                        </TableCell>
                         <TableCell className="font-medium">{student.nama}</TableCell>
                         <TableCell>{student.nis}</TableCell>
                         <TableCell>{student.kelas}</TableCell>
@@ -652,6 +725,26 @@ export default function AdminManageStudentsPage() {
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {showBulkDeleteConfirm && (
+        <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Konfirmasi Hapus Massal</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Anda yakin ingin menghapus <span className="font-bold">{selectedStudentIds.length}</span> siswa yang dipilih? Semua data nilai yang terkait juga akan dihapus secara permanen. Tindakan ini tidak dapat diurungkan.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowBulkDeleteConfirm(false)} disabled={isBulkDeleting}>Batal</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleBulkDelete} disabled={isBulkDeleting} className="bg-destructive hover:bg-destructive/90">
+                        {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Ya, Hapus {selectedStudentIds.length} Siswa
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
         </AlertDialog>
       )}
     </div>

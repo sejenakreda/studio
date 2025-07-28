@@ -362,7 +362,7 @@ export default function AdminManageStudentsPage() {
     reader.readAsBinaryString(selectedFile);
   };
 
-  const handleSelectAll = (checked: boolean | "indeterminate") => {
+  const handleSelectAllClick = (checked: boolean | "indeterminate") => {
     if (checked === true) {
       setSelectedStudentIds(filteredStudents.map(s => s.id!));
     } else {
@@ -621,15 +621,8 @@ export default function AdminManageStudentsPage() {
                                 filteredStudents.length > 0 &&
                                 selectedStudentIds.length === filteredStudents.length
                             }
-                            onCheckedChange={(checked) => handleSelectAll(checked)}
-                            aria-label="Pilih semua"
-                             onPointerDown={(e) => {
-                                // This prevents the row from being selected when clicking the checkbox
-                                e.stopPropagation();
-                            }}
-                             onClick={(e) => {
-                                e.stopPropagation();
-                            }}
+                            onCheckedChange={handleSelectAllClick}
+                            aria-label="Pilih semua siswa yang difilter"
                         />
                       </TableHead>
                       <TableHead>Nama Siswa</TableHead>
@@ -647,8 +640,6 @@ export default function AdminManageStudentsPage() {
                                 checked={selectedStudentIds.includes(student.id!)}
                                 onCheckedChange={(checked) => handleSelectRow(student.id!, checked as boolean)}
                                 aria-label={`Pilih ${student.nama}`}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => e.stopPropagation()}
                             />
                         </TableCell>
                         <TableCell className="font-medium">{student.nama}</TableCell>
@@ -758,4 +749,3 @@ export default function AdminManageStudentsPage() {
     </div>
   );
 }
-

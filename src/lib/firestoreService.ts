@@ -490,11 +490,11 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
 };
 
 const schoolHolidayConverter: FirestoreDataConverter<SchoolHoliday> = {
-  toFirestore: (holiday: Omit<SchoolHoliday, 'id'>): DocumentData => {
+  toFirestore: (holiday: Omit<SchoolHoliday, 'id' | 'createdAt'>): DocumentData => {
     return {
       dateString: holiday.dateString,
       description: holiday.description,
-      createdAt: holiday.createdAt || serverTimestamp(),
+      createdAt: serverTimestamp(),
     };
   },
   fromFirestore: (snapshot: QueryDocumentSnapshot, options: SnapshotOptions): SchoolHoliday => {
@@ -610,36 +610,46 @@ export const updateStudentActivity = async (studentId: string, activity: TugasTa
   }
 };
 export const deleteMultipleStudents = async (studentDocIds: string[]): Promise<void> => {
-    if (studentDocIds.length === 0) return;
-    try {
-        const batch = writeBatch(db);
-        const studentUniqueIds: string[] = [];
+  if (studentDocIds.length === 0) return;
 
-        // First pass: get all unique student IDs and mark their docs for deletion
-        for (const docId of studentDocIds) {
-            const studentRef = doc(db, 'siswa', docId);
-            const studentSnap = await getDoc(studentRef);
-            if (studentSnap.exists()) {
-                const studentData = studentSnap.data() as Siswa;
-                studentUniqueIds.push(studentData.id_siswa);
-                batch.delete(studentRef);
-            }
-        }
+  try {
+    const batch = writeBatch(db);
+    const studentUniqueIds: string[] = [];
 
-        // Second pass: query for all related grades and mark them for deletion
-        if (studentUniqueIds.length > 0) {
-            const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', 'in', studentUniqueIds));
-            const gradesSnapshot = await getDocs(gradesQuery);
-            gradesSnapshot.docs.forEach(gradeDoc => {
-                batch.delete(gradeDoc.ref);
-            });
+    // First pass: Get all unique student IDs and mark their docs for deletion.
+    for (const docId of studentDocIds) {
+      const studentRef = doc(db, 'siswa', docId);
+      const studentSnap = await getDoc(studentRef);
+      if (studentSnap.exists()) {
+        const studentData = studentSnap.data() as Siswa;
+        if (studentData.id_siswa) {
+          studentUniqueIds.push(studentData.id_siswa);
         }
-        
-        await batch.commit();
-    } catch (error) {
-        handleFirestoreError(error, 'menghapus banyak', 'siswa');
+        batch.delete(studentRef);
+      }
     }
+
+    // Second pass: Query for all related grades in chunks and mark them for deletion.
+    if (studentUniqueIds.length > 0) {
+      const CHUNK_SIZE = 30; // Firestore 'in' query limit
+      for (let i = 0; i < studentUniqueIds.length; i += CHUNK_SIZE) {
+        const chunk = studentUniqueIds.slice(i, i + CHUNK_SIZE);
+        if (chunk.length > 0) {
+          const gradesQuery = query(collection(db, 'nilai'), where('id_siswa', 'in', chunk));
+          const gradesSnapshot = await getDocs(gradesQuery);
+          gradesSnapshot.docs.forEach(gradeDoc => {
+            batch.delete(gradeDoc.ref);
+          });
+        }
+      }
+    }
+
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, 'menghapus banyak', 'siswa');
+  }
 };
+
 
 // --- Nilai (Grade) Service ---
 export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: string, gradeId?: string): Promise<Nilai> => {
@@ -1342,13 +1352,9 @@ export const getSchoolHolidaysForMonth = async (year: number, month: number): Pr
 export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'createdAt'>): Promise<void> => {
   try {
     const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
-    const q = query(collRef, where('dateString', '==', holiday.dateString));
-    const existing = await getDocs(q);
-    if (existing.empty) {
-      await addDoc(collRef, holiday);
-    } else {
-      console.warn(`Holiday for ${holiday.dateString} already exists. Skipping.`);
-    }
+    // Use dateString as the document ID for simplicity and to prevent duplicates.
+    const docRef = doc(collRef, holiday.dateString);
+    await setDoc(docRef, holiday);
   } catch (error) {
     handleFirestoreError(error, 'mengatur', 'hari libur sekolah');
   }
@@ -1356,13 +1362,8 @@ export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'crea
 
 export const deleteSchoolHoliday = async (dateString: string): Promise<void> => {
   try {
-    const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION);
-    const q = query(collRef, where('dateString', '==', dateString));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const docToDelete = snapshot.docs[0];
-      await deleteDoc(docToDelete.ref);
-    }
+    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, dateString);
+    await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }

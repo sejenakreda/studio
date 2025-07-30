@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -11,6 +12,7 @@ import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { getActivityName } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from '@/components/ui/button';
 
 const TU_STAFF_ROLES: TugasTambahan[] = ['kepala_tata_usaha', 'operator', 'staf_tu', 'satpam', 'penjaga_sekolah'];
 const TU_ROLE_ORDER: TugasTambahan[] = [
@@ -52,6 +54,7 @@ export default function PrintLaporanGabunganPage() {
                 setPrintSettings(settings);
 
                 const filteredReports = allReports.filter(report => {
+                    if (!report.date?.toDate) return false;
                     const reportDate = report.date.toDate();
                     return (
                         TU_STAFF_ROLES.includes(report.activityId) &&
@@ -68,6 +71,14 @@ export default function PrintLaporanGabunganPage() {
         }
         fetchDataForPrint();
     }, [year, month]);
+    
+    useEffect(() => {
+        if (!isLoading && !error) {
+             setTimeout(() => {
+                window.print();
+            }, 800);
+        }
+    }, [isLoading, error]);
 
     const filteredAndGroupedReports = useMemo(() => {
         const grouped = reports.reduce((acc, report) => {
@@ -96,13 +107,6 @@ export default function PrintLaporanGabunganPage() {
     const printSubTitle = `TAHUN PELAJARAN ${academicYear}`;
     const printPeriod = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
-    useEffect(() => {
-        if (!isLoading && !error) {
-            document.title = printMainTitle;
-            setTimeout(() => window.print(), 800);
-        }
-    }, [isLoading, error, printMainTitle]);
-    
     if (isLoading) {
         return (
             <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
@@ -127,63 +131,91 @@ export default function PrintLaporanGabunganPage() {
     return (
         <>
             <style jsx global>{`
+                /* Ukuran kertas A4 */
                 @page {
                     size: A4;
                     margin: 10mm;
                 }
+
+                /* Styling umum */
                 body {
                     font-family: Arial, sans-serif;
                     margin: 0;
-                    background: #fff !important;
+                    background: #fff;
                 }
+
                 h1, h2, h3 {
                     margin: 0;
                     padding: 0;
                 }
+
                 .cover {
                     text-align: center;
                     padding: 10px 0;
                     margin-bottom: 10px;
                 }
+
                 .table-container {
                     width: 100%;
                     margin-top: 10px;
                 }
+
                 table {
                     border-collapse: collapse;
                     width: 100%;
                     font-size: 11pt;
                 }
+
                 th, td {
                     border: 1px solid #000;
                     padding: 5px;
                     text-align: left;
                     word-wrap: break-word;
                 }
+
                 .group-title {
                     font-size: 12pt;
                     font-weight: bold;
                     margin-top: 1.5rem;
                     margin-bottom: 0.5rem;
                 }
+
+                .btn-container {
+                    margin: 15px;
+                    text-align: center;
+                }
+
+                /* Mode cetak */
                 @media print {
-                    ::-webkit-scrollbar { display: none !important; }
+                    /* Hilangkan scrollbar sepenuhnya */
                     html, body, .table-container, #__next, main {
                         overflow: visible !important;
                         height: auto !important;
                         max-height: none !important;
                     }
+                    ::-webkit-scrollbar { display: none !important; }
+                    
+                    /* Header tabel muncul di setiap halaman */
                     thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
+
+                    /* Multi-page */
                     table { page-break-inside: auto; }
                     tr, td, th { page-break-inside: avoid; }
+                    
+                    /* Hapus halaman kosong di awal */
                     * { page-break-before: auto !important; }
                     body { margin-top: 0 !important; }
+
+                    /* Footer tanda tangan (PrintFooter) */
                     .print-footer {
-                        page-break-before: always !important;
+                        page-break-before: auto !important; /* Jangan selalu paksa halaman baru */
                         page-break-inside: avoid !important;
                         display: block !important;
                     }
+
+                    /* Tombol tidak ikut cetak */
+                    button { display: none !important; }
                 }
             `}</style>
             
@@ -218,7 +250,7 @@ export default function PrintLaporanGabunganPage() {
                                         {filteredAndGroupedReports[groupKey].map((r, index) => (
                                             <tr key={r.id}>
                                                 <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                                <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                                <td>{r.date ? format(r.date.toDate(), "dd-MM-yyyy") : '-'}</td>
                                                 <td>{r.createdByDisplayName}</td>
                                                 <td>{r.title}</td>
                                                 <td>{r.content || '-'}</td>
@@ -232,6 +264,10 @@ export default function PrintLaporanGabunganPage() {
                 </div>
                 
                 <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+
+                <div className="btn-container">
+                    <Button onClick={() => window.print()}>Cetak Ulang</Button>
+                </div>
             </div>
         </>
     );

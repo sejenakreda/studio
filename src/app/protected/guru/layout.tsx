@@ -13,5 +13,11 @@ export default function GuruLayout({
   children: React.ReactNode;
 }) {
   // Authentication and role checks are handled by the parent ProtectedLayout.
+  // We need to check if we're on a print route. If so, don't render the AppShell.
+  const path = typeof window !== "undefined" ? window.location.pathname : "";
+  if (path.endsWith("/print")) {
+    return <>{children}</>;
+  }
+
   return <>{children}</>;
 }

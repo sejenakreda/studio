@@ -1,8 +1,8 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
@@ -15,12 +15,9 @@ import { ArrowLeft, Loader2, AlertCircle, Download, Printer, BookOpen } from "lu
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllLaporanKegiatan, getPrintSettings, getAllUsersByRole } from '@/lib/firestoreService';
-import type { LaporanKegiatan, PrintSettings, TugasTambahan, UserProfile } from '@/types';
-import { PrintHeader } from '@/components/layout/PrintHeader';
-import { PrintFooter } from '@/components/layout/PrintFooter';
+import { getAllLaporanKegiatan } from '@/lib/firestoreService';
+import type { LaporanKegiatan, TugasTambahan } from '@/types';
 import { getActivityName } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
 
 const currentYear = new Date().getFullYear();
 const startYearRange = currentYear - 10;
@@ -39,12 +36,10 @@ const TU_ROLE_ORDER: TugasTambahan[] = [
 
 export default function LaporanGabunganStafTUPage() {
     const { toast } = useToast();
-    const { userProfile } = useAuth();
+    const router = useRouter();
     const [reports, setReports] = useState<LaporanKegiatan[]>([]);
-    const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [allStaf, setAllStaf] = useState<UserProfile[]>([]);
 
     const [filterYear, setFilterYear] = useState<number>(currentYear);
     const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
@@ -53,21 +48,9 @@ export default function LaporanGabunganStafTUPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const [allReports, settings, allUsers] = await Promise.all([
-                getAllLaporanKegiatan(),
-                getPrintSettings(),
-                getAllUsersByRole('guru')
-            ]);
-            
-            const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)));
-            setAllStaf(staffUsers);
-
-            const staffUids = new Set(staffUsers.map(u => u.uid));
-            const staffReports = allReports.filter(r => staffUids.has(r.createdByUid));
-
+            const allReports = await getAllLaporanKegiatan();
+            const staffReports = allReports.filter(r => TU_STAFF_ROLES.includes(r.activityId));
             setReports(staffReports);
-            setPrintSettings(settings);
-
         } catch (err: any) {
             setError("Gagal memuat data. Silakan coba lagi.");
             toast({ variant: "destructive", title: "Error", description: err.message });
@@ -124,29 +107,14 @@ export default function LaporanGabunganStafTUPage() {
         XLSX.writeFile(workbook, `laporan_gabungan_staf_tu.xlsx`);
     };
     
-    const handlePrint = () => { window.print(); };
-    
-    const academicYear = useMemo(() => {
-      const currentMonth = new Date().getMonth();
-      const year = filterYear;
-      return currentMonth >= 6 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
-    }, [filterYear]);
-    
-    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
-    const printSubTitle = `BULAN: ${filterMonth === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === filterMonth)?.label.toUpperCase()} ${filterYear}`;
-    
-    const kepalaTUName = useMemo(() => {
-        return allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha'))?.displayName || null;
-    }, [allStaf]);
-
-    const kepalaSekolahName = useMemo(() => {
-        return allStaf.find(s => s.tugasTambahan?.includes('kepala_sekolah'))?.displayName || printSettings?.signerOneName || null;
-    }, [allStaf, printSettings]);
-
+    const handlePrint = () => {
+        const printUrl = `/protected/guru/tata-usaha/laporan-gabungan/print?year=${filterYear}&month=${filterMonth}`;
+        window.open(printUrl, '_blank');
+    };
 
     return (
         <div className="space-y-6">
-            <div className="print:hidden">
+            <div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-4">
                         <Link href="/protected/guru/tata-usaha"><Button variant="outline" size="icon" aria-label="Kembali"><ArrowLeft className="h-4 w-4" /></Button></Link>
@@ -180,121 +148,6 @@ export default function LaporanGabunganStafTUPage() {
                     </CardContent>
                 </Card>
             </div>
-            
-            {/* --- Dedicated Print Area --- */}
-            <div className="print-area">
-                <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <div className="text-center my-4">
-                  <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
-                  <h3 className="text-base font-bold uppercase">{printSubTitle}</h3>
-                </div>
-                
-                {orderedGroupKeys.length > 0 ? (
-                    <Table>
-                        <tbody>
-                        {orderedGroupKeys.flatMap((groupKey, groupIndex) => {
-                            const groupName = getActivityName(groupKey);
-                            const groupReports = filteredAndGroupedReports[groupKey];
-                            
-                            // Create rows for this group
-                            const rows = [];
-
-                            // 1. Add the group title row
-                            rows.push(
-                                <tr key={`title-${groupKey}`} className="report-group-title">
-                                    <td colSpan={5}>{groupName}</td>
-                                </tr>
-                            );
-
-                            // 2. Add the table header row
-                            rows.push(
-                                <tr key={`header-${groupKey}`} className="report-header-row">
-                                    <th className="w-[4%]">No.</th>
-                                    <th className="w-[15%]">Tanggal</th>
-                                    <th className="w-[21%]">Nama Staf</th>
-                                    <th className="w-[20%]">Judul Laporan</th>
-                                    <th className="w-[40%]">Uraian Kegiatan</th>
-                                </tr>
-                            );
-
-                            // 3. Add the data rows
-                            groupReports.forEach((r, index) => {
-                                rows.push(
-                                    <tr key={`data-${r.id}`}>
-                                        <td className="text-center">{index + 1}</td>
-                                        <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                        <td>{r.createdByDisplayName}</td>
-                                        <td>{r.title}</td>
-                                        <td className="whitespace-pre-wrap">{r.content || '-'}</td>
-                                    </tr>
-                                );
-                            });
-
-                            return rows;
-                        })}
-                        </tbody>
-                    </Table>
-                ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
-                
-                <PrintFooter settings={{...printSettings, signerOneName: kepalaSekolahName, signerOnePosition: "Kepala Sekolah"}} waliKelasName={kepalaTUName} />
-            </div>
-
-            <style jsx global>{`
-                @media print {
-                    body {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                        font-size: 10pt !important;
-                        background-color: #fff !important;
-                    }
-                    /* Hide everything except the print area */
-                    body > *:not(.print-area) {
-                        display: none !important;
-                    }
-                    .print-area {
-                        display: block !important;
-                    }
-
-                    table {
-                        width: 100% !important;
-                        border-collapse: collapse !important;
-                        font-size: 9pt !important;
-                    }
-                    tr {
-                        page-break-inside: avoid !important;
-                    }
-                    th, td {
-                        border: 1px solid #000 !important;
-                        padding: 4px 6px !important;
-                        text-align: left !important;
-                        vertical-align: top !important;
-                        background-color: transparent !important;
-                        word-wrap: break-word !important;
-                    }
-                    .report-group-title > td {
-                        font-weight: bold;
-                        background-color: #E2E8F0 !important;
-                        padding: 5px 6px !important;
-                        font-size: 11pt !important;
-                    }
-                    .report-header-row > th {
-                        font-weight: bold;
-                        background-color: #F1F5F9 !important;
-                    }
-                    .text-center {
-                        text-align: center !important;
-                    }
-                    .whitespace-pre-wrap { white-space: pre-wrap !important; }
-                    div, section, main, header, footer {
-                        background-color: transparent !important;
-                    }
-                    @page {
-                        size: A4 portrait;
-                        margin: 1.5cm;
-                    }
-                }
-                .print-area { display: none; }
-            `}</style>
         </div>
     );
 }

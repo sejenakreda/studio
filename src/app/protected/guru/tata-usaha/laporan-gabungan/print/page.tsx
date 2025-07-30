@@ -121,23 +121,13 @@ export default function PrintLaporanGabunganPage() {
                         background-color: #fff !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
-                        margin: 0;
-                        padding: 0;
-                        overflow: hidden !important;
+                        font-size: 10pt;
                     }
-                    body > * {
-                        display: none;
+                    body {
+                       overflow: hidden !important;
                     }
                     #print-area {
                         display: block !important;
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                    }
-                    @page {
-                        size: A4 portrait;
-                        margin: 1.5cm;
                     }
                     table {
                         width: 100% !important;
@@ -152,7 +142,6 @@ export default function PrintLaporanGabunganPage() {
                         padding: 4px 6px !important;
                         text-align: left !important;
                         vertical-align: top !important;
-                        background-color: transparent !important;
                         word-wrap: break-word !important;
                     }
                     .report-group-title > td {
@@ -164,10 +153,13 @@ export default function PrintLaporanGabunganPage() {
                     .report-header-row > th {
                         font-weight: bold;
                         text-align: center !important;
-                        background-color: transparent !important;
+                        background-color: #F8FAFC !important;
                     }
                     .text-center { text-align: center !important; }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
+                }
+                 html, body {
+                    overflow: hidden !important;
                 }
             `}</style>
             

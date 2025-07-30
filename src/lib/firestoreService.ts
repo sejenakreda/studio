@@ -1,4 +1,3 @@
-
 import {
   doc,
   getDoc,
@@ -469,8 +468,10 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
       place: settings.place || '',
       signerOneName: settings.signerOneName || '',
       signerOnePosition: settings.signerOnePosition || '',
+      signerOneNpa: settings.signerOneNpa || '',
       signerTwoName: settings.signerTwoName || '',
       signerTwoPosition: settings.signerTwoPosition || '',
+      signerTwoNpa: settings.signerTwoNpa || '',
       updatedAt: serverTimestamp(),
     };
   },
@@ -482,8 +483,10 @@ const printSettingsConverter: FirestoreDataConverter<PrintSettings> = {
       place: data.place,
       signerOneName: data.signerOneName,
       signerOnePosition: data.signerOnePosition,
+      signerOneNpa: data.signerOneNpa,
       signerTwoName: data.signerTwoName,
       signerTwoPosition: data.signerTwoPosition,
+      signerTwoNpa: data.signerTwoNpa,
       updatedAt: data.updatedAt,
     };
   }
@@ -1132,8 +1135,10 @@ export const getPrintSettings = async (): Promise<PrintSettings> => {
       place: "Cianjur", // Default value
       signerOneName: "Kepala Sekolah",
       signerOnePosition: "Kepala Sekolah",
+      signerOneNpa: "",
       signerTwoName: "Wali Kelas",
       signerTwoPosition: "Wali Kelas",
+      signerTwoNpa: "",
     };
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'pengaturan cetak');

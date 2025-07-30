@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { ArrowLeft, Save, Loader2, AlertCircle, Image as ImageIcon, Link2 } from "lucide-react";
 import { getPrintSettings, updatePrintSettings, addActivityLog } from '@/lib/firestoreService';
 import type { PrintSettings } from '@/types';
@@ -23,8 +23,10 @@ const printSettingsSchema = z.object({
   place: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerOneName: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerOnePosition: z.string().max(100, "Maksimal 100 karakter").optional(),
+  signerOneNpa: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerTwoName: z.string().max(100, "Maksimal 100 karakter").optional(),
   signerTwoPosition: z.string().max(100, "Maksimal 100 karakter").optional(),
+  signerTwoNpa: z.string().max(100, "Maksimal 100 karakter").optional(),
 });
 
 type PrintSettingsFormData = z.infer<typeof printSettingsSchema>;
@@ -33,7 +35,6 @@ export default function ManagePrintSettingsPage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
   
-  const [currentSettings, setCurrentSettings] = useState<PrintSettings | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -45,8 +46,10 @@ export default function ManagePrintSettingsPage() {
       place: "Cianjur",
       signerOneName: "",
       signerOnePosition: "",
+      signerOneNpa: "",
       signerTwoName: "",
       signerTwoPosition: "",
+      signerTwoNpa: "",
     },
   });
   
@@ -58,15 +61,18 @@ export default function ManagePrintSettingsPage() {
       setFetchError(null);
       try {
         const settings = await getPrintSettings();
-        setCurrentSettings(settings);
-        form.reset({
-          headerImageUrl: settings.headerImageUrl || "",
-          place: settings.place || "Cianjur",
-          signerOneName: settings.signerOneName || "",
-          signerOnePosition: settings.signerOnePosition || "",
-          signerTwoName: settings.signerTwoName || "",
-          signerTwoPosition: settings.signerTwoPosition || "",
-        });
+        if (settings) {
+          form.reset({
+            headerImageUrl: settings.headerImageUrl || "",
+            place: settings.place || "Cianjur",
+            signerOneName: settings.signerOneName || "",
+            signerOnePosition: settings.signerOnePosition || "",
+            signerOneNpa: settings.signerOneNpa || "",
+            signerTwoName: settings.signerTwoName || "",
+            signerTwoPosition: settings.signerTwoPosition || "",
+            signerTwoNpa: settings.signerTwoNpa || "",
+          });
+        }
       } catch (error: any) {
         setFetchError("Gagal memuat pengaturan cetak. Silakan coba lagi.");
         toast({ variant: "destructive", title: "Error", description: error.message });
@@ -152,7 +158,7 @@ export default function ManagePrintSettingsPage() {
             <Card>
                 <CardHeader>
                 <CardTitle>Pengaturan Tanda Tangan</CardTitle>
-                <CardDescription>Isi nama dan jabatan untuk dua penanda tangan. Tanggal akan ditambahkan secara otomatis saat mencetak.</CardDescription>
+                <CardDescription>Isi nama, jabatan, dan NPA untuk dua penanda tangan. Tanggal akan ditambahkan secara otomatis saat mencetak.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                 <FormField control={form.control} name="place" render={({ field }) => (
@@ -167,11 +173,13 @@ export default function ManagePrintSettingsPage() {
                     <h4 className="font-semibold text-center">Penanda Tangan 1 (Kiri)</h4>
                     <FormField control={form.control} name="signerOneName" render={({ field }) => (<FormItem><FormLabel>Nama Lengkap</FormLabel><FormControl><Input placeholder="Nama Kepala Sekolah" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="signerOnePosition" render={({ field }) => (<FormItem><FormLabel>Jabatan</FormLabel><FormControl><Input placeholder="Kepala Sekolah" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="signerOneNpa" render={({ field }) => (<FormItem><FormLabel>NPA / NIP</FormLabel><FormControl><Input placeholder="NPA. XXXXXXX" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <div className="space-y-4 p-4 border rounded-md">
                     <h4 className="font-semibold text-center">Penanda Tangan 2 (Kanan)</h4>
                     <FormField control={form.control} name="signerTwoName" render={({ field }) => (<FormItem><FormLabel>Nama Lengkap</FormLabel><FormControl><Input placeholder="Nama Wali Kelas / Wakasek" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="signerTwoPosition" render={({ field }) => (<FormItem><FormLabel>Jabatan</FormLabel><FormControl><Input placeholder="Wali Kelas" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="signerTwoNpa" render={({ field }) => (<FormItem><FormLabel>NPA / NIP</FormLabel><FormControl><Input placeholder="NPA. YYYYYYY" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                 </div>
                 </CardContent>

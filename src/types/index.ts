@@ -217,8 +217,10 @@ export interface PrintSettings {
   place?: string; // e.g., "Cianjur"
   signerOneName?: string; // e.g., "Nama Kepala Sekolah"
   signerOnePosition?: string; // e.g., "Kepala Sekolah"
+  signerOneNpa?: string; // NPA for signer one
   signerTwoName?: string; // e.g., "Nama Wali Kelas"
   signerTwoPosition?: string; // e.g., "Wali Kelas"
+  signerTwoNpa?: string; // NPA for signer two
   updatedAt?: Timestamp;
 }
 

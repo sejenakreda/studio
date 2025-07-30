@@ -29,7 +29,7 @@ export default function PrintLaporanGabunganPage() {
     const searchParams = useSearchParams();
     const [reports, setReports] = useState<LaporanKegiatan[]>([]);
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
-    const [allStaf, setAllStaf] = useState<UserProfile[]>([]);
+    const [kepalaTU, setKepalaTU] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +51,7 @@ export default function PrintLaporanGabunganPage() {
                 ]);
                 
                 const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)) || u.tugasTambahan?.includes('kepala_sekolah'));
-                setAllStaf(staffUsers);
+                setKepalaTU(allUsers.find(u => u.tugasTambahan?.includes('kepala_tata_usaha')) || null);
                 setPrintSettings(settings);
 
                 const filteredReports = allReports.filter(report => {
@@ -98,20 +98,19 @@ export default function PrintLaporanGabunganPage() {
     const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
     const printSubTitle = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
-    const kepalaTU = useMemo(() => allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha')) || null, [allStaf]);
     
     useEffect(() => {
         if (!isLoading && !error) {
-            setTimeout(() => window.print(), 1000);
+            setTimeout(() => window.print(), 1500);
         }
     }, [isLoading, error]);
     
     if (isLoading) {
-        return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /> <p className="ml-4">Mempersiapkan dokumen...</p></div>;
+        return <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="h-10 w-10 animate-spin" /> <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p></div>;
     }
     
     if (error) {
-        return <div className="p-8"><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>;
+        return <div style={{ padding: '2rem' }}><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>;
     }
 
     return (
@@ -119,97 +118,107 @@ export default function PrintLaporanGabunganPage() {
             <style jsx global>{`
                 @media print {
                     html, body {
-                        width: 210mm;
-                        height: auto;
-                        font-size: 10pt;
-                        background: #fff !important;
-                        color: #000 !important;
+                        background-color: #fff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                         margin: 0;
                         padding: 0;
                         overflow: visible !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
                     }
                     @page {
                         size: A4 portrait;
                         margin: 2cm 1.5cm;
                     }
-                    body > * {
-                        display: none;
+                    .print-area {
+                        display: block !important;
                     }
-                    #print-container, #print-container * {
-                        display: block;
+                    .report-group {
+                        page-break-inside: avoid !important;
                     }
-                    .print-table {
+                    .report-table {
                         width: 100%;
                         border-collapse: collapse;
                         font-size: 9pt;
+                        table-layout: fixed;
                     }
-                    .print-table tr, .print-table td, .print-table th {
-                        page-break-inside: avoid !important;
-                    }
-                    .print-table th, .print-table td {
+                    .report-table th,
+                    .report-table td {
                         border: 1px solid #000;
                         padding: 4px 6px;
                         text-align: left;
                         vertical-align: top;
                         word-wrap: break-word;
                     }
-                    .report-group-title > td {
-                        font-weight: bold;
-                        background-color: #E2E8F0 !important;
-                        padding: 5px 6px !important;
-                        font-size: 11pt !important;
-                        border: 1px solid #000;
+                    .report-table thead tr {
+                        background-color: #e2e8f0 !important;
                     }
-                    .report-header-row > th {
+                    .report-table th {
                         font-weight: bold;
                         text-align: center !important;
-                        background-color: #F8FAFC !important;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                    .print-footer-container {
+                        page-break-before: auto;
+                        page-break-inside: avoid !important;
                     }
                 }
+                .print-area {
+                    display: none;
+                }
             `}</style>
-            <div id="print-container">
+            
+            <div className="print-area">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                 <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                     <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
                 </div>
 
-                <table className="print-table">
-                    <thead>
-                        <tr className="report-header-row">
-                            <th style={{width: '5%'}}>No.</th>
-                            <th style={{width: '15%'}}>Tanggal</th>
-                            <th style={{width: '20%'}}>Nama Staf</th>
-                            <th style={{width: '20%'}}>Judul Laporan</th>
-                            <th style={{width: '40%'}}>Uraian Kegiatan</th>
-                        </tr>
-                    </thead>
-                    {orderedGroupKeys.length === 0 ? (
-                        <tbody>
-                            <tr><td colSpan={5} style={{textAlign: 'center', padding: '1rem'}}>Tidak ada data laporan untuk periode ini.</td></tr>
-                        </tbody>
-                    ) : (
-                        orderedGroupKeys.map((groupKey, groupIndex) => (
-                            <tbody key={groupKey}>
-                                <tr className="report-group-title">
-                                    <td colSpan={5}>{getActivityName(groupKey)}</td>
-                                </tr>
-                                {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                    <tr key={r.id}>
-                                        <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                        <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                        <td>{r.createdByDisplayName}</td>
-                                        <td>{r.title}</td>
-                                        <td>{r.content || '-'}</td>
+                {orderedGroupKeys.length === 0 ? (
+                    <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
+                ) : (
+                    orderedGroupKeys.map((groupKey) => (
+                        <div key={groupKey} className="report-group" style={{ marginBottom: '1.5rem' }}>
+                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
+                                Laporan: {getActivityName(groupKey)}
+                            </h4>
+                            <table className="report-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{width: '5%'}}>No.</th>
+                                        <th style={{width: '15%'}}>Tanggal</th>
+                                        <th style={{width: '20%'}}>Nama Staf</th>
+                                        <th style={{width: '20%'}}>Judul Laporan</th>
+                                        <th style={{width: '40%'}}>Uraian Kegiatan</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        ))
-                    )}
-                </table>
-                <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+                                </thead>
+                                <tbody>
+                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                        <tr key={r.id}>
+                                            <td style={{textAlign: 'center'}}>{index + 1}</td>
+                                            <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                            <td>{r.createdByDisplayName}</td>
+                                            <td>{r.title}</td>
+                                            <td>{r.content || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ))
+                )}
+                
+                <div className="print-footer-container">
+                    <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+                </div>
+            </div>
+            
+            <div className="no-print" style={{ padding: '2rem' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Menyiapkan Halaman Cetak...</h1>
+              <p>Jika dialog cetak tidak muncul secara otomatis, silakan cetak halaman ini secara manual (Ctrl/Cmd + P).</p>
+              <p>Anda dapat menutup tab ini setelah selesai.</p>
             </div>
         </>
     );

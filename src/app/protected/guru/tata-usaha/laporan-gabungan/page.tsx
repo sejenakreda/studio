@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -15,8 +14,8 @@ import { ArrowLeft, Loader2, AlertCircle, Download, Printer, BookOpen } from "lu
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllLaporanKegiatan, getPrintSettings } from '@/lib/firestoreService';
-import type { LaporanKegiatan, PrintSettings, TugasTambahan } from '@/types';
+import { getAllLaporanKegiatan, getPrintSettings, getStudents, getAllUsersByRole } from '@/lib/firestoreService';
+import type { LaporanKegiatan, PrintSettings, TugasTambahan, UserProfile } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { getActivityName, getCurrentAcademicYear } from '@/lib/utils';
@@ -44,6 +43,7 @@ export default function LaporanGabunganStafTUPage() {
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [allStaf, setAllStaf] = useState<UserProfile[]>([]);
 
     const [filterYear, setFilterYear] = useState<number>(currentYear);
     const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
@@ -52,12 +52,17 @@ export default function LaporanGabunganStafTUPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const [allReports, settings] = await Promise.all([
+            const [allReports, settings, allUsers] = await Promise.all([
                 getAllLaporanKegiatan(),
-                getPrintSettings()
+                getPrintSettings(),
+                getAllUsersByRole('guru')
             ]);
             
-            const staffReports = allReports.filter(r => TU_STAFF_ROLES.includes(r.activityId));
+            const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)));
+            setAllStaf(staffUsers);
+
+            const staffUids = new Set(staffUsers.map(u => u.uid));
+            const staffReports = allReports.filter(r => staffUids.has(r.createdByUid));
 
             setReports(staffReports);
             setPrintSettings(settings);
@@ -78,7 +83,7 @@ export default function LaporanGabunganStafTUPage() {
             const reportDate = report.date.toDate();
             if (reportDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && reportDate.getMonth() !== filterMonth - 1) return false;
-            return true;
+            return TU_STAFF_ROLES.includes(report.activityId);
         });
 
         const grouped = filtered.reduce((acc, report) => {
@@ -119,14 +124,14 @@ export default function LaporanGabunganStafTUPage() {
     
     const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${getCurrentAcademicYear()}`;
     const printSubTitle = `BULAN: ${filterMonth === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === filterMonth)?.label.toUpperCase()}`;
-
     
     const kepalaTUName = useMemo(() => {
-        if (userProfile?.tugasTambahan?.includes('kepala_tata_usaha')) {
-            return userProfile.displayName;
-        }
-        return printSettings?.signerTwoName;
-    }, [userProfile, printSettings]);
+        return allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha'))?.displayName || null;
+    }, [allStaf]);
+
+    const kepalaSekolahName = useMemo(() => {
+        return allStaf.find(s => s.tugasTambahan?.includes('kepala_sekolah'))?.displayName || printSettings?.signerOneName || null;
+    }, [allStaf, printSettings]);
 
 
     return (
@@ -173,29 +178,38 @@ export default function LaporanGabunganStafTUPage() {
                   <h3 className="text-lg font-bold uppercase">{printSubTitle}</h3>
                 </div>
                 {orderedGroupKeys.length > 0 ? (
-                    <div>
-                    {orderedGroupKeys.map((groupKey) => (
-                        <div key={groupKey} className="report-group">
-                            <h4 className="report-group-title">Laporan {getActivityName(groupKey)}</h4>
-                            <Table><TableHeader><TableRow>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
                                 <TableHead className="w-[20px]">No.</TableHead>
-                                <TableHead>Tanggal</TableHead>
-                                <TableHead>Nama {groupKey === 'kepala_tata_usaha' ? 'K. TU' : 'Staf'}</TableHead>
-                                <TableHead>Judul</TableHead>
-                                <TableHead>Isi Laporan</TableHead>
-                            </TableRow></TableHeader><TableBody>{filteredAndGroupedReports[groupKey].map((r, index) => (<TableRow key={r.id}>
-                                <TableCell>{index + 1}</TableCell>
-                                <TableCell>{format(r.date.toDate(), "dd MMM yyyy")}</TableCell>
-                                <TableCell>{r.createdByDisplayName}</TableCell>
-                                <TableCell className="whitespace-pre-wrap">{r.title}</TableCell>
-                                <TableCell className="whitespace-pre-wrap">{r.content}</TableCell>
-                                </TableRow>))}</TableBody>
-                            </Table>
-                        </div>
-                    ))}
-                    </div>
+                                <TableHead className="w-[90px]">Tanggal</TableHead>
+                                <TableHead className="w-[120px]">Nama Staf</TableHead>
+                                <TableHead>Uraian Kegiatan</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {orderedGroupKeys.flatMap((groupKey) => [
+                            // Sub-header row
+                            <TableRow key={`header-${groupKey}`} className="report-group-title">
+                                <TableCell colSpan={4} className="font-bold text-base">
+                                    {getActivityName(groupKey)}
+                                </TableCell>
+                            </TableRow>,
+                            // Data rows for this group
+                            ...filteredAndGroupedReports[groupKey].map((r, index) => (
+                                <TableRow key={r.id}>
+                                    <TableCell>{index + 1}</TableCell>
+                                    <TableCell>{format(r.date.toDate(), "dd-MM-yyyy")}</TableCell>
+                                    <TableCell>{r.createdByDisplayName}</TableCell>
+                                    <TableCell className="whitespace-pre-wrap">{r.title}{r.content ? `\n\n${r.content}` : ''}</TableCell>
+                                </TableRow>
+                            ))
+                        ])}
+                        </TableBody>
+                    </Table>
                 ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
-                <PrintFooter settings={printSettings} waliKelasName={kepalaTUName} />
+                
+                <PrintFooter settings={{...printSettings, signerOneName: kepalaSekolahName, signerOnePosition: "Kepala Sekolah"}} waliKelasName={kepalaTUName} />
             </div>
 
             <style jsx global>{`
@@ -208,26 +222,17 @@ export default function LaporanGabunganStafTUPage() {
                     }
                     .print-area { display: block !important; }
                     .print\\:hidden { display: none !important; }
-                    .report-group {
-                        break-inside: avoid;
-                        page-break-inside: avoid;
-                        margin-bottom: 1.5rem;
-                    }
-                    .report-group-title {
-                        font-size: 1.1rem;
-                        font-weight: 600;
-                        margin-bottom: 0.5rem;
-                        break-after: avoid;
-                    }
+                    
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
                         font-size: 9pt !important;
-                        table-layout: auto !important;
-                        break-inside: avoid;
+                    }
+                    tr {
+                        break-inside: avoid !important;
                     }
                     th, td {
-                        border: 1px solid #ccc !important;
+                        border: 1px solid #000 !important;
                         padding: 4px 6px !important;
                         text-align: left !important;
                         vertical-align: top !important;
@@ -235,11 +240,11 @@ export default function LaporanGabunganStafTUPage() {
                         word-wrap: break-word !important;
                     }
                     thead tr {
-                        background-color: #f3f4f6 !important;
+                        background-color: #e2e8f0 !important;
                     }
-                    tr {
-                        break-inside: avoid-page !important;
-                        page-break-inside: avoid !important;
+                    .report-group-title td {
+                        background-color: #f1f5f9 !important;
+                        font-weight: bold !important;
                     }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                     div, section, main, header, footer {

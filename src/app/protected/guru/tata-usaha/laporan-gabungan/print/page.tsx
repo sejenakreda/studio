@@ -98,11 +98,10 @@ export default function PrintLaporanGabunganPage() {
     const printSubTitle = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
     const kepalaTUName = useMemo(() => allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha'))?.displayName || null, [allStaf]);
-    const kepalaSekolahName = useMemo(() => allStaf.find(s => s.tugasTambahan?.includes('kepala_sekolah'))?.displayName || printSettings?.signerOneName || null, [allStaf, printSettings]);
-
+    
     useEffect(() => {
         if (!isLoading && !error) {
-            setTimeout(() => window.print(), 500); // Delay to allow images to load
+            setTimeout(() => window.print(), 500); // Delay to allow images and layout to render
         }
     }, [isLoading, error]);
     
@@ -115,21 +114,31 @@ export default function PrintLaporanGabunganPage() {
     }
 
     return (
-        <div className="p-4 bg-white">
-            <style jsx global>{`
+        <div id="print-area">
+             <style jsx global>{`
                 @media print {
+                    html, body {
+                        background-color: #fff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        margin: 0;
+                        padding: 0;
+                        overflow: hidden !important; /* Hide scrollbars on main elements */
+                    }
+                    body > * {
+                        display: none; /* Hide everything in the body by default */
+                    }
+                    #print-area {
+                        display: block !important; /* Only show the print area */
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        overflow: visible !important;
+                    }
                     @page {
                         size: A4 portrait;
                         margin: 1.5cm;
-                    }
-                    html, body {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                        background-color: #fff !important;
-                        overflow: hidden !important;
-                    }
-                    .print-area {
-                        display: block !important;
                     }
                     table {
                         width: 100% !important;
@@ -162,56 +171,54 @@ export default function PrintLaporanGabunganPage() {
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                 }
             `}</style>
-
-            <div className="print-area">
-                <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <div className="text-center my-4">
-                  <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
-                  <h3 className="text-base font-bold uppercase">{printSubTitle}</h3>
-                </div>
-                
-                {orderedGroupKeys.length > 0 ? (
-                    <Table>
-                        <tbody>
-                        {orderedGroupKeys.flatMap((groupKey) => {
-                            const groupName = getActivityName(groupKey);
-                            const groupReports = filteredAndGroupedReports[groupKey];
-                            
-                            const rows = [];
-                            rows.push(
-                                <tr key={`title-${groupKey}`} className="report-group-title">
-                                    <td colSpan={5}>{groupName}</td>
-                                </tr>
-                            );
-                            rows.push(
-                                <tr key={`header-${groupKey}`} className="report-header-row">
-                                    <th className="w-[4%]">No.</th>
-                                    <th className="w-[15%]">Tanggal</th>
-                                    <th className="w-[21%]">Nama Staf</th>
-                                    <th className="w-[20%]">Judul Laporan</th>
-                                    <th className="w-[40%]">Uraian Kegiatan</th>
-                                </tr>
-                            );
-
-                            groupReports.forEach((r, index) => {
-                                rows.push(
-                                    <tr key={`data-${r.id}`}>
-                                        <td className="text-center">{index + 1}</td>
-                                        <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                        <td>{r.createdByDisplayName}</td>
-                                        <td>{r.title}</td>
-                                        <td className="whitespace-pre-wrap">{r.content || '-'}</td>
-                                    </tr>
-                                );
-                            });
-                            return rows;
-                        })}
-                        </tbody>
-                    </Table>
-                ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
-                
-                <PrintFooter settings={{...printSettings, signerOneName: kepalaSekolahName, signerOnePosition: "Kepala Sekolah"}} waliKelasName={kepalaTUName} />
+            
+            <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+            <div className="text-center my-4">
+              <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
+              <h3 className="text-base font-bold uppercase">{printSubTitle}</h3>
             </div>
+            
+            {orderedGroupKeys.length > 0 ? (
+                <Table>
+                    <tbody>
+                    {orderedGroupKeys.flatMap((groupKey) => {
+                        const groupName = getActivityName(groupKey);
+                        const groupReports = filteredAndGroupedReports[groupKey];
+                        
+                        const rows = [];
+                        rows.push(
+                            <tr key={`title-${groupKey}`} className="report-group-title">
+                                <td colSpan={5}>{groupName}</td>
+                            </tr>
+                        );
+                        rows.push(
+                            <tr key={`header-${groupKey}`} className="report-header-row">
+                                <th className="w-[4%]">No.</th>
+                                <th className="w-[15%]">Tanggal</th>
+                                <th className="w-[21%]">Nama Staf</th>
+                                <th className="w-[20%]">Judul Laporan</th>
+                                <th className="w-[40%]">Uraian Kegiatan</th>
+                            </tr>
+                        );
+
+                        groupReports.forEach((r, index) => {
+                            rows.push(
+                                <tr key={`data-${r.id}`}>
+                                    <td className="text-center">{index + 1}</td>
+                                    <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                    <td>{r.createdByDisplayName}</td>
+                                    <td>{r.title}</td>
+                                    <td className="whitespace-pre-wrap">{r.content || '-'}</td>
+                                </tr>
+                            );
+                        });
+                        return rows;
+                    })}
+                    </tbody>
+                </Table>
+            ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
+            
+            <PrintFooter settings={printSettings} waliKelasName={kepalaTUName} />
         </div>
     );
 }

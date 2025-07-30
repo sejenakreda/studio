@@ -4,32 +4,33 @@ import React from 'react';
 import { PrintSettings } from '@/types';
 import { format } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
 interface PrintFooterProps {
   settings: PrintSettings | null;
-  waliKelasName?: string | null; // Optional prop for specific wali kelas name
+  waliKelasName?: string | null; // Optional prop for specific name on the right side
 }
 
 export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasName }) => {
-  const { userProfile } = useAuth(); // Get current user profile
   if (!settings) return null;
 
-  // Determine the name for the second signer.
-  // 1. Prioritize explicit waliKelasName prop if provided (used for Ka.TU reports).
-  // 2. Fallback to settings for the second signer.
-  const signerTwoNameToDisplay = waliKelasName ?? settings.signerTwoName;
+  // Signer 1 (left) is always from settings (Kepala Sekolah)
+  const signerOneName = settings.signerOneName || '(....................................)';
+  const signerOnePosition = settings.signerOnePosition || 'Kepala Sekolah';
 
-  // Determine the position for the second signer.
-  // If waliKelasName is specifically 'userProfile.displayName', assume it's Ka.TU
-  // Otherwise, use "Wali Kelas" or the default from settings.
-  let signerTwoPositionToDisplay = 'Wali Kelas';
-  if (waliKelasName && userProfile?.tugasTambahan?.includes('kepala_tata_usaha')) {
-      signerTwoPositionToDisplay = 'Kepala Tata Usaha';
-  } else if (!waliKelasName) {
-      signerTwoPositionToDisplay = settings.signerTwoPosition || 'Pejabat 2';
+  // Signer 2 (right) logic
+  let signerTwoNameToDisplay: string;
+  let signerTwoPositionToDisplay: string;
+
+  if (waliKelasName) {
+    // If a specific name is provided (like Ka. TU), use it.
+    signerTwoNameToDisplay = waliKelasName;
+    // Assume the position for this specific context is "Kepala Tata Usaha"
+    signerTwoPositionToDisplay = 'Kepala Tata Usaha';
+  } else {
+    // Otherwise, fall back to the general print settings for the second signer.
+    signerTwoNameToDisplay = settings.signerTwoName || '(....................................)';
+    signerTwoPositionToDisplay = settings.signerTwoPosition || 'Wali Kelas';
   }
-
 
   const today = new Date();
   const formattedDate = format(today, "dd MMMM yyyy", { locale: indonesiaLocale });
@@ -40,12 +41,12 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
       <div className="grid grid-cols-2 gap-8" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div className="text-center">
           <p className="mb-16">Mengetahui,</p>
-          <p className="font-semibold underline">{settings.signerOneName || '(....................................)'}</p>
-          <p>{settings.signerOnePosition || 'Kepala Sekolah'}</p>
+          <p className="font-semibold underline">{signerOneName}</p>
+          <p>{signerOnePosition}</p>
         </div>
         <div className="text-center">
           <p className="mb-16">{placeAndDateText}</p>
-          <p className="font-semibold underline">{signerTwoNameToDisplay || '(....................................)'}</p>
+          <p className="font-semibold underline">{signerTwoNameToDisplay}</p>
           <p>{signerTwoPositionToDisplay}</p>
         </div>
       </div>

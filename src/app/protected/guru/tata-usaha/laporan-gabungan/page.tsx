@@ -102,6 +102,8 @@ export default function LaporanGabunganStafTUPage() {
             }));
             if (dataForExcel.length > 0) {
                 const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+                 const wscols = [ {wch:12}, {wch:25}, {wch:30}, {wch:50} ];
+                worksheet['!cols'] = wscols;
                 XLSX.utils.book_append_sheet(workbook, worksheet, groupName.substring(0, 31));
             }
         }

@@ -50,7 +50,6 @@ export default function PrintLaporanGabunganPage() {
                     getAllUsersByRole('guru')
                 ]);
                 
-                const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)) || u.tugasTambahan?.includes('kepala_sekolah'));
                 setKepalaTU(allUsers.find(u => u.tugasTambahan?.includes('kepala_tata_usaha')) || null);
                 setPrintSettings(settings);
 
@@ -101,12 +100,13 @@ export default function PrintLaporanGabunganPage() {
     
     useEffect(() => {
         if (!isLoading && !error) {
+            document.title = printMainTitle;
             setTimeout(() => window.print(), 1500);
         }
-    }, [isLoading, error]);
+    }, [isLoading, error, printMainTitle]);
     
     if (isLoading) {
-        return <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="h-10 w-10 animate-spin" /> <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p></div>;
+        return <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}><Loader2 className="h-10 w-10 animate-spin" /> <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p></div>;
     }
     
     if (error) {
@@ -118,7 +118,7 @@ export default function PrintLaporanGabunganPage() {
             <style jsx global>{`
                 @media print {
                     html, body {
-                        background-color: #fff !important;
+                        background-color: white !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         margin: 0;
@@ -131,8 +131,9 @@ export default function PrintLaporanGabunganPage() {
                     }
                     .print-area {
                         display: block !important;
+                        width: 100%;
                     }
-                    .report-group {
+                    .report-group, .print-footer-container {
                         page-break-inside: avoid !important;
                     }
                     .report-table {
@@ -159,13 +160,20 @@ export default function PrintLaporanGabunganPage() {
                     .no-print {
                         display: none !important;
                     }
-                    .print-footer-container {
-                        page-break-before: auto;
-                        page-break-inside: avoid !important;
-                    }
                 }
                 .print-area {
-                    display: none;
+                    display: block; /* Show in screen for debugging */
+                    font-family: 'Times New Roman', Times, serif;
+                    color: black;
+                    background-color: white;
+                }
+                 .no-print {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    flex-direction: column;
+                    height: 100vh;
+                    font-family: sans-serif;
                 }
             `}</style>
             
@@ -214,13 +222,6 @@ export default function PrintLaporanGabunganPage() {
                     <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
                 </div>
             </div>
-            
-            <div className="no-print" style={{ padding: '2rem' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Menyiapkan Halaman Cetak...</h1>
-              <p>Jika dialog cetak tidak muncul secara otomatis, silakan cetak halaman ini secara manual (Ctrl/Cmd + P).</p>
-              <p>Anda dapat menutup tab ini setelah selesai.</p>
-            </div>
         </>
     );
 }
-

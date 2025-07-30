@@ -17,12 +17,12 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   // Signer 1 (left) is always Kepala Sekolah from settings
   const signerOneName = settings.signerOneName || '(....................................)';
   const signerOnePosition = settings.signerOnePosition || 'Kepala Sekolah';
-  const signerOneNpa = settings.signerOneNpa ? `NPA. ${settings.signerOneNpa}` : '-';
+  const signerOneNpa = settings.signerOneNpa ? `NPA. ${settings.signerOneNpa}` : '';
 
   // Signer 2 (right) is Ka. TU from `waliKelasName` or fallback from settings
   const signerTwoNameToDisplay = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPositionToDisplay = 'Kepala Tata Usaha';
-  const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '-';
+  const signerTwoPositionToDisplay = 'Kepala Tata Usaha'; // Hardcoded as per request
+  const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '';
 
   const today = new Date();
   const formattedDate = format(today, "dd MMMM yyyy", { locale: indonesiaLocale });

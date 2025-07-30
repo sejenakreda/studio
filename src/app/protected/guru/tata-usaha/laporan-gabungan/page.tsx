@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -14,8 +15,8 @@ import { ArrowLeft, Loader2, AlertCircle, Download, Printer, BookOpen } from "lu
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllLaporanKegiatan, getPrintSettings, getAllUsersByRole } from '@/lib/firestoreService';
-import type { LaporanKegiatan, UserProfile, PrintSettings, TugasTambahan } from '@/types';
+import { getAllLaporanKegiatan, getPrintSettings } from '@/lib/firestoreService';
+import type { LaporanKegiatan, PrintSettings, TugasTambahan } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { getActivityName } from '@/lib/utils';
@@ -27,6 +28,14 @@ const endYearRange = currentYear + 5;
 const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: format(new Date(0, i), "MMMM", { locale: indonesiaLocale }) }));
 const TU_STAFF_ROLES: TugasTambahan[] = ['kepala_tata_usaha', 'operator', 'staf_tu', 'satpam', 'penjaga_sekolah'];
+
+const TU_ROLE_ORDER: TugasTambahan[] = [
+    'kepala_tata_usaha',
+    'operator',
+    'staf_tu',
+    'satpam',
+    'penjaga_sekolah'
+];
 
 export default function LaporanGabunganStafTUPage() {
     const { toast } = useToast();
@@ -43,17 +52,14 @@ export default function LaporanGabunganStafTUPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const [allGuruUsers, settings] = await Promise.all([
-                getAllUsersByRole('guru'),
+            const [allReports, settings] = await Promise.all([
+                getAllLaporanKegiatan(),
                 getPrintSettings()
             ]);
             
-            const staffUids = new Set(allGuruUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t))).map(u => u.uid));
-            
-            const allReports = await getAllLaporanKegiatan();
-            const relevantReports = allReports.filter(r => staffUids.has(r.createdByUid));
+            const staffReports = allReports.filter(r => TU_STAFF_ROLES.includes(r.activityId));
 
-            setReports(relevantReports);
+            setReports(staffReports);
             setPrintSettings(settings);
 
         } catch (err: any) {
@@ -76,38 +82,44 @@ export default function LaporanGabunganStafTUPage() {
         });
 
         const grouped = filtered.reduce((acc, report) => {
-            const groupKey = report.activityName || 'Lainnya';
+            const groupKey = report.activityId;
             if (!acc[groupKey]) acc[groupKey] = [];
             acc[groupKey].push(report);
             return acc;
-        }, {} as Record<string, LaporanKegiatan[]>);
+        }, {} as Record<TugasTambahan, LaporanKegiatan[]>);
 
-        // Sort reports within each group
         for (const key in grouped) {
-            grouped[key].sort((a, b) => b.date.toMillis() - a.date.toMillis());
+            grouped[key as TugasTambahan].sort((a, b) => b.date.toMillis() - a.date.toMillis());
         }
 
         return grouped;
     }, [reports, filterYear, filterMonth]);
+
+    const orderedGroupKeys = useMemo(() => {
+        return TU_ROLE_ORDER.filter(role => filteredAndGroupedReports[role] && filteredAndGroupedReports[role].length > 0);
+    }, [filteredAndGroupedReports]);
     
     const handleDownloadExcel = () => {
         if (Object.keys(filteredAndGroupedReports).length === 0) return;
         const workbook = XLSX.utils.book_new();
-        for (const groupName in filteredAndGroupedReports) {
-            const dataForExcel = filteredAndGroupedReports[groupName].map(r => ({
+        for (const groupKey of orderedGroupKeys) {
+            const groupName = getActivityName(groupKey);
+            const dataForExcel = filteredAndGroupedReports[groupKey].map(r => ({
                 'Tanggal': format(r.date.toDate(), "yyyy-MM-dd"), 'Judul': r.title, 'Isi Laporan': r.content, 'Oleh': r.createdByDisplayName
             }));
             if (dataForExcel.length > 0) {
                 const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
-                XLSX.utils.book_append_sheet(workbook, worksheet, groupName.substring(0, 31)); // Sheet name limit is 31 chars
+                XLSX.utils.book_append_sheet(workbook, worksheet, groupName.substring(0, 31));
             }
         }
         XLSX.writeFile(workbook, `laporan_gabungan_staf_tu.xlsx`);
     };
     
     const handlePrint = () => { window.print(); };
+    
+    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${getCurrentAcademicYear()}`;
+    const printSubTitle = `BULAN: ${filterMonth === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === filterMonth)?.label.toUpperCase()}`;
 
-    const printTitle = `Laporan Kegiatan Gabungan Staf Tata Usaha - Periode ${filterMonth === "all" ? `Tahun ${filterYear}` : `${MONTHS.find(m => m.value === filterMonth)?.label} ${filterYear}`}`;
     
     const kepalaTUName = useMemo(() => {
         if (userProfile?.tugasTambahan?.includes('kepala_tata_usaha')) {
@@ -142,10 +154,10 @@ export default function LaporanGabunganStafTUPage() {
                         : error ? <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
                         : Object.keys(filteredAndGroupedReports).length === 0 ? <div className="text-center p-6 border-2 border-dashed rounded-lg"><BookOpen className="mx-auto h-12 w-12 text-muted-foreground"/><h3 className="mt-2 text-sm font-medium">Tidak Ada Data</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada laporan yang cocok dengan filter yang Anda pilih.</p></div>
                         : (<div>
-                            {Object.entries(filteredAndGroupedReports).map(([groupName, reports]) => (
-                                <div key={groupName} className="mb-6">
-                                    <h3 className="text-lg font-semibold border-b pb-2 mb-2">{groupName} ({reports.length})</h3>
-                                    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Judul</TableHead><TableHead>Pembuat</TableHead><TableHead>Isi Laporan</TableHead></TableRow></TableHeader><TableBody>{reports.map(r => (<TableRow key={r.id}><TableCell>{format(r.date.toDate(), "dd MMM yyyy")}</TableCell><TableCell className="font-medium">{r.title}</TableCell><TableCell>{r.createdByDisplayName}</TableCell><TableCell className="max-w-xs truncate" title={r.content}>{r.content}</TableCell></TableRow>))}</TableBody></Table></div>
+                            {orderedGroupKeys.map((groupKey) => (
+                                <div key={groupKey} className="mb-6">
+                                    <h3 className="text-lg font-semibold border-b pb-2 mb-2">Laporan {getActivityName(groupKey)} ({filteredAndGroupedReports[groupKey].length})</h3>
+                                    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Judul</TableHead><TableHead>Pembuat</TableHead><TableHead>Isi Laporan</TableHead></TableRow></TableHeader><TableBody>{filteredAndGroupedReports[groupKey].map(r => (<TableRow key={r.id}><TableCell>{format(r.date.toDate(), "dd MMM yyyy")}</TableCell><TableCell className="font-medium">{r.title}</TableCell><TableCell>{r.createdByDisplayName}</TableCell><TableCell className="max-w-xs truncate" title={r.content}>{r.content}</TableCell></TableRow>))}</TableBody></Table></div>
                                 </div>
                             ))}
                           </div>)
@@ -156,13 +168,29 @@ export default function LaporanGabunganStafTUPage() {
             
             <div className="print-area">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <div className="text-center my-4"><h2 className="text-lg font-bold uppercase">{printTitle}</h2></div>
-                {Object.keys(filteredAndGroupedReports).length > 0 ? (
+                <div className="text-center my-4">
+                  <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
+                  <h3 className="text-lg font-bold uppercase">{printSubTitle}</h3>
+                </div>
+                {orderedGroupKeys.length > 0 ? (
                     <div>
-                    {Object.entries(filteredAndGroupedReports).map(([groupName, reports]) => (
-                        <div key={groupName} className="mb-6 page-break-before">
-                            <h3 className="text-lg font-semibold mb-2">{groupName}</h3>
-                            <Table><TableHeader><TableRow><TableHead>No.</TableHead><TableHead>Tanggal</TableHead><TableHead>Judul</TableHead><TableHead>Isi Laporan</TableHead><TableHead>Pembuat</TableHead></TableRow></TableHeader><TableBody>{reports.map((r, index) => (<TableRow key={r.id}><TableCell>{index + 1}</TableCell><TableCell>{format(r.date.toDate(), "dd MMM yyyy")}</TableCell><TableCell>{r.title}</TableCell><TableCell className="whitespace-pre-wrap">{r.content}</TableCell><TableCell>{r.createdByDisplayName}</TableCell></TableRow>))}</TableBody></Table>
+                    {orderedGroupKeys.map((groupKey) => (
+                        <div key={groupKey} className="report-group">
+                            <h4 className="report-group-title">Laporan {getActivityName(groupKey)}</h4>
+                            <Table><TableHeader><TableRow>
+                                <TableHead className="w-[20px]">No.</TableHead>
+                                <TableHead>Tanggal</TableHead>
+                                <TableHead>Nama {groupKey === 'kepala_tata_usaha' ? 'K. TU' : 'Staf'}</TableHead>
+                                <TableHead>Judul</TableHead>
+                                <TableHead>Isi Laporan</TableHead>
+                            </TableRow></TableHeader><TableBody>{filteredAndGroupedReports[groupKey].map((r, index) => (<TableRow key={r.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>{format(r.date.toDate(), "dd MMM yyyy")}</TableCell>
+                                <TableCell>{r.createdByDisplayName}</TableCell>
+                                <TableCell className="whitespace-pre-wrap">{r.title}</TableCell>
+                                <TableCell className="whitespace-pre-wrap">{r.content}</TableCell>
+                                </TableRow>))}</TableBody>
+                            </Table>
                         </div>
                     ))}
                     </div>
@@ -180,8 +208,18 @@ export default function LaporanGabunganStafTUPage() {
                     }
                     .print-area { display: block !important; }
                     .print\\:hidden { display: none !important; }
-                    .page-break-before { break-before: page !important; }
-                    .page-break-before:first-child { break-before: auto !important; }
+                    .report-group {
+                        break-inside: avoid;
+                        margin-bottom: 1.5rem;
+                    }
+                    .report-group:first-of-type {
+                        break-before: auto;
+                    }
+                    .report-group-title {
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                        margin-bottom: 0.5rem;
+                    }
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
@@ -193,17 +231,19 @@ export default function LaporanGabunganStafTUPage() {
                         padding: 4px 6px !important;
                         text-align: left !important;
                         vertical-align: top !important;
-                        background-color: #fff !important; /* Ensure white background */
+                        background-color: transparent !important;
                         word-wrap: break-word !important;
                     }
                     thead tr {
-                        background-color: #f3f4f6 !important;
+                        background-color: #E5E7EB !important;
+                    }
+                    tr {
+                        break-inside: avoid-page !important;
                     }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                     div, section, main, header, footer {
-                        background-color: transparent !important; /* Reset backgrounds */
+                        background-color: transparent !important;
                     }
-                    /* Hide scrollbars specifically */
                     * {
                        overflow: visible !important;
                     }
@@ -213,3 +253,4 @@ export default function LaporanGabunganStafTUPage() {
         </div>
     );
 }
+

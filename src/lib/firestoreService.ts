@@ -1352,8 +1352,7 @@ export const getSchoolHolidaysForMonth = async (year: number, month: number): Pr
 export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'createdAt'>): Promise<void> => {
   try {
     const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
-    // Use dateString as the document ID for simplicity and to prevent duplicates.
-    const docRef = doc(collRef, holiday.dateString);
+    const docRef = doc(collRef); 
     await setDoc(docRef, holiday);
   } catch (error) {
     handleFirestoreError(error, 'mengatur', 'hari libur sekolah');
@@ -1362,8 +1361,21 @@ export const setSchoolHoliday = async (holiday: Omit<SchoolHoliday, 'id' | 'crea
 
 export const deleteSchoolHoliday = async (dateString: string): Promise<void> => {
   try {
-    const docRef = doc(db, SCHOOL_HOLIDAYS_COLLECTION, dateString);
-    await deleteDoc(docRef);
+    const collRef = collection(db, SCHOOL_HOLIDAYS_COLLECTION).withConverter(schoolHolidayConverter);
+    const q = query(collRef, where("dateString", "==", dateString));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.warn(`No holiday document found for dateString: ${dateString}`);
+      return;
+    }
+    
+    const batch = writeBatch(db);
+    querySnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+
   } catch (error) {
     handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }

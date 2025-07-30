@@ -105,7 +105,7 @@ export default function PrintLaporanGabunganPage() {
     
     if (isLoading) {
         return (
-            <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+            <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', background: '#fff' }}>
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p>
             </div>
@@ -114,7 +114,7 @@ export default function PrintLaporanGabunganPage() {
     
     if (error) {
         return (
-            <div style={{ padding: '2rem' }}>
+            <div style={{ padding: '2rem', background: '#fff' }}>
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
@@ -132,68 +132,55 @@ export default function PrintLaporanGabunganPage() {
                     margin: 10mm;
                 }
                 
-                @media print {
-                    html, body {
+                @media screen {
+                    body { background: #eee; }
+                    .print-container {
                         width: 210mm;
-                        height: auto !important;
-                        background: #fff !important;
-                        color: #000 !important;
+                        min-height: 297mm;
+                        margin: 20px auto;
+                        padding: 10mm;
+                        background-color: white;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        color: black;
+                    }
+                }
+
+                @media print {
+                    body, html {
+                        background-color: #fff !important;
+                        overflow: visible !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        overflow: visible !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
                     }
-                    
-                    ::-webkit-scrollbar { display: none !important; }
-
-                    .cover-page, .report-group, .signature-block {
-                        page-break-inside: avoid;
+                    .print-container {
+                        box-shadow: none !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
-
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        page-break-inside: auto;
+                    .no-print {
+                        display: none !important;
                     }
-
                     thead {
                         display: table-header-group;
                     }
-                    
-                    tr, td, th {
-                        page-break-inside: avoid;
+                    tfoot {
+                        display: table-footer-group;
                     }
-
-                    .no-print {
-                        display: none !important;
+                    .report-group, tr, .signature-block {
+                        page-break-inside: avoid !important;
+                    }
+                    .cover-page {
+                        page-break-after: avoid !important;
                     }
                 }
 
                 body {
                     font-family: 'Times New Roman', Times, serif;
-                    margin: 0;
-                    background: #eee;
                 }
                 
-                .print-container {
-                    width: 210mm;
-                    min-height: 297mm;
-                    margin: 20px auto;
-                    padding: 10mm;
-                    background-color: white;
-                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    color: black;
-                }
-
                 .cover-page {
                     text-align: center;
                     margin-bottom: 20px;
-                }
-
-                .table-container {
-                    overflow-x: auto;
-                    margin-bottom: 1.5rem;
                 }
 
                 .report-table {
@@ -201,6 +188,7 @@ export default function PrintLaporanGabunganPage() {
                     border-collapse: collapse;
                     font-size: 10pt;
                     table-layout: fixed;
+                    margin-bottom: 20px;
                 }
                 
                 .report-table th,
@@ -214,12 +202,9 @@ export default function PrintLaporanGabunganPage() {
                 .report-table th {
                     font-weight: bold;
                     text-align: center;
-                    background-color: #f2f2f2;
-                }
-
-                .signature-block {
-                    margin-top: 40px;
-                    width: 100%;
+                    background-color: #E5E7EB !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
                 }
             `}</style>
             
@@ -238,30 +223,28 @@ export default function PrintLaporanGabunganPage() {
                             <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
                                 Laporan: {getActivityName(groupKey)}
                             </h4>
-                            <div className="table-container">
-                                <table className="report-table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{width: '5%'}}>No.</th>
-                                            <th style={{width: '15%'}}>Tanggal</th>
-                                            <th style={{width: '20%'}}>Nama Staf</th>
-                                            <th style={{width: '25%'}}>Judul Laporan</th>
-                                            <th style={{width: '35%'}}>Uraian Kegiatan</th>
+                            <table className="report-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{width: '5%'}}>No.</th>
+                                        <th style={{width: '15%'}}>Tanggal</th>
+                                        <th style={{width: '20%'}}>Nama Staf</th>
+                                        <th style={{width: '25%'}}>Judul Laporan</th>
+                                        <th style={{width: '35%'}}>Uraian Kegiatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                        <tr key={r.id}>
+                                            <td style={{textAlign: 'center'}}>{index + 1}</td>
+                                            <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                            <td>{r.createdByDisplayName}</td>
+                                            <td>{r.title}</td>
+                                            <td>{r.content || '-'}</td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                            <tr key={r.id}>
-                                                <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                                <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                                <td>{r.createdByDisplayName}</td>
-                                                <td>{r.title}</td>
-                                                <td>{r.content || '-'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     ))
                 )}

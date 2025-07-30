@@ -14,7 +14,7 @@ import { ArrowLeft, Loader2, AlertCircle, Download, Printer, BookOpen } from "lu
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getAllLaporanKegiatan, getPrintSettings, getStudents, getAllUsersByRole } from '@/lib/firestoreService';
+import { getAllLaporanKegiatan, getPrintSettings, getAllUsersByRole } from '@/lib/firestoreService';
 import type { LaporanKegiatan, PrintSettings, TugasTambahan, UserProfile } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
@@ -110,7 +110,10 @@ export default function LaporanGabunganStafTUPage() {
         for (const groupKey of orderedGroupKeys) {
             const groupName = getActivityName(groupKey);
             const dataForExcel = filteredAndGroupedReports[groupKey].map(r => ({
-                'Tanggal': format(r.date.toDate(), "yyyy-MM-dd"), 'Judul': r.title, 'Isi Laporan': r.content, 'Oleh': r.createdByDisplayName
+                'Tanggal': format(r.date.toDate(), "yyyy-MM-dd"), 
+                'Nama Staf': r.createdByDisplayName,
+                'Judul Laporan': r.title, 
+                'Uraian Kegiatan': r.content,
             }));
             if (dataForExcel.length > 0) {
                 const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -175,38 +178,37 @@ export default function LaporanGabunganStafTUPage() {
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                 <div className="text-center my-4">
                   <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
-                  <h3 className="text-lg font-bold uppercase">{printSubTitle}</h3>
+                  <h3 className="text-base font-bold uppercase">{printSubTitle}</h3>
                 </div>
+                
                 {orderedGroupKeys.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[20px]">No.</TableHead>
-                                <TableHead className="w-[90px]">Tanggal</TableHead>
-                                <TableHead className="w-[120px]">Nama Staf</TableHead>
-                                <TableHead>Uraian Kegiatan</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {orderedGroupKeys.flatMap((groupKey) => [
-                            // Sub-header row
-                            <TableRow key={`header-${groupKey}`} className="report-group-title">
-                                <TableCell colSpan={4} className="font-bold text-base">
-                                    {getActivityName(groupKey)}
-                                </TableCell>
-                            </TableRow>,
-                            // Data rows for this group
-                            ...filteredAndGroupedReports[groupKey].map((r, index) => (
-                                <TableRow key={r.id}>
-                                    <TableCell>{index + 1}</TableCell>
-                                    <TableCell>{format(r.date.toDate(), "dd-MM-yyyy")}</TableCell>
-                                    <TableCell>{r.createdByDisplayName}</TableCell>
-                                    <TableCell className="whitespace-pre-wrap">{r.title}{r.content ? `\n\n${r.content}` : ''}</TableCell>
-                                </TableRow>
-                            ))
-                        ])}
-                        </TableBody>
-                    </Table>
+                    <div className="report-content">
+                        {orderedGroupKeys.map((groupKey) => (
+                            <div key={`print-group-${groupKey}`} className="report-group">
+                                <h4 className="role-title">{getActivityName(groupKey)}</h4>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[20px]">No.</TableHead>
+                                            <TableHead className="w-[90px]">Tanggal</TableHead>
+                                            <TableHead className="w-[120px]">Nama Staf</TableHead>
+                                            <TableHead>Uraian Kegiatan</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                        <TableRow key={`print-row-${r.id}`}>
+                                            <TableCell>{index + 1}</TableCell>
+                                            <TableCell>{format(r.date.toDate(), "dd-MM-yyyy")}</TableCell>
+                                            <TableCell>{r.createdByDisplayName}</TableCell>
+                                            <TableCell className="whitespace-pre-wrap">{r.title}{r.content ? `\n${r.content}` : ''}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ))}
+                    </div>
                 ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
                 
                 <PrintFooter settings={{...printSettings, signerOneName: kepalaSekolahName, signerOnePosition: "Kepala Sekolah"}} waliKelasName={kepalaTUName} />
@@ -242,9 +244,14 @@ export default function LaporanGabunganStafTUPage() {
                     thead tr {
                         background-color: #e2e8f0 !important;
                     }
-                    .report-group-title td {
-                        background-color: #f1f5f9 !important;
+                    .role-title {
+                        font-size: 11pt !important;
                         font-weight: bold !important;
+                        margin-top: 1rem;
+                        margin-bottom: 0.25rem;
+                    }
+                    .report-group {
+                        break-inside: avoid;
                     }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                     div, section, main, header, footer {

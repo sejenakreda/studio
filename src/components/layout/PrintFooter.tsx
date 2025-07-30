@@ -21,7 +21,7 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
 
   // Signer 2 (right) logic
   const signerTwoNameToDisplay = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPositionToDisplay = waliKelasName ? 'Kepala Tata Usaha' : settings.signerTwoPosition || 'Wali Kelas';
+  const signerTwoPositionToDisplay = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || 'Wali Kelas');
   const signerTwoNpa = settings.signerTwoNpa || '';
 
   const today = new Date();
@@ -30,7 +30,7 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
 
   return (
     <div style={{ breakInside: 'avoid-page', marginTop: '3rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', fontSize: '10pt' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', fontSize: '10pt', color: '#000' }}>
         <div style={{ textAlign: 'center' }}>
           <p>Mengetahui,</p>
           <p>{signerOnePosition}</p>

@@ -102,7 +102,7 @@ export default function PrintLaporanGabunganPage() {
     
     useEffect(() => {
         if (!isLoading && !error) {
-            setTimeout(() => window.print(), 500); // Delay to allow images and layout to render
+            setTimeout(() => window.print(), 500);
         }
     }, [isLoading, error]);
     
@@ -123,11 +123,15 @@ export default function PrintLaporanGabunganPage() {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         font-size: 10pt;
-                        overflow: hidden !important; /* Prevents scrollbar */
+                        overflow: visible !important;
+                        height: auto !important;
                     }
                     @page {
                         size: A4 portrait;
                         margin: 2cm;
+                    }
+                    #print-area {
+                        background-color: #fff !important;
                     }
                     .report-group-title > td {
                         font-weight: bold;
@@ -138,17 +142,14 @@ export default function PrintLaporanGabunganPage() {
                     .report-header-row > th {
                         font-weight: bold;
                         text-align: center !important;
-                        background-color: #F8FAFC !important;
+                        background-color: transparent !important;
                     }
                 }
-                 #print-area {
-                    background-color: #fff;
-                 }
                  table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 9pt;
-                    table-layout: fixed; /* Crucial for preventing overflow */
+                    table-layout: fixed;
                  }
                  tr {
                     page-break-inside: avoid !important;
@@ -158,7 +159,7 @@ export default function PrintLaporanGabunganPage() {
                     padding: 4px 6px;
                     text-align: left;
                     vertical-align: top;
-                    word-wrap: break-word; /* Allows long text to wrap */
+                    word-wrap: break-word;
                  }
                  .text-center { text-align: center; }
                  .whitespace-pre-wrap { white-space: pre-wrap; }

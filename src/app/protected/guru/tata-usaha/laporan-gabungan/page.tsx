@@ -19,7 +19,7 @@ import { getAllLaporanKegiatan, getPrintSettings } from '@/lib/firestoreService'
 import type { LaporanKegiatan, PrintSettings, TugasTambahan } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
-import { getActivityName } from '@/lib/utils';
+import { getActivityName, getCurrentAcademicYear } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const currentYear = new Date().getFullYear();
@@ -210,21 +210,21 @@ export default function LaporanGabunganStafTUPage() {
                     .print\\:hidden { display: none !important; }
                     .report-group {
                         break-inside: avoid;
+                        page-break-inside: avoid;
                         margin-bottom: 1.5rem;
-                    }
-                    .report-group:first-of-type {
-                        break-before: auto;
                     }
                     .report-group-title {
                         font-size: 1.1rem;
                         font-weight: 600;
                         margin-bottom: 0.5rem;
+                        break-after: avoid;
                     }
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
                         font-size: 9pt !important;
                         table-layout: auto !important;
+                        break-inside: avoid;
                     }
                     th, td {
                         border: 1px solid #ccc !important;
@@ -235,17 +235,19 @@ export default function LaporanGabunganStafTUPage() {
                         word-wrap: break-word !important;
                     }
                     thead tr {
-                        background-color: #E5E7EB !important;
+                        background-color: #f3f4f6 !important;
                     }
                     tr {
                         break-inside: avoid-page !important;
+                        page-break-inside: avoid !important;
                     }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                     div, section, main, header, footer {
                         background-color: transparent !important;
                     }
-                    * {
-                       overflow: visible !important;
+                    @page {
+                        size: A4;
+                        margin: 1.5cm;
                     }
                 }
                 .print-area { display: none; }
@@ -253,4 +255,3 @@ export default function LaporanGabunganStafTUPage() {
         </div>
     );
 }
-

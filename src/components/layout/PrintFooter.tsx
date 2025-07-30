@@ -19,9 +19,9 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   const signerOnePosition = settings.signerOnePosition || 'Kepala Sekolah';
   const signerOneNpa = settings.signerOneNpa ? `NPA. ${settings.signerOneNpa}` : '';
 
-  // Signer 2 (right) logic
+  // Signer 2 (right) logic - uses Ka.TU name if provided, otherwise falls back to settings.
   const signerTwoName = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPosition = 'Kepala Tata Usaha'; // As requested
+  const signerTwoPosition = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || '');
   const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '';
   
   const today = new Date();
@@ -29,25 +29,28 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   const placeAndDateText = `${settings.place || 'Cianjur'}, ${formattedDate}`;
 
   return (
-    <div style={{ breakInside: 'avoid !important', pageBreakInside: 'avoid !important', marginTop: '3rem', fontSize: '11pt', width: '100%', color: '#000' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%' }}>
-        
-        {/* Kolom Kiri - Kepala Sekolah */}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ margin: 0 }}>Mengetahui,</p>
-          <p style={{ margin: '0 0 4rem 0' }}>{signerOnePosition}</p>
-          <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerOneName}</p>
-          <p style={{ margin: 0 }}>{signerOneNpa}</p>
-        </div>
+    <div style={{ marginTop: '2rem', fontSize: '11pt', width: '100%', color: '#000' }}>
+      <div style={{ display: 'table', width: '100%' }}>
+        <div style={{ display: 'table-row' }}>
+          
+          {/* Kolom Kiri - Kepala Sekolah */}
+          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top' }}>
+            <p style={{ margin: 0 }}>Mengetahui,</p>
+            <p style={{ margin: '0 0 4rem 0' }}>{signerOnePosition}</p>
+            <div style={{ height: '60px' }}></div>
+            <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerOneName}</p>
+            <p style={{ margin: 0 }}>{signerOneNpa}</p>
+          </div>
 
-        {/* Kolom Kanan - Kepala TU */}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ margin: 0 }}>{placeAndDateText}</p>
-          <p style={{ margin: '0 0 4rem 0' }}>{signerTwoPosition}</p>
-          <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerTwoName}</p>
-          <p style={{ margin: 0 }}>{signerTwoNpa}</p>
+          {/* Kolom Kanan - Kepala TU */}
+          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top' }}>
+            <p style={{ margin: 0 }}>{placeAndDateText}</p>
+            <p style={{ margin: '0 0 4rem 0' }}>{signerTwoPosition}</p>
+            <div style={{ height: '60px' }}></div>
+            <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerTwoName}</p>
+            <p style={{ margin: 0 }}>{signerTwoNpa}</p>
+          </div>
         </div>
-
       </div>
     </div>
   );

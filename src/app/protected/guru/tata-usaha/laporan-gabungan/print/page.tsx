@@ -119,73 +119,79 @@ export default function PrintLaporanGabunganPage() {
                     size: A4;
                     margin: 10mm;
                 }
+                html, body {
+                    font-family: 'Times New Roman', Times, serif;
+                    background-color: #f0f2f5;
+                }
+                .print-area {
+                    width: 210mm; /* A4 width */
+                    min-height: 297mm; /* A4 height */
+                    margin: 20px auto;
+                    padding: 10mm;
+                    background-color: white;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    color: #000;
+                }
+                .report-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 9pt;
+                    table-layout: fixed;
+                }
+                .report-table th,
+                .report-table td {
+                    border: 1px solid #000;
+                    padding: 4px 6px;
+                    text-align: left;
+                    vertical-align: top;
+                    word-wrap: break-word;
+                }
+                .report-table thead tr {
+                    background-color: #e2e8f0;
+                }
+                .report-table th {
+                    font-weight: bold;
+                    text-align: center;
+                }
+                .report-group {
+                    margin-bottom: 1rem;
+                }
+                .signature-block {
+                    page-break-inside: avoid !important;
+                }
+
                 @media print {
                     html, body {
+                        width: 210mm;
+                        height: 297mm;
                         background-color: #fff !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         margin: 0;
                         padding: 0;
-                        overflow: visible !important;
-                        height: auto !important;
+                        overflow: hidden !important;
+                    }
+                    .print-area {
+                        margin: 0;
+                        box-shadow: none;
                     }
                     .no-print {
                         display: none !important;
                     }
-                    .print-area {
-                        width: 100%;
-                        margin: 0 auto;
-                        padding: 0;
-                    }
-                    .report-group {
+                    tr, .report-group {
                         page-break-inside: avoid !important;
-                        margin-bottom: 1rem;
-                    }
-                    .report-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 9pt;
-                        table-layout: fixed;
-                    }
-                    .report-table th,
-                    .report-table td {
-                        border: 1px solid #000;
-                        padding: 4px 6px;
-                        text-align: left;
-                        vertical-align: top;
-                        word-wrap: break-word; /* Crucial for preventing table overflow */
-                        background-color: #fff !important; /* Force white background */
                     }
                     .report-table thead tr {
-                        background-color: #e2e8f0 !important;
+                        background-color: #e2e8f0 !important; /* Ensure background color prints */
                     }
-                    .report-table th {
-                        font-weight: bold;
-                        text-align: center !important;
-                    }
-                    .print-footer-container {
-                        page-break-inside: avoid !important;
-                    }
-                }
-                /* Screen styles for debugging */
-                body {
-                     background-color: #f0f2f5;
-                }
-                .print-area {
-                    max-width: 210mm; /* A4 width */
-                    margin: 20px auto;
-                    padding: 20px;
-                    background-color: white;
-                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    font-family: 'Times New Roman', Times, serif;
                 }
             `}</style>
             
             <div className="print-area">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                 <div style={{ textAlign: 'center', padding: '1rem 0', marginTop: '1rem' }}>
-                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', color: '#000' }}>{printMainTitle}</h2>
-                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', color: '#000' }}>{printSubTitle}</h3>
+                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
+                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
                 </div>
 
                 {orderedGroupKeys.length === 0 ? (
@@ -193,40 +199,41 @@ export default function PrintLaporanGabunganPage() {
                 ) : (
                     orderedGroupKeys.map((groupKey) => (
                         <div key={groupKey} className="report-group">
-                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold', color: '#000' }}>
+                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
                                 Laporan: {getActivityName(groupKey)}
                             </h4>
-                            <table className="report-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{width: '5%'}}>No.</th>
-                                        <th style={{width: '15%'}}>Tanggal</th>
-                                        <th style={{width: '20%'}}>Nama Staf</th>
-                                        <th style={{width: '25%'}}>Judul Laporan</th>
-                                        <th style={{width: '35%'}}>Uraian Kegiatan</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                        <tr key={r.id}>
-                                            <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                            <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                            <td>{r.createdByDisplayName}</td>
-                                            <td>{r.title}</td>
-                                            <td>{r.content || '-'}</td>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table className="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{width: '5%'}}>No.</th>
+                                            <th style={{width: '15%'}}>Tanggal</th>
+                                            <th style={{width: '20%'}}>Nama Staf</th>
+                                            <th style={{width: '25%'}}>Judul Laporan</th>
+                                            <th style={{width: '35%'}}>Uraian Kegiatan</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                            <tr key={r.id}>
+                                                <td style={{textAlign: 'center'}}>{index + 1}</td>
+                                                <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                                <td>{r.createdByDisplayName}</td>
+                                                <td>{r.title}</td>
+                                                <td>{r.content || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ))
                 )}
                 
-                <div className="print-footer-container">
+                <div className="signature-block">
                     <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
                 </div>
             </div>
         </>
     );
 }
-

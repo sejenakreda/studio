@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -14,22 +13,20 @@ interface PrintFooterProps {
 export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasName }) => {
   if (!settings) return null;
 
-  // Signer 1 (left) is always Kepala Sekolah from settings
   const signerOneName = settings.signerOneName || '(....................................)';
   const signerOnePosition = settings.signerOnePosition || 'Kepala Sekolah';
   const signerOneNpa = settings.signerOneNpa ? `NPA. ${settings.signerOneNpa}` : '';
 
-  // Signer 2 (right) logic - uses Ka.TU name if provided, otherwise falls back to settings.
   const signerTwoName = waliKelasName || settings.signerTwoName || '(....................................)';
   const signerTwoPosition = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || 'Wali Kelas');
   const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '';
-  
+
   const today = new Date();
   const formattedDate = format(today, "dd MMMM yyyy", { locale: indonesiaLocale });
   const placeAndDateText = `${settings.place || 'Cianjur'}, ${formattedDate}`;
 
   return (
-    <div style={{ marginTop: '40px', fontSize: '11pt', width: '100%', color: '#000' }}>
+    <div className="print-footer" style={{ marginTop: '40px', fontSize: '11pt', width: '100%', color: '#000' }}>
       <div style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}>
         <div style={{ display: 'table-row' }}>
           
@@ -48,6 +45,7 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
             <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerTwoName}</p>
             {signerTwoNpa && <p style={{ margin: 0 }}>{signerTwoNpa}</p>}
           </div>
+
         </div>
       </div>
     </div>

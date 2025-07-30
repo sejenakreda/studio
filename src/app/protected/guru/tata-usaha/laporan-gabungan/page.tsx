@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -37,7 +36,6 @@ const TU_ROLE_ORDER: TugasTambahan[] = [
 
 export default function LaporanGabunganStafTUPage() {
     const { toast } = useToast();
-    const router = useRouter();
     const [reports, setReports] = useState<LaporanKegiatan[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

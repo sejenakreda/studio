@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -100,13 +99,13 @@ export default function PrintLaporanGabunganPage() {
     useEffect(() => {
         if (!isLoading && !error) {
             document.title = printMainTitle;
-            setTimeout(() => window.print(), 500); // Give a slight delay for rendering
+            setTimeout(() => window.print(), 800);
         }
     }, [isLoading, error, printMainTitle]);
     
     if (isLoading) {
         return (
-            <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', background: '#fff' }}>
+            <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p>
             </div>
@@ -115,7 +114,7 @@ export default function PrintLaporanGabunganPage() {
     
     if (error) {
         return (
-            <div style={{ padding: '2rem', background: '#fff' }}>
+            <div style={{ padding: '2rem' }}>
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
@@ -132,128 +131,108 @@ export default function PrintLaporanGabunganPage() {
                     size: A4;
                     margin: 10mm;
                 }
-
                 body {
-                    font-family: 'Times New Roman', Times, serif;
-                    background-color: #fff !important;
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    background: #fff !important;
                 }
-
-                .print-container {
-                    width: 100%;
-                    background: white;
-                    color: black;
+                h1, h2, h3 {
+                    margin: 0;
+                    padding: 0;
                 }
-                
-                .cover-page {
+                .cover {
                     text-align: center;
-                    margin-bottom: 20px;
+                    padding: 10px 0;
+                    margin-bottom: 10px;
                 }
-
-                .report-table {
+                .table-container {
                     width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10pt;
-                    margin-bottom: 20px;
-                    page-break-inside: auto;
+                    margin-top: 10px;
                 }
-                
-                .report-table th,
-                .report-table td {
-                    border: 1px solid black;
-                    padding: 4px 6px;
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    font-size: 11pt;
+                }
+                th, td {
+                    border: 1px solid #000;
+                    padding: 5px;
                     text-align: left;
                     word-wrap: break-word;
                 }
-
-                .report-table th {
-                    font-weight: bold;
-                    text-align: center;
-                    background-color: #E5E7EB !important;
-                    -webkit-print-color-adjust: exact;
-                    print-color-adjust: exact;
-                }
-
-                .report-table thead {
-                    display: table-header-group;
-                }
-                
-                .report-table tr {
-                    page-break-inside: avoid;
-                    page-break-after: auto;
-                }
-
                 .group-title {
-                    font-size: 11pt;
+                    font-size: 12pt;
                     font-weight: bold;
                     margin-top: 1.5rem;
                     margin-bottom: 0.5rem;
                 }
-                
-                .signature-container {
-                   page-break-inside: avoid !important;
-                   margin-top: 40px;
-                }
-                
                 @media print {
-                    html, body {
+                    ::-webkit-scrollbar { display: none !important; }
+                    html, body, .table-container, #__next, main {
                         overflow: visible !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
+                        height: auto !important;
+                        max-height: none !important;
                     }
-
-                    .no-print {
-                        display: none !important;
+                    thead { display: table-header-group; }
+                    tfoot { display: table-footer-group; }
+                    table { page-break-inside: auto; }
+                    tr, td, th { page-break-inside: avoid; }
+                    * { page-break-before: auto !important; }
+                    body { margin-top: 0 !important; }
+                    .print-footer {
+                        page-break-before: always !important;
+                        page-break-inside: avoid !important;
+                        display: block !important;
                     }
                 }
             `}</style>
             
-            <div className="print-container">
-                <div className="cover-page">
+            <div className="print-area">
+                <div className="cover">
                     <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                     <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', marginTop: '1rem' }}>{printMainTitle}</h2>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printPeriod}</h3>
                 </div>
 
-                {orderedGroupKeys.length === 0 ? (
-                    <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
-                ) : (
-                    orderedGroupKeys.map((groupKey) => (
-                        <div key={groupKey}>
-                            <h4 className="group-title">
-                                Laporan: {getActivityName(groupKey)}
-                            </h4>
-                            <table className="report-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{width: '5%'}}>No.</th>
-                                        <th style={{width: '15%'}}>Tanggal</th>
-                                        <th style={{width: '20%'}}>Nama Staf</th>
-                                        <th style={{width: '25%'}}>Judul Laporan</th>
-                                        <th style={{width: '35%'}}>Uraian Kegiatan</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                        <tr key={r.id}>
-                                            <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                            <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                            <td>{r.createdByDisplayName}</td>
-                                            <td>{r.title}</td>
-                                            <td>{r.content || '-'}</td>
+                <div className="table-container">
+                    {orderedGroupKeys.length === 0 ? (
+                        <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
+                    ) : (
+                        orderedGroupKeys.map((groupKey) => (
+                            <div key={groupKey}>
+                                <h4 className="group-title">
+                                    Laporan: {getActivityName(groupKey)}
+                                </h4>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style={{width: '5%'}}>No.</th>
+                                            <th style={{width: '15%'}}>Tanggal</th>
+                                            <th style={{width: '20%'}}>Nama Staf</th>
+                                            <th style={{width: '25%'}}>Judul Laporan</th>
+                                            <th style={{width: '35%'}}>Uraian Kegiatan</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))
-                )}
-                
-                <div className="signature-container">
-                    <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+                                    </thead>
+                                    <tbody>
+                                        {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                            <tr key={r.id}>
+                                                <td style={{textAlign: 'center'}}>{index + 1}</td>
+                                                <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                                <td>{r.createdByDisplayName}</td>
+                                                <td>{r.title}</td>
+                                                <td>{r.content || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ))
+                    )}
                 </div>
+                
+                <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
             </div>
         </>
     );
 }
-

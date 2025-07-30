@@ -49,7 +49,7 @@ export default function PrintLaporanGabunganPage() {
                     getAllUsersByRole('guru')
                 ]);
                 
-                const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)));
+                const staffUsers = allUsers.filter(u => u.tugasTambahan?.some(t => TU_STAFF_ROLES.includes(t)) || u.tugasTambahan?.includes('kepala_sekolah'));
                 setAllStaf(staffUsers);
                 setPrintSettings(settings);
 
@@ -126,6 +126,7 @@ export default function PrintLaporanGabunganPage() {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         background-color: #fff !important;
+                        overflow: hidden !important; /* This will hide the scrollbar */
                     }
                     .print-area {
                         display: block !important;

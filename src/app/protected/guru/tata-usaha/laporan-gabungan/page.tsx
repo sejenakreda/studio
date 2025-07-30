@@ -19,6 +19,7 @@ import type { LaporanKegiatan, UserProfile, PrintSettings, TugasTambahan } from 
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { getActivityName } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const currentYear = new Date().getFullYear();
 const startYearRange = currentYear - 10;
@@ -29,6 +30,7 @@ const TU_STAFF_ROLES: TugasTambahan[] = ['kepala_tata_usaha', 'operator', 'staf_
 
 export default function LaporanGabunganStafTUPage() {
     const { toast } = useToast();
+    const { userProfile } = useAuth();
     const [reports, setReports] = useState<LaporanKegiatan[]>([]);
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,6 +108,14 @@ export default function LaporanGabunganStafTUPage() {
     const handlePrint = () => { window.print(); };
 
     const printTitle = `Laporan Kegiatan Gabungan Staf Tata Usaha - Periode ${filterMonth === "all" ? `Tahun ${filterYear}` : `${MONTHS.find(m => m.value === filterMonth)?.label} ${filterYear}`}`;
+    
+    const kepalaTUName = useMemo(() => {
+        if (userProfile?.tugasTambahan?.includes('kepala_tata_usaha')) {
+            return userProfile.displayName;
+        }
+        return printSettings?.signerTwoName;
+    }, [userProfile, printSettings]);
+
 
     return (
         <div className="space-y-6">
@@ -157,18 +167,46 @@ export default function LaporanGabunganStafTUPage() {
                     ))}
                     </div>
                 ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
-                <PrintFooter settings={printSettings} />
+                <PrintFooter settings={printSettings} waliKelasName={kepalaTUName} />
             </div>
 
             <style jsx global>{`
                 @media print {
-                    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 10pt !important; }
+                    body {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        font-size: 10pt !important;
+                        background-color: #fff !important;
+                    }
                     .print-area { display: block !important; }
                     .print\\:hidden { display: none !important; }
-                    .page-break-before { break-before: page; }
-                    .page-break-before:first-child { break-before: auto; }
-                    table { width: 100%; border-collapse: collapse !important; font-size: 9pt !important; }
-                    th, td { border: 1px solid #ccc !important; padding: 4px 6px !important; text-align: left; vertical-align: top; }
+                    .page-break-before { break-before: page !important; }
+                    .page-break-before:first-child { break-before: auto !important; }
+                    table {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        font-size: 9pt !important;
+                        table-layout: auto !important;
+                    }
+                    th, td {
+                        border: 1px solid #ccc !important;
+                        padding: 4px 6px !important;
+                        text-align: left !important;
+                        vertical-align: top !important;
+                        background-color: #fff !important; /* Ensure white background */
+                        word-wrap: break-word !important;
+                    }
+                    thead tr {
+                        background-color: #f3f4f6 !important;
+                    }
+                    .whitespace-pre-wrap { white-space: pre-wrap !important; }
+                    div, section, main, header, footer {
+                        background-color: transparent !important; /* Reset backgrounds */
+                    }
+                    /* Hide scrollbars specifically */
+                    * {
+                       overflow: visible !important;
+                    }
                 }
                 .print-area { display: none; }
             `}</style>

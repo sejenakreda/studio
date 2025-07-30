@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Briefcase, DatabaseZap, Users, ShieldQuestion, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Briefcase, DatabaseZap, Users, ShieldQuestion, ShieldAlert, FileText, CalendarCheck } from "lucide-react";
 import type { TugasTambahan } from '@/types';
 
 interface ReportCategory {
@@ -11,7 +11,7 @@ interface ReportCategory {
   href: string;
   icon: React.ElementType;
   color: string;
-  activityId: TugasTambahan;
+  activityId?: TugasTambahan;
 }
 
 // These links point to the admin report page, which is now accessible by Ka. TU
@@ -21,6 +21,10 @@ const reportCategories: ReportCategory[] = [
     { title: "Laporan Staf TU", href: "/protected/admin/kegiatan-reports?activity=staf_tu", icon: Users, color: "text-gray-500", activityId: "staf_tu" },
     { title: "Laporan Satpam", href: "/protected/admin/kegiatan-reports?activity=satpam", icon: ShieldQuestion, color: "text-indigo-500", activityId: "satpam" },
     { title: "Laporan Penjaga Sekolah", href: "/protected/admin/kegiatan-reports?activity=penjaga_sekolah", icon: ShieldAlert, color: "text-red-500", activityId: "penjaga_sekolah" },
+    // New Menu Items
+    { title: "Rekap Kehadiran Staf", href: "/protected/guru/tata-usaha/rekap-kehadiran", icon: CalendarCheck, color: "text-teal-500" },
+    { title: "Laporan Gabungan", href: "/protected/guru/tata-usaha/laporan-gabungan", icon: FileText, color: "text-orange-500" },
+
 ];
 
 export default function TataUsahaDashboardPage() {
@@ -35,7 +39,7 @@ export default function TataUsahaDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Dasbor Kepala Tata Usaha</h1>
           <p className="text-muted-foreground">
-            Akses cepat ke laporan kegiatan Anda dan staf di bawah Anda.
+            Akses cepat ke laporan kegiatan dan rekap kehadiran staf Anda.
           </p>
         </div>
       </div>

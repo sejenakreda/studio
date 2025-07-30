@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -103,10 +104,10 @@ service cloud.firestore {
     }
 
     match /teacherDailyAttendance/{docId} {
-      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || (docId.split('_')[0] == request.auth.uid));
+      allow get: if isAuthenticated() && (isAdmin() || isKepalaSekolah() || isKepalaTataUsaha() || (docId.split('_')[0] == request.auth.uid));
       allow list: if isAuthenticated();
       allow create: if isAuthenticated() && isGuru() && request.resource.data.teacherUid == request.auth.uid;
-      allow update, delete: if isAdmin() || isKepalaSekolah();
+      allow update, delete: if isAuthenticated() && (isAdmin() || isKepalaSekolah());
     }
 
     match /teacherAttendance/{docId} {

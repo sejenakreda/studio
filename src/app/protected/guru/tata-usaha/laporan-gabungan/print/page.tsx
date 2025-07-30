@@ -122,11 +122,11 @@ export default function PrintLaporanGabunganPage() {
                         size: A4 portrait;
                         margin: 1.5cm;
                     }
-                    body {
+                    html, body {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         background-color: #fff !important;
-                        overflow: hidden !important; /* This will hide the scrollbar */
+                        overflow: hidden !important;
                     }
                     .print-area {
                         display: block !important;

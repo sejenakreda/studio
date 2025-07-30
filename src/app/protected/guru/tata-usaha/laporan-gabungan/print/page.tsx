@@ -123,18 +123,17 @@ export default function PrintLaporanGabunganPage() {
                         print-color-adjust: exact !important;
                         margin: 0;
                         padding: 0;
-                        overflow: hidden !important; /* Hide scrollbars on main elements */
+                        overflow: hidden !important;
                     }
                     body > * {
-                        display: none; /* Hide everything in the body by default */
+                        display: none;
                     }
                     #print-area {
-                        display: block !important; /* Only show the print area */
+                        display: block !important;
                         position: absolute;
                         top: 0;
                         left: 0;
                         right: 0;
-                        overflow: visible !important;
                     }
                     @page {
                         size: A4 portrait;
@@ -165,7 +164,7 @@ export default function PrintLaporanGabunganPage() {
                     .report-header-row > th {
                         font-weight: bold;
                         text-align: center !important;
-                        background-color: #F1F5F9 !important;
+                        background-color: transparent !important;
                     }
                     .text-center { text-align: center !important; }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }

@@ -98,7 +98,7 @@ export default function PrintLaporanGabunganPage() {
     const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
     const printSubTitle = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
-    const kepalaTUName = useMemo(() => allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha'))?.displayName || null, [allStaf]);
+    const kepalaTU = useMemo(() => allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha')) || null, [allStaf]);
     
     useEffect(() => {
         if (!isLoading && !error) {
@@ -123,33 +123,11 @@ export default function PrintLaporanGabunganPage() {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         font-size: 10pt;
-                        overflow: hidden !important;
+                        overflow: hidden !important; /* Prevents scrollbar */
                     }
                     @page {
                         size: A4 portrait;
                         margin: 2cm;
-                    }
-                    body > #__next {
-                        display: none;
-                    }
-                    body > #print-area {
-                        display: block !important;
-                    }
-                    table {
-                        width: 100% !important;
-                        border-collapse: collapse !important;
-                        font-size: 9pt !important;
-                    }
-                    tr {
-                        page-break-inside: avoid !important;
-                    }
-                    th, td {
-                        border: 1px solid #000 !important;
-                        padding: 4px 6px !important;
-                        text-align: left !important;
-                        vertical-align: top !important;
-                        word-wrap: break-word !important;
-                        background-color: transparent !important;
                     }
                     .report-group-title > td {
                         font-weight: bold;
@@ -162,15 +140,28 @@ export default function PrintLaporanGabunganPage() {
                         text-align: center !important;
                         background-color: #F8FAFC !important;
                     }
-                    .text-center { text-align: center !important; }
-                    .whitespace-pre-wrap { white-space: pre-wrap !important; }
-                    .print-footer {
-                        break-inside: avoid-page !important;
-                    }
                 }
-                 html, body {
-                    overflow: hidden !important;
-                }
+                 #print-area {
+                    background-color: #fff;
+                 }
+                 table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 9pt;
+                    table-layout: fixed; /* Crucial for preventing overflow */
+                 }
+                 tr {
+                    page-break-inside: avoid !important;
+                 }
+                 th, td {
+                    border: 1px solid #000;
+                    padding: 4px 6px;
+                    text-align: left;
+                    vertical-align: top;
+                    word-wrap: break-word; /* Allows long text to wrap */
+                 }
+                 .text-center { text-align: center; }
+                 .whitespace-pre-wrap { white-space: pre-wrap; }
             `}</style>
             
             <PrintHeader imageUrl={printSettings?.headerImageUrl} />
@@ -208,7 +199,7 @@ export default function PrintLaporanGabunganPage() {
                                     <td className="text-center">{index + 1}</td>
                                     <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
                                     <td>{r.createdByDisplayName}</td>
-                                    <td>{r.title}</td>
+                                    <td className="whitespace-pre-wrap">{r.title}</td>
                                     <td className="whitespace-pre-wrap">{r.content || '-'}</td>
                                 </tr>
                             );
@@ -219,7 +210,7 @@ export default function PrintLaporanGabunganPage() {
                 </Table>
             ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
             
-            <PrintFooter settings={printSettings} waliKelasName={kepalaTUName} />
+            <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
         </div>
     );
 }

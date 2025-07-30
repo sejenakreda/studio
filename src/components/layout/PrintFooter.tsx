@@ -29,20 +29,20 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   const placeAndDateText = `${settings.place || 'Cianjur'}, ${formattedDate}`;
 
   return (
-    <div className="print-footer hidden print:block mt-12 text-xs" style={{ breakInside: 'avoid-page' }}>
-      <div className="grid grid-cols-2 gap-8" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <div className="text-center">
+    <div style={{ breakInside: 'avoid-page', marginTop: '3rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', fontSize: '10pt' }}>
+        <div style={{ textAlign: 'center' }}>
           <p>Mengetahui,</p>
           <p>{signerOnePosition}</p>
-          <div className="mb-16" style={{ marginBottom: '4rem' }}></div>
-          <p className="font-semibold underline">{signerOneName}</p>
+          <div style={{ marginBottom: '4rem' }}></div>
+          <p style={{ fontWeight: '600', textDecoration: 'underline' }}>{signerOneName}</p>
           {signerOneNpa && <p>NPA. {signerOneNpa}</p>}
         </div>
-        <div className="text-center">
+        <div style={{ textAlign: 'center' }}>
           <p>{placeAndDateText}</p>
           <p>{signerTwoPositionToDisplay}</p>
-          <div className="mb-16" style={{ marginBottom: '4rem' }}></div>
-          <p className="font-semibold underline">{signerTwoNameToDisplay}</p>
+          <div style={{ marginBottom: '4rem' }}></div>
+          <p style={{ fontWeight: '600', textDecoration: 'underline' }}>{signerTwoNameToDisplay}</p>
           {signerTwoNpa && <p>NPA. {signerTwoNpa}</p>}
         </div>
       </div>

@@ -5,7 +5,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, AlertCircle } from "lucide-react";
 import { getAllLaporanKegiatan, getPrintSettings, getAllUsersByRole } from '@/lib/firestoreService';
 import type { LaporanKegiatan, PrintSettings, TugasTambahan, UserProfile } from '@/types';
@@ -100,16 +99,29 @@ export default function PrintLaporanGabunganPage() {
     useEffect(() => {
         if (!isLoading && !error) {
             document.title = printMainTitle;
-            setTimeout(() => window.print(), 1000);
+            setTimeout(() => window.print(), 500);
         }
     }, [isLoading, error, printMainTitle]);
     
     if (isLoading) {
-        return <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}><Loader2 className="h-10 w-10 animate-spin" /> <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p></div>;
+        return (
+            <div style={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <p style={{ marginLeft: '1rem' }}>Mempersiapkan dokumen...</p>
+            </div>
+        );
     }
     
     if (error) {
-        return <div style={{ padding: '2rem' }}><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>;
+        return (
+            <div style={{ padding: '2rem' }}>
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            </div>
+        );
     }
 
     return (
@@ -119,12 +131,49 @@ export default function PrintLaporanGabunganPage() {
                     size: A4;
                     margin: 10mm;
                 }
+                
+                @media print {
+                    html, body {
+                        width: 210mm;
+                        height: auto !important;
+                        background: #fff !important;
+                        color: #000 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    
+                    ::-webkit-scrollbar { display: none !important; }
+
+                    .cover-page, .report-group, .signature-block {
+                        page-break-inside: avoid;
+                    }
+
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        page-break-inside: auto;
+                    }
+
+                    thead {
+                        display: table-header-group;
+                    }
+                    
+                    tr, td, th {
+                        page-break-inside: avoid;
+                    }
+
+                    .no-print {
+                        display: none !important;
+                    }
+                }
 
                 body {
                     font-family: 'Times New Roman', Times, serif;
                     margin: 0;
-                    padding: 0;
-                    background-color: #f8f9fa;
+                    background: #eee;
                 }
                 
                 .print-container {
@@ -142,6 +191,11 @@ export default function PrintLaporanGabunganPage() {
                     margin-bottom: 20px;
                 }
 
+                .table-container {
+                    overflow-x: auto;
+                    margin-bottom: 1.5rem;
+                }
+
                 .report-table {
                     width: 100%;
                     border-collapse: collapse;
@@ -154,74 +208,24 @@ export default function PrintLaporanGabunganPage() {
                     border: 1px solid black;
                     padding: 4px 6px;
                     text-align: left;
-                    word-wrap: break-word; /* Ensure long text wraps */
+                    word-wrap: break-word;
                 }
 
                 .report-table th {
                     font-weight: bold;
                     text-align: center;
-                }
-                
-                .report-group {
-                    margin-bottom: 1.5rem;
+                    background-color: #f2f2f2;
                 }
 
                 .signature-block {
                     margin-top: 40px;
-                }
-                
-                @media print {
-                    body, html {
-                        width: 210mm;
-                        height: auto;
-                        background-color: white !important; /* Force white background */
-                        overflow: visible !important; /* Kill the scrollbar */
-                        margin: 0;
-                        padding: 0;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-
-                    ::-webkit-scrollbar { display: none !important; }
-
-                    .print-container {
-                        margin: 0;
-                        padding: 0;
-                        box-shadow: none;
-                        border: none;
-                    }
-
-                    .no-print {
-                        display: none !important;
-                    }
-
-                    .report-table {
-                        page-break-inside: auto; /* Allow table to break across pages */
-                    }
-
-                    .report-table thead {
-                        display: table-header-group; /* Repeat headers on each page */
-                    }
-                    
-                    .report-table tr, .report-table td, .report-table th {
-                        page-break-inside: avoid !important; /* Don't break rows in the middle */
-                    }
-
-                    .report-group {
-                        page-break-inside: avoid;
-                    }
-                    
-                    .signature-block {
-                        page-break-inside: avoid !important;
-                    }
-                    
+                    width: 100%;
                 }
             `}</style>
             
             <div className="print-container">
-                <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                
                 <div className="cover-page">
+                    <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                     <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', marginTop: '1rem' }}>{printMainTitle}</h2>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
                 </div>
@@ -234,7 +238,7 @@ export default function PrintLaporanGabunganPage() {
                             <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
                                 Laporan: {getActivityName(groupKey)}
                             </h4>
-                            <div style={{ overflowX: 'auto' }}>
+                            <div className="table-container">
                                 <table className="report-table">
                                     <thead>
                                         <tr>

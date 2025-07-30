@@ -102,116 +102,135 @@ export default function PrintLaporanGabunganPage() {
     
     useEffect(() => {
         if (!isLoading && !error) {
-            setTimeout(() => window.print(), 500);
+            setTimeout(() => window.print(), 1000);
         }
     }, [isLoading, error]);
     
     if (isLoading) {
-        return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /> <p className="ml-4">Mempersiapkan dokumen...</p></div>;
+        return <div style={{display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="h-10 w-10 animate-spin" /> <p style={{marginLeft: '1rem'}}>Mempersiapkan dokumen...</p></div>;
     }
     
     if (error) {
-        return <div className="p-8"><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>;
+        return <div style={{padding: '2rem'}}><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>;
     }
 
     return (
-        <div id="print-area">
+        <div id="print-container">
              <style jsx global>{`
                 @media print {
                     html, body {
+                        width: 210mm;
+                        height: 297mm;
+                        font-size: 10pt;
                         background-color: #fff !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
-                        font-size: 10pt;
+                        margin: 0;
+                        padding: 0;
                         overflow: visible !important;
-                        height: auto !important;
                     }
                     @page {
                         size: A4 portrait;
-                        margin: 2cm;
+                        margin: 2cm 1.5cm;
                     }
-                    #print-area {
+                    #print-container {
+                        width: 100%;
                         background-color: #fff !important;
                     }
+                    .print-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 9pt;
+                        table-layout: fixed;
+                    }
+                    .print-table tr, .print-table td, .print-table th {
+                        page-break-inside: avoid !important;
+                    }
+                    .print-table th, .print-table td {
+                        border: 1px solid #000;
+                        padding: 4px 6px;
+                        text-align: left;
+                        vertical-align: top;
+                        word-wrap: break-word;
+                    }
+                    .print-table .text-center { text-align: center; }
+                    .print-table .whitespace-pre-wrap { white-space: pre-wrap; }
                     .report-group-title > td {
                         font-weight: bold;
                         background-color: #E2E8F0 !important;
                         padding: 5px 6px !important;
                         font-size: 11pt !important;
+                        border: 1px solid #000;
                     }
                     .report-header-row > th {
                         font-weight: bold;
                         text-align: center !important;
-                        background-color: transparent !important;
+                        background-color: #F8FAFC !important;
                     }
                 }
-                 table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 9pt;
-                    table-layout: fixed;
-                 }
-                 tr {
-                    page-break-inside: avoid !important;
-                 }
-                 th, td {
-                    border: 1px solid #000;
-                    padding: 4px 6px;
-                    text-align: left;
-                    vertical-align: top;
-                    word-wrap: break-word;
-                 }
-                 .text-center { text-align: center; }
-                 .whitespace-pre-wrap { white-space: pre-wrap; }
             `}</style>
-            
-            <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-            <div className="text-center my-4">
-              <h2 className="text-lg font-bold uppercase">{printMainTitle}</h2>
-              <h3 className="text-base font-bold uppercase">{printSubTitle}</h3>
-            </div>
-            
-            {orderedGroupKeys.length > 0 ? (
-                <Table>
-                    <tbody>
-                    {orderedGroupKeys.flatMap((groupKey) => {
-                        const groupName = getActivityName(groupKey);
-                        const groupReports = filteredAndGroupedReports[groupKey];
-                        
-                        const rows = [];
-                        rows.push(
-                            <tr key={`title-${groupKey}`} className="report-group-title">
-                                <td colSpan={5}>{groupName}</td>
-                            </tr>
-                        );
-                        rows.push(
-                            <tr key={`header-${groupKey}`} className="report-header-row">
-                                <th className="w-[4%]">No.</th>
-                                <th className="w-[15%]">Tanggal</th>
-                                <th className="w-[21%]">Nama Staf</th>
-                                <th className="w-[20%]">Judul Laporan</th>
-                                <th className="w-[40%]">Uraian Kegiatan</th>
-                            </tr>
-                        );
 
-                        groupReports.forEach((r, index) => {
+            <table className="print-table">
+                <thead>
+                    <tr>
+                        <th colSpan={5} style={{border: 'none', padding: 0}}>
+                            <PrintHeader imageUrl={printSettings?.headerImageUrl} />
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colSpan={5} style={{border: 'none', textAlign: 'center', padding: '1rem 0'}}>
+                            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
+                            <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {orderedGroupKeys.length === 0 ? (
+                        <tr><td colSpan={5} className="text-center">Tidak ada data laporan untuk periode ini.</td></tr>
+                    ) : (
+                        orderedGroupKeys.flatMap((groupKey, groupIndex) => {
+                            const groupName = getActivityName(groupKey);
+                            const groupReports = filteredAndGroupedReports[groupKey];
+                            
+                            const rows = [];
                             rows.push(
-                                <tr key={`data-${r.id}`}>
-                                    <td className="text-center">{index + 1}</td>
-                                    <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
-                                    <td>{r.createdByDisplayName}</td>
-                                    <td className="whitespace-pre-wrap">{r.title}</td>
-                                    <td className="whitespace-pre-wrap">{r.content || '-'}</td>
+                                <tr key={`title-${groupKey}`} className="report-group-title">
+                                    <td colSpan={5}>{groupName}</td>
                                 </tr>
                             );
-                        });
-                        return rows;
-                    })}
-                    </tbody>
-                </Table>
-            ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
-            
-            <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+                            rows.push(
+                                <tr key={`header-${groupKey}`} className="report-header-row">
+                                    <th style={{width: '5%'}}>No.</th>
+                                    <th style={{width: '15%'}}>Tanggal</th>
+                                    <th style={{width: '20%'}}>Nama Staf</th>
+                                    <th style={{width: '20%'}}>Judul Laporan</th>
+                                    <th style={{width: '40%'}}>Uraian Kegiatan</th>
+                                </tr>
+                            );
+
+                            groupReports.forEach((r, index) => {
+                                rows.push(
+                                    <tr key={`data-${r.id}`}>
+                                        <td className="text-center">{index + 1}</td>
+                                        <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                        <td>{r.createdByDisplayName}</td>
+                                        <td className="whitespace-pre-wrap">{r.title}</td>
+                                        <td className="whitespace-pre-wrap">{r.content || '-'}</td>
+                                    </tr>
+                                );
+                            });
+                            return rows;
+                        })
+                    )}
+                </tbody>
+                <tfoot>
+                     <tr>
+                        <td colSpan={5} style={{ border: 'none', padding: 0 }}>
+                            <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
     );
 }

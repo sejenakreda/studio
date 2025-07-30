@@ -17,33 +17,34 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   // Signer 1 (left) is always from settings (Kepala Sekolah)
   const signerOneName = settings.signerOneName || '(....................................)';
   const signerOnePosition = settings.signerOnePosition || 'Kepala Sekolah';
-  const signerOneNpa = settings.signerOneNpa || '';
+  const signerOneNpa = settings.signerOneNpa || '-';
 
-  // Signer 2 (right) logic
+  // Signer 2 (right) logic - for this report, it's always Ka. TU
   const signerTwoNameToDisplay = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPositionToDisplay = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || 'Wali Kelas');
-  const signerTwoNpa = settings.signerTwoNpa || '';
+  const signerTwoPositionToDisplay = 'Kepala Tata Usaha'; // Hardcoded for this specific report
+  const signerTwoNpa = settings.signerTwoNpa || '-';
+
 
   const today = new Date();
   const formattedDate = format(today, "dd MMMM yyyy", { locale: indonesiaLocale });
   const placeAndDateText = `${settings.place || 'Cianjur'}, ${formattedDate}`;
 
   return (
-    <div style={{ breakInside: 'avoid-page', marginTop: '3rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', fontSize: '10pt', color: '#000' }}>
+    <div style={{ breakInside: 'avoid !important', pageBreakInside: 'avoid !important', marginTop: '3rem', fontSize: '10pt' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
         <div style={{ textAlign: 'center' }}>
-          <p>Mengetahui,</p>
-          <p>{signerOnePosition}</p>
-          <div style={{ marginBottom: '4rem' }}></div>
-          <p style={{ fontWeight: '600', textDecoration: 'underline' }}>{signerOneName}</p>
-          {signerOneNpa && <p>NPA. {signerOneNpa}</p>}
+          <p style={{ margin: 0 }}>Mengetahui,</p>
+          <p style={{ margin: 0 }}>{signerOnePosition}</p>
+          <div style={{ height: '4rem' }}></div> {/* Space for signature */}
+          <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerOneName}</p>
+          <p style={{ margin: 0 }}>NPA. {signerOneNpa}</p>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <p>{placeAndDateText}</p>
-          <p>{signerTwoPositionToDisplay}</p>
-          <div style={{ marginBottom: '4rem' }}></div>
-          <p style={{ fontWeight: '600', textDecoration: 'underline' }}>{signerTwoNameToDisplay}</p>
-          {signerTwoNpa && <p>NPA. {signerTwoNpa}</p>}
+          <p style={{ margin: 0 }}>{placeAndDateText}</p>
+          <p style={{ margin: 0 }}>{signerTwoPositionToDisplay}</p>
+          <div style={{ height: '4rem' }}></div> {/* Space for signature */}
+          <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerTwoNameToDisplay}</p>
+          <p style={{ margin: 0 }}>NPA. {signerTwoNpa}</p>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -18,7 +19,7 @@ import { getAllLaporanKegiatan, getPrintSettings, getAllUsersByRole } from '@/li
 import type { LaporanKegiatan, PrintSettings, TugasTambahan, UserProfile } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
-import { getActivityName, getCurrentAcademicYear } from '@/lib/utils';
+import { getActivityName } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const currentYear = new Date().getFullYear();
@@ -125,8 +126,14 @@ export default function LaporanGabunganStafTUPage() {
     
     const handlePrint = () => { window.print(); };
     
-    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${getCurrentAcademicYear()}`;
-    const printSubTitle = `BULAN: ${filterMonth === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === filterMonth)?.label.toUpperCase()}`;
+    const academicYear = useMemo(() => {
+      const currentMonth = new Date().getMonth();
+      const year = filterYear;
+      return currentMonth >= 6 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+    }, [filterYear]);
+    
+    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
+    const printSubTitle = `BULAN: ${filterMonth === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === filterMonth)?.label.toUpperCase()} ${filterYear}`;
     
     const kepalaTUName = useMemo(() => {
         return allStaf.find(s => s.tugasTambahan?.includes('kepala_tata_usaha'))?.displayName || null;
@@ -174,6 +181,7 @@ export default function LaporanGabunganStafTUPage() {
                 </Card>
             </div>
             
+            {/* --- Dedicated Print Area --- */}
             <div className="print-area">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                 <div className="text-center my-4">
@@ -182,33 +190,50 @@ export default function LaporanGabunganStafTUPage() {
                 </div>
                 
                 {orderedGroupKeys.length > 0 ? (
-                    <div className="report-content">
-                        {orderedGroupKeys.map((groupKey) => (
-                            <div key={`print-group-${groupKey}`} className="report-group">
-                                <h4 className="role-title">{getActivityName(groupKey)}</h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[20px]">No.</TableHead>
-                                            <TableHead className="w-[90px]">Tanggal</TableHead>
-                                            <TableHead className="w-[120px]">Nama Staf</TableHead>
-                                            <TableHead>Uraian Kegiatan</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                    {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                        <TableRow key={`print-row-${r.id}`}>
-                                            <TableCell>{index + 1}</TableCell>
-                                            <TableCell>{format(r.date.toDate(), "dd-MM-yyyy")}</TableCell>
-                                            <TableCell>{r.createdByDisplayName}</TableCell>
-                                            <TableCell className="whitespace-pre-wrap">{r.title}{r.content ? `\n${r.content}` : ''}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        ))}
-                    </div>
+                    <Table>
+                        <tbody>
+                        {orderedGroupKeys.flatMap((groupKey, groupIndex) => {
+                            const groupName = getActivityName(groupKey);
+                            const groupReports = filteredAndGroupedReports[groupKey];
+                            
+                            // Create rows for this group
+                            const rows = [];
+
+                            // 1. Add the group title row
+                            rows.push(
+                                <tr key={`title-${groupKey}`} className="report-group-title">
+                                    <td colSpan={5}>{groupName}</td>
+                                </tr>
+                            );
+
+                            // 2. Add the table header row
+                            rows.push(
+                                <tr key={`header-${groupKey}`} className="report-header-row">
+                                    <th className="w-[4%]">No.</th>
+                                    <th className="w-[15%]">Tanggal</th>
+                                    <th className="w-[21%]">Nama Staf</th>
+                                    <th className="w-[20%]">Judul Laporan</th>
+                                    <th className="w-[40%]">Uraian Kegiatan</th>
+                                </tr>
+                            );
+
+                            // 3. Add the data rows
+                            groupReports.forEach((r, index) => {
+                                rows.push(
+                                    <tr key={`data-${r.id}`}>
+                                        <td className="text-center">{index + 1}</td>
+                                        <td>{format(r.date.toDate(), "dd-MM-yyyy")}</td>
+                                        <td>{r.createdByDisplayName}</td>
+                                        <td>{r.title}</td>
+                                        <td className="whitespace-pre-wrap">{r.content || '-'}</td>
+                                    </tr>
+                                );
+                            });
+
+                            return rows;
+                        })}
+                        </tbody>
+                    </Table>
                 ) : <p className="text-center">Tidak ada data untuk periode ini.</p>}
                 
                 <PrintFooter settings={{...printSettings, signerOneName: kepalaSekolahName, signerOnePosition: "Kepala Sekolah"}} waliKelasName={kepalaTUName} />
@@ -222,16 +247,21 @@ export default function LaporanGabunganStafTUPage() {
                         font-size: 10pt !important;
                         background-color: #fff !important;
                     }
-                    .print-area { display: block !important; }
-                    .print\\:hidden { display: none !important; }
-                    
+                    /* Hide everything except the print area */
+                    body > *:not(.print-area) {
+                        display: none !important;
+                    }
+                    .print-area {
+                        display: block !important;
+                    }
+
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
                         font-size: 9pt !important;
                     }
                     tr {
-                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
                     }
                     th, td {
                         border: 1px solid #000 !important;
@@ -241,24 +271,25 @@ export default function LaporanGabunganStafTUPage() {
                         background-color: transparent !important;
                         word-wrap: break-word !important;
                     }
-                    thead tr {
-                        background-color: #e2e8f0 !important;
-                    }
-                    .role-title {
+                    .report-group-title > td {
+                        font-weight: bold;
+                        background-color: #E2E8F0 !important;
+                        padding: 5px 6px !important;
                         font-size: 11pt !important;
-                        font-weight: bold !important;
-                        margin-top: 1rem;
-                        margin-bottom: 0.25rem;
                     }
-                    .report-group {
-                        break-inside: avoid;
+                    .report-header-row > th {
+                        font-weight: bold;
+                        background-color: #F1F5F9 !important;
+                    }
+                    .text-center {
+                        text-align: center !important;
                     }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
                     div, section, main, header, footer {
                         background-color: transparent !important;
                     }
                     @page {
-                        size: A4;
+                        size: A4 portrait;
                         margin: 1.5cm;
                     }
                 }

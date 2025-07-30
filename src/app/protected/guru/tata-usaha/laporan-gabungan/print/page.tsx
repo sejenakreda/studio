@@ -97,11 +97,10 @@ export default function PrintLaporanGabunganPage() {
     const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
     const printSubTitle = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
-    
     useEffect(() => {
         if (!isLoading && !error) {
             document.title = printMainTitle;
-            setTimeout(() => window.print(), 1500);
+            setTimeout(() => window.print(), 1000);
         }
     }, [isLoading, error, printMainTitle]);
     
@@ -116,25 +115,31 @@ export default function PrintLaporanGabunganPage() {
     return (
         <>
             <style jsx global>{`
+                @page {
+                    size: A4;
+                    margin: 10mm;
+                }
                 @media print {
                     html, body {
-                        background-color: white !important;
+                        background-color: #fff !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         margin: 0;
                         padding: 0;
                         overflow: visible !important;
+                        height: auto !important;
                     }
-                    @page {
-                        size: A4 portrait;
-                        margin: 2cm 1.5cm;
+                    .no-print {
+                        display: none !important;
                     }
                     .print-area {
-                        display: block !important;
                         width: 100%;
+                        margin: 0 auto;
+                        padding: 0;
                     }
-                    .report-group, .print-footer-container {
+                    .report-group {
                         page-break-inside: avoid !important;
+                        margin-bottom: 1rem;
                     }
                     .report-table {
                         width: 100%;
@@ -148,7 +153,8 @@ export default function PrintLaporanGabunganPage() {
                         padding: 4px 6px;
                         text-align: left;
                         vertical-align: top;
-                        word-wrap: break-word;
+                        word-wrap: break-word; /* Crucial for preventing table overflow */
+                        background-color: #fff !important; /* Force white background */
                     }
                     .report-table thead tr {
                         background-color: #e2e8f0 !important;
@@ -157,39 +163,37 @@ export default function PrintLaporanGabunganPage() {
                         font-weight: bold;
                         text-align: center !important;
                     }
-                    .no-print {
-                        display: none !important;
+                    .print-footer-container {
+                        page-break-inside: avoid !important;
                     }
                 }
-                .print-area {
-                    display: block; /* Show in screen for debugging */
-                    font-family: 'Times New Roman', Times, serif;
-                    color: black;
-                    background-color: white;
+                /* Screen styles for debugging */
+                body {
+                     background-color: #f0f2f5;
                 }
-                 .no-print {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    flex-direction: column;
-                    height: 100vh;
-                    font-family: sans-serif;
+                .print-area {
+                    max-width: 210mm; /* A4 width */
+                    margin: 20px auto;
+                    padding: 20px;
+                    background-color: white;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    font-family: 'Times New Roman', Times, serif;
                 }
             `}</style>
             
             <div className="print-area">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
-                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
+                <div style={{ textAlign: 'center', padding: '1rem 0', marginTop: '1rem' }}>
+                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', color: '#000' }}>{printMainTitle}</h2>
+                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', color: '#000' }}>{printSubTitle}</h3>
                 </div>
 
                 {orderedGroupKeys.length === 0 ? (
                     <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
                 ) : (
                     orderedGroupKeys.map((groupKey) => (
-                        <div key={groupKey} className="report-group" style={{ marginBottom: '1.5rem' }}>
-                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
+                        <div key={groupKey} className="report-group">
+                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold', color: '#000' }}>
                                 Laporan: {getActivityName(groupKey)}
                             </h4>
                             <table className="report-table">
@@ -198,8 +202,8 @@ export default function PrintLaporanGabunganPage() {
                                         <th style={{width: '5%'}}>No.</th>
                                         <th style={{width: '15%'}}>Tanggal</th>
                                         <th style={{width: '20%'}}>Nama Staf</th>
-                                        <th style={{width: '20%'}}>Judul Laporan</th>
-                                        <th style={{width: '40%'}}>Uraian Kegiatan</th>
+                                        <th style={{width: '25%'}}>Judul Laporan</th>
+                                        <th style={{width: '35%'}}>Uraian Kegiatan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -225,3 +229,4 @@ export default function PrintLaporanGabunganPage() {
         </>
     );
 }
+

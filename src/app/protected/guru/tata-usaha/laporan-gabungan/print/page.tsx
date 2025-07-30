@@ -119,78 +119,110 @@ export default function PrintLaporanGabunganPage() {
                     size: A4;
                     margin: 10mm;
                 }
-                html, body {
+
+                body {
                     font-family: 'Times New Roman', Times, serif;
-                    background-color: #f0f2f5;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f8f9fa;
                 }
-                .print-area {
-                    width: 210mm; /* A4 width */
-                    min-height: 297mm; /* A4 height */
+                
+                .print-container {
+                    width: 210mm;
+                    min-height: 297mm;
                     margin: 20px auto;
                     padding: 10mm;
                     background-color: white;
                     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    color: #000;
+                    color: black;
                 }
+
+                .cover-page {
+                    text-align: center;
+                    margin-bottom: 20px;
+                }
+
                 .report-table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 9pt;
+                    font-size: 10pt;
                     table-layout: fixed;
                 }
+                
                 .report-table th,
                 .report-table td {
-                    border: 1px solid #000;
+                    border: 1px solid black;
                     padding: 4px 6px;
                     text-align: left;
-                    vertical-align: top;
-                    word-wrap: break-word;
+                    word-wrap: break-word; /* Ensure long text wraps */
                 }
-                .report-table thead tr {
-                    background-color: #e2e8f0;
-                }
+
                 .report-table th {
                     font-weight: bold;
                     text-align: center;
                 }
+                
                 .report-group {
-                    margin-bottom: 1rem;
-                }
-                .signature-block {
-                    page-break-inside: avoid !important;
+                    margin-bottom: 1.5rem;
                 }
 
+                .signature-block {
+                    margin-top: 40px;
+                }
+                
                 @media print {
-                    html, body {
+                    body, html {
                         width: 210mm;
-                        height: 297mm;
-                        background-color: #fff !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
+                        height: auto;
+                        background-color: white !important; /* Force white background */
+                        overflow: visible !important; /* Kill the scrollbar */
                         margin: 0;
                         padding: 0;
-                        overflow: hidden !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
-                    .print-area {
+
+                    ::-webkit-scrollbar { display: none !important; }
+
+                    .print-container {
                         margin: 0;
+                        padding: 0;
                         box-shadow: none;
+                        border: none;
                     }
+
                     .no-print {
                         display: none !important;
                     }
-                    tr, .report-group {
+
+                    .report-table {
+                        page-break-inside: auto; /* Allow table to break across pages */
+                    }
+
+                    .report-table thead {
+                        display: table-header-group; /* Repeat headers on each page */
+                    }
+                    
+                    .report-table tr, .report-table td, .report-table th {
+                        page-break-inside: avoid !important; /* Don't break rows in the middle */
+                    }
+
+                    .report-group {
+                        page-break-inside: avoid;
+                    }
+                    
+                    .signature-block {
                         page-break-inside: avoid !important;
                     }
-                    .report-table thead tr {
-                        background-color: #e2e8f0 !important; /* Ensure background color prints */
-                    }
+                    
                 }
             `}</style>
             
-            <div className="print-area">
+            <div className="print-container">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <div style={{ textAlign: 'center', padding: '1rem 0', marginTop: '1rem' }}>
-                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
+                
+                <div className="cover-page">
+                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', marginTop: '1rem' }}>{printMainTitle}</h2>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
                 </div>
 

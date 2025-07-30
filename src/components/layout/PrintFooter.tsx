@@ -21,7 +21,9 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
 
   // Signer 2 (right) logic - uses Ka.TU name if provided, otherwise falls back to settings.
   const signerTwoName = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPosition = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || '');
+  // If a specific waliKelasName is passed, we assume the position is 'Kepala Tata Usaha'.
+  // Otherwise, use the position from settings.
+  const signerTwoPosition = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || 'Wali Kelas');
   const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '';
   
   const today = new Date();
@@ -30,25 +32,25 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
 
   return (
     <div style={{ marginTop: '2rem', fontSize: '11pt', width: '100%', color: '#000' }}>
-      <div style={{ display: 'table', width: '100%' }}>
+      <div style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}>
         <div style={{ display: 'table-row' }}>
           
           {/* Kolom Kiri - Kepala Sekolah */}
-          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top' }}>
+          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '0 1rem' }}>
             <p style={{ margin: 0 }}>Mengetahui,</p>
-            <p style={{ margin: '0 0 4rem 0' }}>{signerOnePosition}</p>
-            <div style={{ height: '60px' }}></div>
+            <p style={{ margin: 0 }}>{signerOnePosition}</p>
+            <div style={{ height: '4rem' }}></div>
             <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerOneName}</p>
-            <p style={{ margin: 0 }}>{signerOneNpa}</p>
+            {signerOneNpa && <p style={{ margin: 0 }}>{signerOneNpa}</p>}
           </div>
 
-          {/* Kolom Kanan - Kepala TU */}
-          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top' }}>
+          {/* Kolom Kanan - Kepala TU / Signer 2 */}
+          <div style={{ display: 'table-cell', width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '0 1rem' }}>
             <p style={{ margin: 0 }}>{placeAndDateText}</p>
-            <p style={{ margin: '0 0 4rem 0' }}>{signerTwoPosition}</p>
-            <div style={{ height: '60px' }}></div>
+            <p style={{ margin: 0 }}>{signerTwoPosition}</p>
+            <div style={{ height: '4rem' }}></div>
             <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{signerTwoName}</p>
-            <p style={{ margin: 0 }}>{signerTwoNpa}</p>
+            {signerTwoNpa && <p style={{ margin: 0 }}>{signerTwoNpa}</p>}
           </div>
         </div>
       </div>

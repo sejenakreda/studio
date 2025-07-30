@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
@@ -122,11 +123,16 @@ export default function PrintLaporanGabunganPage() {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                         font-size: 10pt;
+                        overflow: hidden !important;
                     }
-                    body {
-                       overflow: hidden !important;
+                    @page {
+                        size: A4 portrait;
+                        margin: 2cm;
                     }
-                    #print-area {
+                    body > #__next {
+                        display: none;
+                    }
+                    body > #print-area {
                         display: block !important;
                     }
                     table {
@@ -143,6 +149,7 @@ export default function PrintLaporanGabunganPage() {
                         text-align: left !important;
                         vertical-align: top !important;
                         word-wrap: break-word !important;
+                        background-color: transparent !important;
                     }
                     .report-group-title > td {
                         font-weight: bold;
@@ -157,6 +164,9 @@ export default function PrintLaporanGabunganPage() {
                     }
                     .text-center { text-align: center !important; }
                     .whitespace-pre-wrap { white-space: pre-wrap !important; }
+                    .print-footer {
+                        break-inside: avoid-page !important;
+                    }
                 }
                  html, body {
                     overflow: hidden !important;

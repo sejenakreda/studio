@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -173,13 +174,13 @@ export default function ManagePrintSettingsPage() {
                     <h4 className="font-semibold text-center">Penanda Tangan 1 (Kiri)</h4>
                     <FormField control={form.control} name="signerOneName" render={({ field }) => (<FormItem><FormLabel>Nama Lengkap</FormLabel><FormControl><Input placeholder="Nama Kepala Sekolah" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="signerOnePosition" render={({ field }) => (<FormItem><FormLabel>Jabatan</FormLabel><FormControl><Input placeholder="Kepala Sekolah" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="signerOneNpa" render={({ field }) => (<FormItem><FormLabel>NPA / NIP</FormLabel><FormControl><Input placeholder="NPA. XXXXXXX" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="signerOneNpa" render={({ field }) => (<FormItem><FormLabel>NPA</FormLabel><FormControl><Input placeholder="NPA. XXXXXXX" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <div className="space-y-4 p-4 border rounded-md">
                     <h4 className="font-semibold text-center">Penanda Tangan 2 (Kanan)</h4>
                     <FormField control={form.control} name="signerTwoName" render={({ field }) => (<FormItem><FormLabel>Nama Lengkap</FormLabel><FormControl><Input placeholder="Nama Wali Kelas / Wakasek" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="signerTwoPosition" render={({ field }) => (<FormItem><FormLabel>Jabatan</FormLabel><FormControl><Input placeholder="Wali Kelas" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="signerTwoNpa" render={({ field }) => (<FormItem><FormLabel>NPA / NIP</FormLabel><FormControl><Input placeholder="NPA. YYYYYYY" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="signerTwoNpa" render={({ field }) => (<FormItem><FormLabel>NPA</FormLabel><FormControl><Input placeholder="NPA. YYYYYYY" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                 </div>
                 </CardContent>

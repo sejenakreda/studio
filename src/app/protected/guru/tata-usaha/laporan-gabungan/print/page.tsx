@@ -93,13 +93,14 @@ export default function PrintLaporanGabunganPage() {
         return currentMonth >= 6 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
     }, [year, month]);
 
-    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA TAHUN PELAJARAN ${academicYear}`;
-    const printSubTitle = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
+    const printMainTitle = `LAPORAN KEGIATAN KEPALA DAN STAF TATA USAHA`;
+    const printSubTitle = `TAHUN PELAJARAN ${academicYear}`;
+    const printPeriod = `BULAN: ${month === 'all' ? 'SATU TAHUN' : MONTHS.find(m => m.value === month)?.label.toUpperCase()} ${year}`;
 
     useEffect(() => {
         if (!isLoading && !error) {
             document.title = printMainTitle;
-            setTimeout(() => window.print(), 500);
+            setTimeout(() => window.print(), 500); // Give a slight delay for rendering
         }
     }, [isLoading, error, printMainTitle]);
     
@@ -131,51 +132,16 @@ export default function PrintLaporanGabunganPage() {
                     size: A4;
                     margin: 10mm;
                 }
-                
-                @media screen {
-                    body { background: #eee; }
-                    .print-container {
-                        width: 210mm;
-                        min-height: 297mm;
-                        margin: 20px auto;
-                        padding: 10mm;
-                        background-color: white;
-                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                        color: black;
-                    }
-                }
-
-                @media print {
-                    body, html {
-                        background-color: #fff !important;
-                        overflow: visible !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-                    .print-container {
-                        box-shadow: none !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                    thead {
-                        display: table-header-group;
-                    }
-                    tfoot {
-                        display: table-footer-group;
-                    }
-                    .report-group, tr, .signature-block {
-                        page-break-inside: avoid !important;
-                    }
-                    .cover-page {
-                        page-break-after: avoid !important;
-                    }
-                }
 
                 body {
                     font-family: 'Times New Roman', Times, serif;
+                    background-color: #fff !important;
+                }
+
+                .print-container {
+                    width: 100%;
+                    background: white;
+                    color: black;
                 }
                 
                 .cover-page {
@@ -187,8 +153,8 @@ export default function PrintLaporanGabunganPage() {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10pt;
-                    table-layout: fixed;
                     margin-bottom: 20px;
+                    page-break-inside: auto;
                 }
                 
                 .report-table th,
@@ -206,6 +172,39 @@ export default function PrintLaporanGabunganPage() {
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
+
+                .report-table thead {
+                    display: table-header-group;
+                }
+                
+                .report-table tr {
+                    page-break-inside: avoid;
+                    page-break-after: auto;
+                }
+
+                .group-title {
+                    font-size: 11pt;
+                    font-weight: bold;
+                    margin-top: 1.5rem;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .signature-container {
+                   page-break-inside: avoid !important;
+                   margin-top: 40px;
+                }
+                
+                @media print {
+                    html, body {
+                        overflow: visible !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+
+                    .no-print {
+                        display: none !important;
+                    }
+                }
             `}</style>
             
             <div className="print-container">
@@ -213,14 +212,15 @@ export default function PrintLaporanGabunganPage() {
                     <PrintHeader imageUrl={printSettings?.headerImageUrl} />
                     <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', marginTop: '1rem' }}>{printMainTitle}</h2>
                     <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
+                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printPeriod}</h3>
                 </div>
 
                 {orderedGroupKeys.length === 0 ? (
                     <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
                 ) : (
                     orderedGroupKeys.map((groupKey) => (
-                        <div key={groupKey} className="report-group">
-                            <h4 style={{ fontSize: '11pt', fontWeight: 'bold' }}>
+                        <div key={groupKey}>
+                            <h4 className="group-title">
                                 Laporan: {getActivityName(groupKey)}
                             </h4>
                             <table className="report-table">
@@ -249,10 +249,11 @@ export default function PrintLaporanGabunganPage() {
                     ))
                 )}
                 
-                <div className="signature-block">
+                <div className="signature-container">
                     <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
                 </div>
             </div>
         </>
     );
 }
+

@@ -62,7 +62,7 @@ body {
     --card-foreground: 220 17% 95%;
 
     --popover: 220 17% 5%;
-    --popover-foreground: 220 17% 95%;
+    --popover-foreground: 220-17-95;
 
     --primary: 207 68% 53%;
     --primary-foreground: 207 68% 97%;
@@ -108,5 +108,15 @@ body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Specific styles for printing */
+  @media print {
+    body {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
   }
 }

@@ -16,6 +16,15 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, userProfile, loading: authContextLoading, isSatpam, isPenjagaSekolah, isStafTu } = useAuth();
 
+  // Debugging state to check for environment variable
+  const [debugProjectId, setDebugProjectId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // This will run on the client side and show us what env var the build received.
+    setDebugProjectId(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+  }, []);
+
+
   useEffect(() => {
     // This effect handles redirection:
     // 1. If the user is already logged in when they land on /login.
@@ -83,7 +92,8 @@ export default function LoginPage() {
         )}
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
-        © {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.
+        <p className="font-mono text-xs p-2 bg-black/20 rounded">DEBUG - Project ID: {debugProjectId || "TIDAK TERBACA"}</p>
+        <p className="mt-2">© {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.</p>
       </footer>
     </div>
   );

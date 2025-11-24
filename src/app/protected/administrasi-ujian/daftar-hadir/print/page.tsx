@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -6,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { Loader2, AlertCircle } from "lucide-react";
-import { getDaftarHadirPengawas, getPrintSettings } from '@/lib/firestoreService';
-import type { DaftarHadirPengawas, PrintSettings, UserProfile } from '@/types';
+import { getDaftarHadirPengawas, getPrintSettings, getAllUsersByRole } from '@/lib/firestoreService';
+import type { DaftarHadirPengawas, PrintSettings, TugasTambahan, UserProfile } from '@/types';
 import { PrintHeader } from '@/components/layout/PrintHeader';
 import { PrintFooter } from '@/components/layout/PrintFooter';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

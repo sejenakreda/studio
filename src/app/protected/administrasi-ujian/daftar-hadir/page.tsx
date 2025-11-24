@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -99,7 +98,14 @@ export default function DaftarHadirPengawasPage() {
               createdByUid: userProfile.uid,
             });
             toast({ title: "Sukses", description: "Kehadiran Anda sebagai pengawas berhasil dicatat." });
-            form.reset();
+            form.reset({
+                tanggalUjian: new Date(),
+                mataUjian: "",
+                ruangUjian: "R-01",
+                waktuMulai: "07:30",
+                waktuSelesai: "09:30",
+                tandaTanganUrl: "",
+            });
             fetchRiwayat();
         } catch (err: any) {
             toast({ variant: "destructive", title: "Gagal Menyimpan", description: err.message });

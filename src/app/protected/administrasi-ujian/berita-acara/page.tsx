@@ -170,7 +170,7 @@ export default function BeritaAcaraPage() {
                 toast({ title: "Sukses", description: "Berita acara berhasil disimpan." });
             }
             form.reset({
-                ...form.getValues(), // Keep some values like date, time, etc.
+                ...form.getValues(),
                 jenisUjian: "Sumatif Akhir Semester (SAS)",
                 mataUjian: "",
                 ruangUjian: "R-01",
@@ -181,6 +181,7 @@ export default function BeritaAcaraPage() {
                 pesertaHadirNomor: "",
                 pesertaAbsenNomor: "",
                 catatanUjian: "",
+                pengawasTandaTanganUrl: "",
             });
             setEditingBeritaAcara(null);
             fetchRiwayat();
@@ -249,8 +250,8 @@ export default function BeritaAcaraPage() {
                                 <div className="font-medium">Jumlah Hadir: <span className="font-bold text-green-600">{jumlahHadir}</span> orang</div>
                                 <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold text-red-600">{jumlahTidakHadir}</span> orang</div>
                             </div>
-                            <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="jumlahDaftarHadir" render={({ field }) => (<FormItem><FormLabel>Jumlah Daftar Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="jumlahBeritaAcara" render={({ field }) => (<FormItem><FormLabel>Jumlah Berita Acara</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />

@@ -647,7 +647,7 @@ export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjia
   try {
     const collRef = collection(db, BERITA_ACARA_COLLECTION).withConverter(beritaAcaraConverter);
     let q;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
        q = query(collRef);
     } else {
        q = query(collRef, where('createdByUid', '==', user.uid));
@@ -683,7 +683,7 @@ export const updateBeritaAcara = async (id: string, data: Partial<Omit<BeritaAca
 export const deleteBeritaAcara = async (id: string, user: UserProfile): Promise<void> => {
   try {
     const docRef = doc(db, BERITA_ACARA_COLLECTION, id);
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && !user.tugasTambahan?.includes('kurikulum')) {
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists() || docSnap.data().createdByUid !== user.uid) {
         throw new Error("Anda tidak memiliki izin untuk menghapus dokumen ini.");

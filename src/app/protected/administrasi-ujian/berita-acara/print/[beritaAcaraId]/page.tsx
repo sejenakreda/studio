@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -67,9 +66,9 @@ export default function PrintBeritaAcaraPage() {
     }, [data]);
 
     const jumlahAbsen = useMemo(() => {
-        if (!data) return 0;
-        return totalPeserta - jumlahHadir;
-    }, [data, totalPeserta, jumlahHadir]);
+        if (!data?.pesertaAbsenNomor) return 0;
+        return data.pesertaAbsenNomor.split(',').filter(p => p.trim() !== "").length;
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -198,6 +197,3 @@ export default function PrintBeritaAcaraPage() {
         </>
     );
 }
-
-
-    

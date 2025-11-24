@@ -19,7 +19,7 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, waliKelasNam
   const signerOneNpa = settings.signerOneNpa ? `NPA. ${settings.signerOneNpa}` : '';
 
   const signerTwoName = waliKelasName || settings.signerTwoName || '(....................................)';
-  const signerTwoPosition = waliKelasName ? 'Kepala Tata Usaha' : (settings.signerTwoPosition || 'Wali Kelas');
+  const signerTwoPosition = waliKelasName ? 'Wali Kelas / Setara' : (settings.signerTwoPosition || 'Wali Kelas');
   const signerTwoNpa = settings.signerTwoNpa ? `NPA. ${settings.signerTwoNpa}` : '';
 
   const today = new Date();

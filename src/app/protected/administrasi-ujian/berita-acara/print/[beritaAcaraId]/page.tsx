@@ -55,20 +55,14 @@ export default function PrintBeritaAcaraPage() {
         }
     }, [isLoading, error, data]);
 
-    const totalPeserta = useMemo(() => {
-      if (!data) return 0;
-      return (data.jumlahPesertaX || 0) + (data.jumlahPesertaXI || 0) + (data.jumlahPesertaXII || 0);
+    const { totalPeserta, jumlahHadir, jumlahTidakHadir } = useMemo(() => {
+      if (!data) return { totalPeserta: 0, jumlahHadir: 0, jumlahTidakHadir: 0 };
+      const total = (data.jumlahPesertaX || 0) + (data.jumlahPesertaXI || 0) + (data.jumlahPesertaXII || 0);
+      const tidakHadirCount = data.pesertaTidakHadirNomor ? data.pesertaTidakHadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
+      const hadirCount = total - tidakHadirCount;
+      return { totalPeserta: total, jumlahHadir: hadirCount, jumlahTidakHadir: tidakHadirCount };
     }, [data]);
     
-    const jumlahHadir = useMemo(() => {
-        if (!data?.pesertaHadirNomor) return 0;
-        return data.pesertaHadirNomor.split(',').filter(p => p.trim() !== "").length;
-    }, [data]);
-
-    const jumlahAbsen = useMemo(() => {
-        if (!data?.pesertaAbsenNomor) return 0;
-        return data.pesertaAbsenNomor.split(',').filter(p => p.trim() !== "").length;
-    }, [data]);
 
     if (isLoading) {
         return (
@@ -153,8 +147,8 @@ export default function PrintBeritaAcaraPage() {
                                 </tr>
                                 <tr><td>c. Jumlah seluruh peserta hadir</td><td>:</td><td>{jumlahHadir} orang</td></tr>
                                 <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaHadirNomor || '...................................................'}</td></tr>
-                                <tr><td>d. Jumlah peserta tidak hadir</td><td>:</td><td>{jumlahAbsen} orang</td></tr>
-                                <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaAbsenNomor || '...................................................'}</td></tr>
+                                <tr><td>d. Jumlah peserta tidak hadir</td><td>:</td><td>{jumlahTidakHadir} orang</td></tr>
+                                <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaTidakHadirNomor || '...................................................'}</td></tr>
                             </tbody>
                         </table>
                     </li>

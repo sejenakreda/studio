@@ -137,7 +137,7 @@ const navigationStructure: NavGroup[] = [
     requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
     items: [{ href: "/protected/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
   },
-   // --- NEW: Administrasi Ujian (All Roles) ---
+   // --- Administrasi Ujian (All Roles) ---
   { 
     roles: ['admin', 'guru'],
     items: [{ href: "/protected/administrasi-ujian/berita-acara", label: "Administrasi Ujian", icon: FileSignature }],
@@ -562,3 +562,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+    

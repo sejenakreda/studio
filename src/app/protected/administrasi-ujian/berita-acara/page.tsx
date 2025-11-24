@@ -262,7 +262,7 @@ export default function BeritaAcaraPage() {
                             </div>
                              <FormField control={form.control} name="pengawasNama" render={({ field }) => (<FormItem><FormLabel>Nama Pengawas</FormLabel><FormControl><Input placeholder="Nama lengkap pengawas..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                              <FormField control={form.control} name="pengawasTandaTanganUrl" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ImageIcon className="h-4 w-4"/> Tanda Tangan Pengawas (Opsional)</FormLabel><FormControl><ImageUploadField value={field.value} onChange={field.onChange} folderPath="tanda-tangan-pengawas" /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="catatanUjian" render={({ field }) => (<FormItem><FormLabel>Catatan Selama Ujian (Opsional)</FormLabel><FormControl><Textarea placeholder="Catatan kejadian penting selama ujian..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="catatanUjian" render={({ field }) => (<FormItem><FormLabel>Catatan Selama Ujian (Opsional)</FormLabel><FormControl><Textarea placeholder="Catatan kejadian penting selama ujian..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
                         </CardContent>
                         <CardFooter className="gap-2">
                             <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}{editingBeritaAcara ? 'Simpan Perubahan' : 'Simpan Berita Acara'}</Button>

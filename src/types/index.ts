@@ -230,3 +230,37 @@ export interface SchoolHoliday {
   description: string;
   createdAt?: Timestamp;
 }
+
+export interface BeritaAcaraUjian {
+  id?: string;
+  // Header
+  jenisUjian: string;
+  tahunPelajaran: string;
+  mataUjian: string;
+  // Detail Waktu & Tempat
+  hari: string;
+  tanggal: number;
+  bulan: string;
+  tahun: number;
+  waktuMulai: string;
+  waktuSelesai: string;
+  ruangUjian: string;
+  // Peserta
+  jumlahPesertaX: number;
+  jumlahPesertaXI: number;
+  jumlahPesertaXII: number;
+  pesertaHadirNomor: string;
+  pesertaAbsenNomor: string;
+  // Naskah
+  jumlahDaftarHadir: number;
+  jumlahBeritaAcara: number;
+  // Catatan & Pengawas
+  catatanUjian: string;
+  pengawasNama: string;
+  pengawasTandaTanganUrl?: string;
+  // Metadata
+  createdByUid: string;
+  createdByDisplayName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}

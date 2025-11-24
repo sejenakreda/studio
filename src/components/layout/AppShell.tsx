@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer, CalendarOff } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer, CalendarOff, FileSignature } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -135,6 +136,11 @@ const navigationStructure: NavGroup[] = [
     roles: ['guru'],
     requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah,
     items: [{ href: "/protected/guru", label: "Dasbor Guru", icon: Home, isExact: true }],
+  },
+   // --- NEW: Administrasi Ujian (All Roles) ---
+  { 
+    roles: ['admin', 'guru'],
+    items: [{ href: "/protected/administrasi-ujian/berita-acara", label: "Administrasi Ujian", icon: FileSignature }],
   },
   {
     groupLabel: "Informasi Sekolah",

@@ -574,7 +574,7 @@ export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjia
     if (user.role === 'admin') {
       q = query(collRef, orderBy('createdAt', 'desc'));
     } else {
-      q = query(collRef, where('createdByUid', '==', user.uid), orderBy('createdAt', 'desc'));
+      q = query(collRef, where('createdByUid', '==', user.uid));
     }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());

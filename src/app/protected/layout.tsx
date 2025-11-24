@@ -83,18 +83,5 @@ export default function ProtectedLayout({
     );
   }
 
-  // Fallback loading/redirecting state for gurus on admin routes to prevent flashing content
-  const isAdminRoute = pathname.startsWith('/protected/admin');
-  if (userProfile.role === 'guru' && isAdminRoute) {
-    const canAccessAdminArea = isKepalaSekolah || isKepalaTataUsaha || isKesiswaan;
-    if (!canAccessAdminArea) {
-         return (
-             <div className="flex min-h-screen w-full items-center justify-center">
-                <p>Mengalihkan...</p>
-             </div>
-        );
-    }
-  }
-
   return <AppShell>{children}</AppShell>;
 }

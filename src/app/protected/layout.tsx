@@ -25,6 +25,12 @@ export default function ProtectedLayout({
 
       const isAdminRoute = pathname.startsWith('/protected/admin');
       const isGuruRoute = pathname.startsWith('/protected/guru');
+      const isAdministrasiUjianRoute = pathname.startsWith('/protected/administrasi-ujian');
+
+      // If it's the shared administrasi-ujian route, allow access for any logged-in user.
+      if (isAdministrasiUjianRoute) {
+        return; // Do nothing, allow access.
+      }
 
       // Admin logic: Admins should not be on guru routes
       if (userProfile.role === 'admin' && isGuruRoute) {

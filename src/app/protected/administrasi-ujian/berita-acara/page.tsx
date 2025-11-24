@@ -163,7 +163,8 @@ export default function BeritaAcaraPage() {
 
         try {
             if (editingBeritaAcara) {
-                await updateBeritaAcara(editingBeritaAcara.id!, payload);
+                // Ensure all form fields are included in the update payload
+                await updateBeritaAcara(editingBeritaAcara.id!, data);
                 toast({ title: "Sukses", description: "Berita acara berhasil diperbarui." });
             } else {
                 await addBeritaAcara(payload);

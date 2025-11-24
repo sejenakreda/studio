@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -26,7 +27,7 @@ const menuItems: GuruMenuItem[] = [
     { title: "Rekap Kehadiran", href: "/protected/guru/rekap-kehadiran-saya", icon: FileClock, color: "text-amber-500", requiredTugas: () => true },
     { title: "Pengumuman", href: "/protected/guru/announcements", icon: Megaphone, color: "text-cyan-500", requiredTugas: () => true },
     { title: "Profil Sekolah", href: "/protected/guru/school-profile", icon: Building, color: "text-gray-500", requiredTugas: () => true },
-    { title: "Administrasi Ujian", href: "/protected/guru/administrasi-ujian", icon: PenSquare, color: "text-orange-500", requiredTugas: () => true },
+    { title: "Administrasi Ujian", href: "/protected/administrasi-ujian/berita-acara", icon: PenSquare, color: "text-orange-500", requiredTugas: () => true },
 
 
     // Special Roles Menu

@@ -251,7 +251,8 @@ export interface BeritaAcaraUjian {
   jumlahPesertaX: number;
   jumlahPesertaXI: number;
   jumlahPesertaXII: number;
-  jumlahTidakHadirManual?: number;
+  jumlahTidakHadirManual: number;
+  pesertaHadirNomor?: string;
   pesertaTidakHadirNomor?: string;
   // Naskah
   jumlahDaftarHadir: number;
@@ -280,5 +281,3 @@ export interface DaftarHadirPengawas {
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }
-
-    

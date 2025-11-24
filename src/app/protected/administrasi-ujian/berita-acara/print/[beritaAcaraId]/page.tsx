@@ -147,6 +147,7 @@ export default function PrintBeritaAcaraPage() {
                                     </td>
                                 </tr>
                                 <tr><td>c. Jumlah seluruh peserta hadir</td><td>:</td><td>{jumlahHadir} orang</td></tr>
+                                <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaHadirNomor || '...................................................'}</td></tr>
                                 <tr><td>d. Jumlah peserta tidak hadir</td><td>:</td><td>{jumlahTidakHadir} orang</td></tr>
                                 <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaTidakHadirNomor || '...................................................'}</td></tr>
                             </tbody>
@@ -191,7 +192,3 @@ export default function PrintBeritaAcaraPage() {
         </>
     );
 }
-
-    
-
-    

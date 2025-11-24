@@ -4,7 +4,7 @@ import React from 'react';
 import Link from "next/link";
 import { 
     Users, Settings, FileText, CalendarCog, 
-    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff
+    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff, FileSignature
 } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 
@@ -31,11 +31,14 @@ const allMenuItems: AdminMenuItem[] = [
 
     // Laporan & Rekapitulasi
     { title: "Semua Nilai", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
-    { title: "Rekap Kehadiran", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
+    { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
     { title: "Agenda Kelas", href: "/protected/admin/agenda-kelas", icon: BookCopy, color: "text-lime-500" },
     { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
     { title: "Laporan Kegiatan", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-fuchsia-500" },
     { title: "Statistik", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
+    // New Menu Items
+    { title: "Rekap Berita Acara", href: "/protected/admin/exam-reports/berita-acara", icon: FileSignature, color: "text-green-600" },
+    { title: "Rekap Hadir Pengawas", href: "/protected/admin/exam-reports/daftar-hadir", icon: CalendarCheck, color: "text-blue-600" },
 ];
 
 

@@ -169,16 +169,7 @@ export default function BeritaAcaraPage() {
                 await addBeritaAcara(payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil disimpan." });
             }
-            form.reset({
-                ...form.getValues(),
-                jenisUjian: "Sumatif Akhir Semester (SAS)",
-                mataUjian: "",
-                ruangUjian: "R-01",
-                kelasDigabung: "",
-                pesertaHadirNomor: "",
-                pesertaAbsenNomor: "",
-                catatanUjian: "",
-            });
+            form.reset();
             setEditingBeritaAcara(null);
             fetchRiwayat();
         } catch (err: any) {
@@ -311,5 +302,3 @@ export default function BeritaAcaraPage() {
         </div>
     );
 }
-
-    

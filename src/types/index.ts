@@ -251,7 +251,7 @@ export interface BeritaAcaraUjian {
   jumlahPesertaXI: number;
   jumlahPesertaXII: number;
   pesertaHadirNomor?: string;
-  pesertaAbsenNomor?: string;
+  pesertaTidakHadirNomor?: string;
   // Naskah
   jumlahDaftarHadir: number;
   jumlahBeritaAcara: number;

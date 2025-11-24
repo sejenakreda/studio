@@ -155,16 +155,15 @@ export default function BeritaAcaraPage() {
     const onSubmit = async (data: BeritaAcaraFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        const payload = {
+        const payload: Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'> = {
             ...data,
             createdByUid: userProfile.uid,
-            createdByDisplayName: userProfile.displayName,
+            createdByDisplayName: userProfile.displayName || 'Pengawas',
         };
 
         try {
             if (editingBeritaAcara) {
-                // Ensure all form fields are included in the update payload
-                await updateBeritaAcara(editingBeritaAcara.id!, data);
+                await updateBeritaAcara(editingBeritaAcara.id!, payload); // Send full payload on update
                 toast({ title: "Sukses", description: "Berita acara berhasil diperbarui." });
             } else {
                 await addBeritaAcara(payload);

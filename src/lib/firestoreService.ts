@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -511,8 +511,112 @@ const schoolHolidayConverter: FirestoreDataConverter<SchoolHoliday> = {
   },
 };
 
+const beritaAcaraConverter: FirestoreDataConverter<BeritaAcaraUjian> = {
+  toFirestore(beritaAcara: Omit<BeritaAcaraUjian, 'id'>): DocumentData {
+    return {
+      ...beritaAcara,
+      createdAt: beritaAcara.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): BeritaAcaraUjian {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      jenisUjian: data.jenisUjian,
+      tahunPelajaran: data.tahunPelajaran,
+      mataUjian: data.mataUjian,
+      hari: data.hari,
+      tanggal: data.tanggal,
+      bulan: data.bulan,
+      tahun: data.tahun,
+      waktuMulai: data.waktuMulai,
+      waktuSelesai: data.waktuSelesai,
+      ruangUjian: data.ruangUjian,
+      kelasDigabung: data.kelasDigabung,
+      jumlahPesertaX: data.jumlahPesertaX,
+      jumlahPesertaXI: data.jumlahPesertaXI,
+      jumlahPesertaXII: data.jumlahPesertaXII,
+      pesertaHadirNomor: data.pesertaHadirNomor,
+      pesertaAbsenNomor: data.pesertaAbsenNomor,
+      jumlahDaftarHadir: data.jumlahDaftarHadir,
+      jumlahBeritaAcara: data.jumlahBeritaAcara,
+      catatanUjian: data.catatanUjian,
+      pengawasNama: data.pengawasNama,
+      pengawasTandaTanganUrl: data.pengawasTandaTanganUrl,
+      createdByUid: data.createdByUid,
+      createdByDisplayName: data.createdByDisplayName,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
+  },
+};
 
 // --- Service Functions with Error Handling ---
+
+// --- Berita Acara Ujian Service ---
+const BERITA_ACARA_COLLECTION = 'beritaAcaraUjian';
+
+export const addBeritaAcara = async (data: Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'>): Promise<BeritaAcaraUjian> => {
+  try {
+    const collRef = collection(db, BERITA_ACARA_COLLECTION).withConverter(beritaAcaraConverter);
+    const docRef = await addDoc(collRef, data);
+    return { id: docRef.id, ...data, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+  } catch (error) {
+    handleFirestoreError(error, 'menambah', BERITA_ACARA_COLLECTION);
+  }
+};
+
+export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjian[]> => {
+  try {
+    const collRef = collection(db, BERITA_ACARA_COLLECTION).withConverter(beritaAcaraConverter);
+    let q;
+    if (user.role === 'admin') {
+      q = query(collRef, orderBy('createdAt', 'desc'));
+    } else {
+      q = query(collRef, where('createdByUid', '==', user.uid), orderBy('createdAt', 'desc'));
+    }
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data());
+  } catch (error) {
+    handleFirestoreError(error, 'membaca semua', BERITA_ACARA_COLLECTION);
+  }
+};
+
+export const getBeritaAcaraById = async (id: string): Promise<BeritaAcaraUjian | null> => {
+  try {
+    const docRef = doc(db, BERITA_ACARA_COLLECTION, id).withConverter(beritaAcaraConverter);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data() : null;
+  } catch (error) {
+    handleFirestoreError(error, 'membaca', BERITA_ACARA_COLLECTION);
+  }
+};
+
+export const updateBeritaAcara = async (id: string, data: Partial<Omit<BeritaAcaraUjian, 'id' | 'createdAt'>>): Promise<void> => {
+  try {
+    const docRef = doc(db, BERITA_ACARA_COLLECTION, id);
+    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+  } catch (error) {
+    handleFirestoreError(error, 'memperbarui', BERITA_ACARA_COLLECTION);
+  }
+};
+
+export const deleteBeritaAcara = async (id: string, user: UserProfile): Promise<void> => {
+  try {
+    const docRef = doc(db, BERITA_ACARA_COLLECTION, id);
+    if (user.role !== 'admin') {
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists() || docSnap.data().createdByUid !== user.uid) {
+        throw new Error("Anda tidak memiliki izin untuk menghapus dokumen ini.");
+      }
+    }
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, 'menghapus', BERITA_ACARA_COLLECTION);
+  }
+};
+
 
 // --- Bobot Service ---
 const WEIGHTS_DOC_ID = 'global_weights';

@@ -4,7 +4,7 @@ import React from 'react';
 import Link from "next/link";
 import { 
     Users, Settings, FileText, CalendarCog, 
-    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff
+    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff, PenSquare
 } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 
@@ -28,6 +28,8 @@ const allMenuItems: AdminMenuItem[] = [
     { title: "Pengumuman", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
     { title: "Profil Sekolah", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" },
     { title: "Pengaturan Cetak", href: "/protected/admin/print-settings", icon: Printer, color: "text-pink-500" },
+    { title: "Administrasi Ujian", href: "/protected/admin/administrasi-ujian", icon: PenSquare, color: "text-orange-500" },
+
 
     // Laporan & Rekapitulasi
     { title: "Semua Nilai", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },

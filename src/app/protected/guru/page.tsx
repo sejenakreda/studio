@@ -1,11 +1,10 @@
-
 "use client";
 
 import React from 'react';
 import Link from "next/link";
 import { 
     BookUser, Edit3, BarChartHorizontalBig, Megaphone, Building, 
-    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion, CalendarCheck, FileWarning
+    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion, CalendarCheck, FileWarning, PenSquare
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; 
 
@@ -27,6 +26,8 @@ const menuItems: GuruMenuItem[] = [
     { title: "Rekap Kehadiran", href: "/protected/guru/rekap-kehadiran-saya", icon: FileClock, color: "text-amber-500", requiredTugas: () => true },
     { title: "Pengumuman", href: "/protected/guru/announcements", icon: Megaphone, color: "text-cyan-500", requiredTugas: () => true },
     { title: "Profil Sekolah", href: "/protected/guru/school-profile", icon: Building, color: "text-gray-500", requiredTugas: () => true },
+    { title: "Administrasi Ujian", href: "/protected/guru/administrasi-ujian", icon: PenSquare, color: "text-orange-500", requiredTugas: () => true },
+
 
     // Special Roles Menu
     { title: "Laporan Kegiatan", href: "/protected/guru/laporan-kegiatan", icon: BookCheck, color: "text-rose-500", requiredTugas: ({ isKesiswaan, isKurikulum, isPembinaEskul, isPembinaOsis, isBendahara, isBk, isOperator, isKepalaTataUsaha, isStafTu, isSatpam, isPenjagaSekolah, isKepalaSekolah }) => isKesiswaan || isKurikulum || isPembinaEskul || isPembinaOsis || isBendahara || isBk || isOperator || isKepalaTataUsaha || isStafTu || isSatpam || isPenjagaSekolah || isKepalaSekolah },

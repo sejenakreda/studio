@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -142,14 +141,14 @@ export default function BeritaAcaraPage() {
     }, [userProfile, editingBeritaAcara, form]);
 
     const { watch } = form;
-    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaHadirNomor"]);
+    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaAbsenNomor"]);
 
-    const [totalPeserta, jumlahHadir, jumlahTidakHadir] = useMemo(() => {
-        const [jx, jxi, jxii, hadirNomor] = watchedValues;
+    const [totalPeserta, jumlahTidakHadir, jumlahHadir] = useMemo(() => {
+        const [jx, jxi, jxii, absenNomor] = watchedValues;
         const total = (Number(jx) || 0) + (Number(jxi) || 0) + (Number(jxii) || 0);
-        const hadir = hadirNomor ? hadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
-        const tidakHadir = total - hadir;
-        return [total, hadir, tidakHadir];
+        const tidakHadir = absenNomor ? absenNomor.split(',').filter(p => p.trim() !== "").length : 0;
+        const hadir = total - tidakHadir;
+        return [total, tidakHadir, hadir];
     }, [watchedValues]);
 
 
@@ -247,11 +246,11 @@ export default function BeritaAcaraPage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md">
                                 <div className="font-medium">Total Seharusnya: <span className="font-bold">{totalPeserta}</span> orang</div>
-                                <div className="font-medium">Jumlah Hadir: <span className="font-bold">{jumlahHadir}</span> orang</div>
-                                <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold">{jumlahTidakHadir}</span> orang</div>
+                                <div className="font-medium">Jumlah Hadir: <span className="font-bold text-green-600">{jumlahHadir}</span> orang</div>
+                                <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold text-red-600">{jumlahTidakHadir}</span> orang</div>
                             </div>
-                            <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="jumlahDaftarHadir" render={({ field }) => (<FormItem><FormLabel>Jumlah Daftar Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="jumlahBeritaAcara" render={({ field }) => (<FormItem><FormLabel>Jumlah Berita Acara</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />

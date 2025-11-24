@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -72,7 +73,8 @@ export default function PrintDaftarHadirPage() {
     const printSubTitle = `TAHUN PELAJARAN ${month >= 7 ? `${year}/${year + 1}`: `${year - 1}/${year}`}`;
     const printPeriod = `BULAN: ${MONTHS[month - 1]?.toUpperCase()} ${year}`;
 
-    const waliKelasNameForPrint = isKurikulum ? (userProfile?.displayName || null) : null;
+    // For the footer, we use the logged-in user's name if they have 'kurikulum' role.
+    const sekretarisNameForPrint = isKurikulum ? (userProfile?.displayName || null) : null;
 
     if (isLoading) {
         return (
@@ -118,6 +120,19 @@ export default function PrintDaftarHadirPage() {
                 th, td { border: 1px solid #000; padding: 5px; text-align: center; vertical-align: middle; }
                 .text-left { text-align: left; }
                 .ttd-cell { height: 60px; }
+                .print-footer-single {
+                    margin-top: 40px;
+                    font-size: 11pt;
+                    width: 100%;
+                    color: #000;
+                    display: flex;
+                    justify-content: flex-end; /* Align to the right */
+                }
+                .signature-box-single {
+                    width: 45%;
+                    text-align: center;
+                    padding: 0 1rem;
+                }
                 @media print { .no-print { display: none; } }
             `}</style>
 
@@ -138,18 +153,15 @@ export default function PrintDaftarHadirPage() {
                             <th rowSpan={2}>Ruang</th>
                             <th colSpan={2}>Waktu</th>
                             <th rowSpan={2}>Nama Pengawas</th>
-                            <th colSpan={2}>Tanda Tangan</th>
+                            <th rowSpan={2}>Tanda Tangan</th>
                         </tr>
                         <tr>
                             <th>Mulai</th>
                             <th>Selesai</th>
-                            <th>Pagi</th>
-                            <th>Siang</th>
                         </tr>
                     </thead>
                     <tbody>
                         {records.map((rec, index) => {
-                            const isPagi = parseInt(rec.waktuMulai.split(':')[0]) < 12;
                             return (
                                 <tr key={rec.id}>
                                     <td>{index + 1}</td>
@@ -160,10 +172,7 @@ export default function PrintDaftarHadirPage() {
                                     <td>{rec.waktuSelesai}</td>
                                     <td className="text-left">{rec.namaPengawas}</td>
                                     <td className="ttd-cell">
-                                        {isPagi && rec.tandaTanganUrl && <Image src={rec.tandaTanganUrl} alt="TTD" width={100} height={50} style={{ objectFit: 'contain', margin: 'auto' }} />}
-                                    </td>
-                                    <td className="ttd-cell">
-                                        {!isPagi && rec.tandaTanganUrl && <Image src={rec.tandaTanganUrl} alt="TTD" width={100} height={50} style={{ objectFit: 'contain', margin: 'auto' }} />}
+                                        {rec.tandaTanganUrl && <Image src={rec.tandaTanganUrl} alt="TTD" width={100} height={50} style={{ objectFit: 'contain', margin: 'auto' }} />}
                                     </td>
                                 </tr>
                             )
@@ -171,7 +180,18 @@ export default function PrintDaftarHadirPage() {
                     </tbody>
                 </table>
                 
-                <PrintFooter settings={printSettings} waliKelasName={waliKelasNameForPrint} />
+                <div className="print-footer-single">
+                    <div className="signature-box-single">
+                        <p style={{ margin: 0 }}>{printSettings?.place || 'Cianjur'}, {format(new Date(), "dd MMMM yyyy", { locale: indonesiaLocale })}</p>
+                        <p style={{ margin: 0 }}>Sekretaris</p>
+                        <div style={{ height: '4rem' }}></div>
+                        <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
+                            ( {sekretarisNameForPrint || printSettings?.signerTwoName || '....................................'} )
+                        </p>
+                        {printSettings?.signerTwoNpa && <p style={{ margin: 0 }}>NPA. {printSettings.signerTwoNpa}</p>}
+                    </div>
+                </div>
+
 
                 <div className="no-print" style={{ textAlign: 'center', marginTop: '2rem' }}>
                     <Button onClick={() => window.print()}>Cetak Ulang</Button>

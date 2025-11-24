@@ -537,8 +537,9 @@ const beritaAcaraConverter: FirestoreDataConverter<BeritaAcaraUjian> = {
       jumlahPesertaX: data.jumlahPesertaX,
       jumlahPesertaXI: data.jumlahPesertaXI,
       jumlahPesertaXII: data.jumlahPesertaXII,
+      jumlahTidakHadirManual: data.jumlahTidakHadirManual,
       pesertaHadirNomor: data.pesertaHadirNomor,
-      pesertaAbsenNomor: data.pesertaAbsenNomor,
+      pesertaTidakHadirNomor: data.pesertaTidakHadirNomor,
       jumlahDaftarHadir: data.jumlahDaftarHadir,
       jumlahBeritaAcara: data.jumlahBeritaAcara,
       catatanUjian: data.catatanUjian,
@@ -671,7 +672,7 @@ export const getBeritaAcaraById = async (id: string): Promise<BeritaAcaraUjian |
   }
 };
 
-export const updateBeritaAcara = async (id: string, data: Partial<Omit<BeritaAcaraUjian, 'id' | 'createdAt'>>): Promise<void> => {
+export const updateBeritaAcara = async (id: string, data: Partial<Omit<BeritaAcaraUjian, 'id'>>): Promise<void> => {
   try {
     const docRef = doc(db, BERITA_ACARA_COLLECTION, id);
     await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });

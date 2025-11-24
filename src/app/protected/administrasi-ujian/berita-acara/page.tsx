@@ -142,17 +142,15 @@ export default function BeritaAcaraPage() {
     }, [userProfile, editingBeritaAcara, form]);
 
     const { watch } = form;
-    const jumlahPesertaX = watch("jumlahPesertaX");
-    const jumlahPesertaXI = watch("jumlahPesertaXI");
-    const jumlahPesertaXII = watch("jumlahPesertaXII");
-    const pesertaHadirNomor = watch("pesertaHadirNomor");
+    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaHadirNomor"]);
 
-    const totalPeserta = useMemo(() => {
-        return (Number(jumlahPesertaX) || 0) + (Number(jumlahPesertaXI) || 0) + (Number(jumlahPesertaXII) || 0);
-    }, [jumlahPesertaX, jumlahPesertaXI, jumlahPesertaXII]);
-
-    const jumlahHadir = useMemo(() => pesertaHadirNomor?.split(',').filter(p => p.trim() !== "").length || 0, [pesertaHadirNomor]);
-    const jumlahAbsen = useMemo(() => totalPeserta - jumlahHadir, [totalPeserta, jumlahHadir]);
+    const [totalPeserta, jumlahHadir, jumlahTidakHadir] = useMemo(() => {
+        const [jx, jxi, jxii, hadirNomor] = watchedValues;
+        const total = (Number(jx) || 0) + (Number(jxi) || 0) + (Number(jxii) || 0);
+        const hadir = hadirNomor ? hadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
+        const tidakHadir = total - hadir;
+        return [total, hadir, tidakHadir];
+    }, [watchedValues]);
 
 
     const onSubmit = async (data: BeritaAcaraFormData) => {
@@ -172,7 +170,19 @@ export default function BeritaAcaraPage() {
                 await addBeritaAcara(payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil disimpan." });
             }
-            form.reset();
+            form.reset({
+                ...form.getValues(), // Keep some values like date, time, etc.
+                jenisUjian: "Sumatif Akhir Semester (SAS)",
+                mataUjian: "",
+                ruangUjian: "R-01",
+                kelasDigabung: "",
+                jumlahPesertaX: 0,
+                jumlahPesertaXI: 0,
+                jumlahPesertaXII: 0,
+                pesertaHadirNomor: "",
+                pesertaAbsenNomor: "",
+                catatanUjian: "",
+            });
             setEditingBeritaAcara(null);
             fetchRiwayat();
         } catch (err: any) {
@@ -238,10 +248,10 @@ export default function BeritaAcaraPage() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md">
                                 <div className="font-medium">Total Seharusnya: <span className="font-bold">{totalPeserta}</span> orang</div>
                                 <div className="font-medium">Jumlah Hadir: <span className="font-bold">{jumlahHadir}</span> orang</div>
-                                <div className="font-medium">Jumlah Absen: <span className="font-bold">{jumlahAbsen}</span> orang</div>
+                                <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold">{jumlahTidakHadir}</span> orang</div>
                             </div>
                             <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Absen (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="jumlahDaftarHadir" render={({ field }) => (<FormItem><FormLabel>Jumlah Daftar Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="jumlahBeritaAcara" render={({ field }) => (<FormItem><FormLabel>Jumlah Berita Acara</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -305,5 +315,3 @@ export default function BeritaAcaraPage() {
         </div>
     );
 }
-
-    

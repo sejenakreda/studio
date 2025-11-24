@@ -55,7 +55,7 @@ const beritaAcaraSchema = z.object({
   jumlahPesertaXII: z.coerce.number().min(0).default(0),
   
   pesertaHadirNomor: z.string().optional(),
-  pesertaAbsenNomor: z.string().optional(),
+  pesertaTidakHadirNomor: z.string().optional(),
   
   jumlahDaftarHadir: z.coerce.number().min(0).default(0),
   jumlahBeritaAcara: z.coerce.number().min(0).default(0),
@@ -79,7 +79,7 @@ function getDayName(date: Date): string {
 
 export default function BeritaAcaraPage() {
     const { toast } = useToast();
-    const { userProfile } = useAuth();
+    const { userProfile, isKurikulum } = useAuth();
     const router = useRouter();
 
     const [riwayat, setRiwayat] = useState<BeritaAcaraUjian[]>([]);
@@ -106,7 +106,7 @@ export default function BeritaAcaraPage() {
           jumlahPesertaXI: 0,
           jumlahPesertaXII: 0,
           pesertaHadirNomor: "",
-          pesertaAbsenNomor: "",
+          pesertaTidakHadirNomor: "",
           jumlahDaftarHadir: 1,
           jumlahBeritaAcara: 1,
           catatanUjian: "",
@@ -121,7 +121,7 @@ export default function BeritaAcaraPage() {
         try {
             if (!userProfile) return;
             const data = await getBeritaAcara(userProfile);
-            setRiwayat(data.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis()));
+            setRiwayat(data);
         } catch (err: any) {
             setError("Gagal memuat riwayat berita acara.");
             toast({ variant: "destructive", title: "Error", description: err.message });
@@ -141,14 +141,14 @@ export default function BeritaAcaraPage() {
     }, [userProfile, editingBeritaAcara, form]);
 
     const { watch } = form;
-    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaAbsenNomor"]);
+    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaTidakHadirNomor"]);
 
     const [totalPeserta, jumlahTidakHadir, jumlahHadir] = useMemo(() => {
-        const [jx, jxi, jxii, absenNomor] = watchedValues;
+        const [jx, jxi, jxii, tidakHadirNomor] = watchedValues;
         const total = (Number(jx) || 0) + (Number(jxi) || 0) + (Number(jxii) || 0);
-        const tidakHadir = absenNomor ? absenNomor.split(',').filter(p => p.trim() !== "").length : 0;
-        const hadir = total - tidakHadir;
-        return [total, tidakHadir, hadir];
+        const tidakHadirCount = tidakHadirNomor ? tidakHadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
+        const hadirCount = total - tidakHadirCount;
+        return [total, tidakHadirCount, hadirCount];
     }, [watchedValues]);
 
 
@@ -157,7 +157,7 @@ export default function BeritaAcaraPage() {
         
         const payload = {
             ...data,
-            pengawasUid: userProfile.uid,
+            createdByUid: userProfile.uid,
             createdByDisplayName: userProfile.displayName,
         };
 
@@ -179,7 +179,7 @@ export default function BeritaAcaraPage() {
                 jumlahPesertaXI: 0,
                 jumlahPesertaXII: 0,
                 pesertaHadirNomor: "",
-                pesertaAbsenNomor: "",
+                pesertaTidakHadirNomor: "",
                 catatanUjian: "",
                 pengawasTandaTanganUrl: "",
             });
@@ -251,7 +251,7 @@ export default function BeritaAcaraPage() {
                                 <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold text-red-600">{jumlahTidakHadir}</span> orang</div>
                             </div>
                             <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="pesertaAbsenNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="pesertaTidakHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="jumlahDaftarHadir" render={({ field }) => (<FormItem><FormLabel>Jumlah Daftar Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="jumlahBeritaAcara" render={({ field }) => (<FormItem><FormLabel>Jumlah Berita Acara</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -289,8 +289,12 @@ export default function BeritaAcaraPage() {
                                         <TableCell>{item.createdByDisplayName}</TableCell>
                                         <TableCell className="text-right space-x-1">
                                             <Button variant="outline" size="icon" onClick={() => handlePrint(item.id!)}><Printer className="h-4 w-4"/></Button>
-                                            <Button variant="outline" size="icon" onClick={() => handleEdit(item)}><Edit className="h-4 w-4"/></Button>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setBeritaAcaraToDelete(item)}><Trash2 className="h-4 w-4"/></Button>
+                                            {(userProfile?.role === 'admin' || userProfile?.uid === item.createdByUid || isKurikulum) && (
+                                                <>
+                                                <Button variant="outline" size="icon" onClick={() => handleEdit(item)}><Edit className="h-4 w-4"/></Button>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setBeritaAcaraToDelete(item)}><Trash2 className="h-4 w-4"/></Button>
+                                                </>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                     ))}
@@ -315,3 +319,4 @@ export default function BeritaAcaraPage() {
         </div>
     );
 }
+    

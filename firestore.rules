@@ -137,16 +137,17 @@ service cloud.firestore {
     }
 
     match /beritaAcaraUjian/{docId} {
-      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.createdByUid == request.auth.uid;
+      allow read: if isAuthenticated(); // All authenticated users can read for list views.
       allow update: if isAuthenticated() && (isAdmin() || isKurikulum() || request.resource.data.createdByUid == request.auth.uid);
       allow delete: if isAuthenticated() && (isAdmin() || isKurikulum() || resource.data.createdByUid == request.auth.uid);
     }
 
     match /daftarHadirPengawas/{docId} {
-      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.createdByUid == request.auth.uid;
+      allow read: if isAuthenticated(); // All authenticated users can read for list views.
       allow delete: if isAuthenticated() && (isAdmin() || isKurikulum() || resource.data.createdByUid == request.auth.uid);
     }
   }
 }
+    

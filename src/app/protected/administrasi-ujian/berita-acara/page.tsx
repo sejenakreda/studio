@@ -147,7 +147,10 @@ export default function BeritaAcaraPage() {
     const jumlahPesertaXII = watch("jumlahPesertaXII");
     const pesertaHadirNomor = watch("pesertaHadirNomor");
 
-    const totalPeserta = useMemo(() => jumlahPesertaX + jumlahPesertaXI + jumlahPesertaXII, [jumlahPesertaX, jumlahPesertaXI, jumlahPesertaXII]);
+    const totalPeserta = useMemo(() => {
+        return (Number(jumlahPesertaX) || 0) + (Number(jumlahPesertaXI) || 0) + (Number(jumlahPesertaXII) || 0);
+    }, [jumlahPesertaX, jumlahPesertaXI, jumlahPesertaXII]);
+
     const jumlahHadir = useMemo(() => pesertaHadirNomor?.split(',').filter(p => p.trim() !== "").length || 0, [pesertaHadirNomor]);
     const jumlahAbsen = useMemo(() => totalPeserta - jumlahHadir, [totalPeserta, jumlahHadir]);
 
@@ -302,3 +305,5 @@ export default function BeritaAcaraPage() {
         </div>
     );
 }
+
+    

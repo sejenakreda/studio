@@ -123,7 +123,7 @@ export default function PrintBeritaAcaraPage() {
 
             <div className="print-container">
                 <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                <h2 className="print-title">BERITA ACARA PELAKSANAAN</h2>
+                <h2 className="print-title">BERITA ACARA PELAKSANAAN UJIAN</h2>
                 <h3 className="print-subtitle">{data.jenisUjian} TAHUN PELAJARAN {data.tahunPelajaran}</h3>
 
                 <p className="opening-paragraph">

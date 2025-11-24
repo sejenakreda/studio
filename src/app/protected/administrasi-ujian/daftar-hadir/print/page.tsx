@@ -69,11 +69,11 @@ export default function PrintDaftarHadirPage() {
         }
     }, [isLoading, error, records]);
 
-    const printMainTitle = `DAFTAR HADIR PENGAWAS RUANG`;
-    const printSubTitle = `TAHUN PELAJARAN ${month >= 7 ? `${year}/${year + 1}`: `${year - 1}/${year}`}`;
+    const printMainTitle = `DAFTAR HADIR PENGAWAS UJIAN`;
+    const printSubTitle = `PENILAIAN SUMATIF AKHIR SEMESTER (SAS)`;
+    const printSubTitle2 = `TAHUN PELAJARAN ${month >= 7 ? `${year}/${year + 1}`: `${year - 1}/${year}`}`;
     const printPeriod = `BULAN: ${MONTHS[month - 1]?.toUpperCase()} ${year}`;
 
-    // For the footer, we use the logged-in user's name if they have 'kurikulum' role.
     const sekretarisNameForPrint = isKurikulum ? (userProfile?.displayName || null) : null;
 
     if (isLoading) {
@@ -141,6 +141,7 @@ export default function PrintDaftarHadirPage() {
                 <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                     <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', textDecoration: 'underline', margin: 0 }}>{printMainTitle}</h2>
                     <p style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0 }}>{printSubTitle}</p>
+                    <p style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0 }}>{printSubTitle2}</p>
                     <p style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0 }}>{printPeriod}</p>
                 </div>
                 

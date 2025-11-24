@@ -131,141 +131,65 @@ export default function PrintLaporanGabunganPage() {
     return (
         <>
             <style jsx global>{`
-                /* Ukuran kertas A4 */
-                @page {
-                    size: A4;
-                    margin: 10mm;
-                }
-
-                /* Styling umum */
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    background: #fff;
-                }
-
-                h1, h2, h3 {
-                    margin: 0;
-                    padding: 0;
-                }
-
-                .cover {
-                    text-align: center;
-                    padding: 10px 0;
-                    margin-bottom: 10px;
-                }
-
-                .table-container {
-                    width: 100%;
-                    margin-top: 10px;
-                }
-
-                table {
-                    border-collapse: collapse;
-                    width: 100%;
-                    font-size: 11pt;
-                }
-
-                th, td {
-                    border: 1px solid #000;
-                    padding: 5px;
-                    text-align: left;
-                    word-wrap: break-word;
-                }
-
-                .group-title {
-                    font-size: 12pt;
-                    font-weight: bold;
-                    margin-top: 1.5rem;
-                    margin-bottom: 0.5rem;
-                }
-
-                .btn-container {
-                    margin: 15px;
-                    text-align: center;
-                }
-
-                /* Mode cetak */
-                @media print {
-                    /* Hilangkan scrollbar sepenuhnya */
-                    html, body, .table-container, #__next, main {
-                        overflow: visible !important;
-                        height: auto !important;
-                        max-height: none !important;
-                    }
-                    ::-webkit-scrollbar { display: none !important; }
-                    
-                    /* Header tabel muncul di setiap halaman */
-                    thead { display: table-header-group; }
-                    tfoot { display: table-footer-group; }
-
-                    /* Multi-page */
-                    table { page-break-inside: auto; }
-                    tr, td, th { page-break-inside: avoid; }
-                    
-                    /* Hapus halaman kosong di awal */
-                    * { page-break-before: auto !important; }
-                    body { margin-top: 0 !important; }
-
-                    /* Footer tanda tangan (PrintFooter) */
-                    .print-footer {
-                        page-break-before: auto !important; /* Jangan selalu paksa halaman baru */
-                        page-break-inside: avoid !important;
-                        display: block !important;
-                    }
-
-                    /* Tombol tidak ikut cetak */
-                    button { display: none !important; }
-                }
+                @page { size: A4 portrait; margin: 15mm; }
+                body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000; background-color: #fff; }
+                .print-container { width: 100%; }
+                table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+                th, td { border: 1px solid #000; padding: 5px; text-align: left; vertical-align: top; }
+                th { text-align: center; }
+                .group-title { font-size: 12pt; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+                .page-break-before { break-before: page; }
+                @media print { .no-print { display: none; } }
             `}</style>
             
             <div className="print-area">
-                <div className="cover">
+                <div className="print-container">
                     <PrintHeader imageUrl={printSettings?.headerImageUrl} />
-                    <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase', marginTop: '1rem' }}>{printMainTitle}</h2>
-                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
-                    <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printPeriod}</h3>
-                </div>
+                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                        <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printMainTitle}</h2>
+                        <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printSubTitle}</h3>
+                        <h3 style={{ fontSize: '12pt', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>{printPeriod}</h3>
+                    </div>
 
-                <div className="table-container">
-                    {orderedGroupKeys.length === 0 ? (
-                        <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
-                    ) : (
-                        orderedGroupKeys.map((groupKey) => (
-                            <div key={groupKey}>
-                                <h4 className="group-title">
-                                    Laporan: {getActivityName(groupKey)}
-                                </h4>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th style={{width: '5%'}}>No.</th>
-                                            <th style={{width: '15%'}}>Tanggal</th>
-                                            <th style={{width: '20%'}}>Nama Staf</th>
-                                            <th style={{width: '25%'}}>Judul Laporan</th>
-                                            <th style={{width: '35%'}}>Uraian Kegiatan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredAndGroupedReports[groupKey].map((r, index) => (
-                                            <tr key={r.id}>
-                                                <td style={{textAlign: 'center'}}>{index + 1}</td>
-                                                <td>{r.date ? format(r.date.toDate(), "dd-MM-yyyy") : '-'}</td>
-                                                <td>{r.createdByDisplayName}</td>
-                                                <td>{r.title}</td>
-                                                <td>{r.content || '-'}</td>
+                    <div style={{ marginTop: '1.5rem' }}>
+                        {orderedGroupKeys.length === 0 ? (
+                            <p style={{ textAlign: 'center', padding: '2rem' }}>Tidak ada data laporan untuk periode ini.</p>
+                        ) : (
+                            orderedGroupKeys.map((groupKey) => (
+                                <div key={groupKey} className="page-break-inside-avoid">
+                                    <h4 className="group-title">
+                                        Laporan: {getActivityName(groupKey)}
+                                    </h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th style={{width: '5%'}}>No.</th>
+                                                <th style={{width: '15%'}}>Tanggal</th>
+                                                <th style={{width: '20%'}}>Nama Staf</th>
+                                                <th style={{width: '25%'}}>Judul Laporan</th>
+                                                <th style={{width: '35%'}}>Uraian Kegiatan</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ))
-                    )}
+                                        </thead>
+                                        <tbody>
+                                            {filteredAndGroupedReports[groupKey].map((r, index) => (
+                                                <tr key={r.id}>
+                                                    <td style={{textAlign: 'center'}}>{index + 1}</td>
+                                                    <td>{r.date ? format(r.date.toDate(), "dd-MM-yyyy") : '-'}</td>
+                                                    <td>{r.createdByDisplayName}</td>
+                                                    <td>{r.title}</td>
+                                                    <td>{r.content || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    
+                    <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
                 </div>
-                
-                <PrintFooter settings={printSettings} waliKelasName={kepalaTU?.displayName} />
-
-                <div className="btn-container">
+                <div className="no-print" style={{ textAlign: 'center', marginTop: '2rem' }}>
                     <Button onClick={() => window.print()}>Cetak Ulang</Button>
                 </div>
             </div>

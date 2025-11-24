@@ -36,6 +36,10 @@ service cloud.firestore {
     function isKesiswaan() {
       return hasTugas('kesiswaan');
     }
+    
+    function isKurikulum() {
+        return hasTugas('kurikulum');
+    }
 
     function isKepalaTataUsaha() {
       return hasTugas('kepala_tata_usaha');
@@ -132,11 +136,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // NEW: Rules for Berita Acara Ujian
     match /beritaAcaraUjian/{docId} {
-      // Allow any authenticated user to read and write.
-      // This simplifies the logic and prevents permission conflicts we saw earlier.
       allow read, write: if isAuthenticated();
+    }
+
+    // NEW: Rules for Daftar Hadir Pengawas
+    match /daftarHadirPengawas/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.createdByUid == request.auth.uid;
+      allow delete: if isAuthenticated() && (isAdmin() || isKurikulum() || resource.data.createdByUid == request.auth.uid);
     }
   }
 }

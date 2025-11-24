@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian, DaftarHadirPengawas } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -552,7 +552,77 @@ const beritaAcaraConverter: FirestoreDataConverter<BeritaAcaraUjian> = {
   },
 };
 
+const daftarHadirPengawasConverter: FirestoreDataConverter<DaftarHadirPengawas> = {
+  toFirestore(data: Omit<DaftarHadirPengawas, 'id'>): DocumentData {
+    return {
+      ...data,
+      createdAt: data.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): DaftarHadirPengawas {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      tanggalUjian: data.tanggalUjian,
+      mataUjian: data.mataUjian,
+      ruangUjian: data.ruangUjian,
+      waktuMulai: data.waktuMulai,
+      waktuSelesai: data.waktuSelesai,
+      namaPengawas: data.namaPengawas,
+      tandaTanganUrl: data.tandaTanganUrl,
+      createdByUid: data.createdByUid,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
+  },
+};
+
+
 // --- Service Functions with Error Handling ---
+// --- Daftar Hadir Pengawas Service ---
+const DAFTAR_HADIR_PENGAWAS_COLLECTION = 'daftarHadirPengawas';
+
+export const addDaftarHadirPengawas = async (data: Omit<DaftarHadirPengawas, 'id' | 'createdAt' | 'updatedAt'>): Promise<DaftarHadirPengawas> => {
+  try {
+    const collRef = collection(db, DAFTAR_HADIR_PENGAWAS_COLLECTION).withConverter(daftarHadirPengawasConverter);
+    const docRef = await addDoc(collRef, data);
+    return { id: docRef.id, ...data, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+  } catch (error) {
+    handleFirestoreError(error, 'menambah', DAFTAR_HADIR_PENGAWAS_COLLECTION);
+  }
+};
+
+export const getDaftarHadirPengawas = async (user: UserProfile): Promise<DaftarHadirPengawas[]> => {
+  try {
+    const collRef = collection(db, DAFTAR_HADIR_PENGAWAS_COLLECTION).withConverter(daftarHadirPengawasConverter);
+    let q;
+    if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
+      q = query(collRef, orderBy('tanggalUjian', 'desc'));
+    } else {
+      q = query(collRef, where('createdByUid', '==', user.uid), orderBy('tanggalUjian', 'desc'));
+    }
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data());
+  } catch (error) {
+    handleFirestoreError(error, 'membaca riwayat', DAFTAR_HADIR_PENGAWAS_COLLECTION);
+  }
+};
+
+export const deleteDaftarHadirPengawas = async (id: string, user: UserProfile): Promise<void> => {
+  try {
+    const docRef = doc(db, DAFTAR_HADIR_PENGAWAS_COLLECTION, id);
+    if (user.role !== 'admin' && !user.tugasTambahan?.includes('kurikulum')) {
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists() || docSnap.data().createdByUid !== user.uid) {
+        throw new Error("Anda tidak memiliki izin untuk menghapus dokumen ini.");
+      }
+    }
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, 'menghapus', DAFTAR_HADIR_PENGAWAS_COLLECTION);
+  }
+};
 
 // --- Berita Acara Ujian Service ---
 const BERITA_ACARA_COLLECTION = 'beritaAcaraUjian';
@@ -572,9 +642,9 @@ export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjia
     const collRef = collection(db, BERITA_ACARA_COLLECTION).withConverter(beritaAcaraConverter);
     let q;
     if (user.role === 'admin') {
-      q = query(collRef, orderBy('createdAt', 'desc'));
+       q = query(collRef);
     } else {
-      q = query(collRef, where('createdByUid', '==', user.uid));
+       q = query(collRef, where('createdByUid', '==', user.uid));
     }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());

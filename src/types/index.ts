@@ -245,17 +245,18 @@ export interface BeritaAcaraUjian {
   waktuMulai: string;
   waktuSelesai: string;
   ruangUjian: string;
+  kelasDigabung?: string;
   // Peserta
   jumlahPesertaX: number;
   jumlahPesertaXI: number;
   jumlahPesertaXII: number;
-  pesertaHadirNomor: string;
-  pesertaAbsenNomor: string;
+  pesertaHadirNomor?: string;
+  pesertaAbsenNomor?: string;
   // Naskah
   jumlahDaftarHadir: number;
   jumlahBeritaAcara: number;
   // Catatan & Pengawas
-  catatanUjian: string;
+  catatanUjian?: string;
   pengawasNama: string;
   pengawasTandaTanganUrl?: string;
   // Metadata
@@ -263,4 +264,18 @@ export interface BeritaAcaraUjian {
   createdByDisplayName: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+export interface DaftarHadirPengawas {
+    id?: string;
+    tanggalUjian: Timestamp;
+    mataUjian: string;
+    ruangUjian: string;
+    waktuMulai: string;
+    waktuSelesai: string;
+    namaPengawas: string;
+    tandaTanganUrl: string;
+    createdByUid: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }

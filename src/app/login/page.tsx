@@ -3,7 +3,7 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, isFirebaseConfigValid } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,10 +18,14 @@ export default function LoginPage() {
 
   // Debugging state to check for environment variable
   const [debugProjectId, setDebugProjectId] = useState<string | undefined>(undefined);
+  const [debugApiKeyStatus, setDebugApiKeyStatus] = useState<string>("INVALID");
 
   useEffect(() => {
     // This will run on the client side and show us what env var the build received.
     setDebugProjectId(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+    if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY.length > 5) {
+        setDebugApiKeyStatus("Valid");
+    }
   }, []);
 
 
@@ -92,7 +96,9 @@ export default function LoginPage() {
         )}
       </div>
       <footer className="mt-8 text-center text-sm text-primary-foreground/80">
-        <p className="font-mono text-xs p-2 bg-black/20 rounded">DEBUG - Project ID: {debugProjectId || "TIDAK TERBACA"}</p>
+        <p className="font-mono text-xs p-2 bg-black/20 rounded">
+            DEBUG - Project ID: {debugProjectId || "TIDAK TERBACA"} | API Key Status: {debugApiKeyStatus}
+        </p>
         <p className="mt-2">© {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.</p>
       </footer>
     </div>
@@ -112,8 +118,8 @@ function LoginForm() {
     setErrorLoginForm(null);
     setLoadingLoginForm(true);
 
-    if (!auth) {
-        setErrorLoginForm("Konfigurasi Firebase tidak valid. Silakan periksa file .env.local Anda.");
+    if (!auth || !isFirebaseConfigValid) {
+        setErrorLoginForm("Konfigurasi Firebase tidak valid. Silakan periksa file .env.local Anda dan pastikan semua kunci (terutama API Key) sudah benar.");
         setLoadingLoginForm(false);
         return;
     }

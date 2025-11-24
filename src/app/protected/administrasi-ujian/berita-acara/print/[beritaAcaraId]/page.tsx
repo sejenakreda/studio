@@ -59,9 +59,9 @@ export default function PrintBeritaAcaraPage() {
     const { totalPeserta, jumlahHadir, jumlahTidakHadir } = useMemo(() => {
       if (!data) return { totalPeserta: 0, jumlahHadir: 0, jumlahTidakHadir: 0 };
       const total = (data.jumlahPesertaX || 0) + (data.jumlahPesertaXI || 0) + (data.jumlahPesertaXII || 0);
-      const tidakHadirCount = data.pesertaTidakHadirNomor ? data.pesertaTidakHadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
+      const tidakHadirCount = data.jumlahTidakHadirManual ?? 0;
       const hadirCount = total - tidakHadirCount;
-      return { totalPeserta: total, jumlahHadir: hadirCount, jumlahTidakHadir: tidakHadirCount };
+      return { totalPeserta: total, jumlahHadir: Math.max(0, hadirCount), jumlahTidakHadir: tidakHadirCount };
     }, [data]);
     
 
@@ -147,7 +147,6 @@ export default function PrintBeritaAcaraPage() {
                                     </td>
                                 </tr>
                                 <tr><td>c. Jumlah seluruh peserta hadir</td><td>:</td><td>{jumlahHadir} orang</td></tr>
-                                <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaHadirNomor || '...................................................'}</td></tr>
                                 <tr><td>d. Jumlah peserta tidak hadir</td><td>:</td><td>{jumlahTidakHadir} orang</td></tr>
                                 <tr><td>Yakni nomor</td><td>:</td><td>{data.pesertaTidakHadirNomor || '...................................................'}</td></tr>
                             </tbody>
@@ -192,5 +191,7 @@ export default function PrintBeritaAcaraPage() {
         </>
     );
 }
+
+    
 
     

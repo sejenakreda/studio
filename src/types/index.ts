@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -250,7 +251,7 @@ export interface BeritaAcaraUjian {
   jumlahPesertaX: number;
   jumlahPesertaXI: number;
   jumlahPesertaXII: number;
-  pesertaHadirNomor?: string;
+  jumlahTidakHadirManual?: number;
   pesertaTidakHadirNomor?: string;
   // Naskah
   jumlahDaftarHadir: number;
@@ -279,3 +280,5 @@ export interface DaftarHadirPengawas {
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }
+
+    

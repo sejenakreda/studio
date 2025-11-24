@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -54,7 +55,7 @@ const beritaAcaraSchema = z.object({
   jumlahPesertaXI: z.coerce.number().min(0).default(0),
   jumlahPesertaXII: z.coerce.number().min(0).default(0),
   
-  pesertaHadirNomor: z.string().optional(),
+  jumlahTidakHadirManual: z.coerce.number().min(0).default(0),
   pesertaTidakHadirNomor: z.string().optional(),
   
   jumlahDaftarHadir: z.coerce.number().min(0).default(0),
@@ -105,7 +106,7 @@ export default function BeritaAcaraPage() {
           jumlahPesertaX: 0,
           jumlahPesertaXI: 0,
           jumlahPesertaXII: 0,
-          pesertaHadirNomor: "",
+          jumlahTidakHadirManual: 0,
           pesertaTidakHadirNomor: "",
           jumlahDaftarHadir: 1,
           jumlahBeritaAcara: 1,
@@ -141,14 +142,13 @@ export default function BeritaAcaraPage() {
     }, [userProfile, editingBeritaAcara, form]);
 
     const { watch } = form;
-    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "pesertaTidakHadirNomor"]);
+    const watchedValues = watch(["jumlahPesertaX", "jumlahPesertaXI", "jumlahPesertaXII", "jumlahTidakHadirManual"]);
 
-    const [totalPeserta, jumlahTidakHadir, jumlahHadir] = useMemo(() => {
-        const [jx, jxi, jxii, tidakHadirNomor] = watchedValues;
+    const [totalPeserta, jumlahHadir] = useMemo(() => {
+        const [jx, jxi, jxii, tidakHadirManual] = watchedValues;
         const total = (Number(jx) || 0) + (Number(jxi) || 0) + (Number(jxii) || 0);
-        const tidakHadirCount = tidakHadirNomor ? tidakHadirNomor.split(',').filter(p => p.trim() !== "").length : 0;
-        const hadirCount = total - tidakHadirCount;
-        return [total, tidakHadirCount, hadirCount];
+        const hadirCount = total - (Number(tidakHadirManual) || 0);
+        return [total, Math.max(0, hadirCount)];
     }, [watchedValues]);
 
 
@@ -163,7 +163,7 @@ export default function BeritaAcaraPage() {
 
         try {
             if (editingBeritaAcara) {
-                await updateBeritaAcara(editingBeritaAcara.id!, payload); // Send full payload on update
+                await updateBeritaAcara(editingBeritaAcara.id!, payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil diperbarui." });
             } else {
                 await addBeritaAcara(payload);
@@ -178,7 +178,7 @@ export default function BeritaAcaraPage() {
                 jumlahPesertaX: 0,
                 jumlahPesertaXI: 0,
                 jumlahPesertaXII: 0,
-                pesertaHadirNomor: "",
+                jumlahTidakHadirManual: 0,
                 pesertaTidakHadirNomor: "",
                 catatanUjian: "",
                 pengawasTandaTanganUrl: "",
@@ -248,9 +248,8 @@ export default function BeritaAcaraPage() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md">
                                 <div className="font-medium">Total Seharusnya: <span className="font-bold">{totalPeserta}</span> orang</div>
                                 <div className="font-medium">Jumlah Hadir: <span className="font-bold text-green-600">{jumlahHadir}</span> orang</div>
-                                <div className="font-medium">Jumlah Tidak Hadir: <span className="font-bold text-red-600">{jumlahTidakHadir}</span> orang</div>
+                                <FormField control={form.control} name="jumlahTidakHadirManual" render={({ field }) => (<FormItem><FormLabel>Jumlah Tidak Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
-                            <FormField control={form.control} name="pesertaHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 001, 002, Budi, Ani" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="pesertaTidakHadirNomor" render={({ field }) => (<FormItem><FormLabel>Nomor / Nama Peserta Tidak Hadir (Opsional)</FormLabel><FormControl><Textarea placeholder="Pisahkan dengan koma, cth: 003 (Sakit), Susi (Izin)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="jumlahDaftarHadir" render={({ field }) => (<FormItem><FormLabel>Jumlah Daftar Hadir</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -319,4 +318,6 @@ export default function BeritaAcaraPage() {
         </div>
     );
 }
+    
+
     

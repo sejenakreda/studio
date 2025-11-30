@@ -143,6 +143,7 @@ const navigationStructure: NavGroup[] = [
     groupIcon: FileSignature,
     roles: ['admin', 'guru'],
     items: [
+      { href: "/protected/administrasi-ujian", label: "Menu Ujian", icon: FileSignature },
       { href: "/protected/administrasi-ujian/berita-acara", label: "Berita Acara", icon: FileSignature },
       { href: "/protected/administrasi-ujian/daftar-hadir", label: "Daftar Hadir Pengawas", icon: ClipboardCheck },
     ],
@@ -384,31 +385,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const checkIsActive = React.useCallback((item: NavMenuItem) => {
     if (!item.href) return false;
     
-    // Split href into path and query parameters
-    const [itemPath, itemParamsString] = item.href.split('?');
-    const itemParams = new URLSearchParams(itemParamsString || '');
-    
-    // Check if base paths match
-    if (pathname !== itemPath) {
-      return false;
+    // Exact match for dashboard
+    if (item.isExact) {
+      return pathname === item.href;
     }
     
-    // If there are no query params in the link, it's a match
-    if (itemParams.toString() === '') {
-      return true;
-    }
-    
-    // If there are query params, they must all match the current URL's params
-    const currentParams = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of itemParams.entries()) {
-      if (currentParams.get(key) !== value) {
-        return false;
-      }
-    }
-    
-    return true;
+    // For other items, check if the current path starts with the item's href
+    return pathname.startsWith(item.href);
 
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   const defaultOpenAccordionItems = React.useMemo(() => {
     if (loading || !userProfile) return [];

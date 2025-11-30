@@ -29,7 +29,7 @@ const allMenuItems: AdminMenuItem[] = [
     { title: "Pengumuman", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
     { title: "Profil Sekolah", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" },
     { title: "Pengaturan Cetak", href: "/protected/admin/print-settings", icon: Printer, color: "text-pink-500" },
-    { title: "Administrasi Ujian", href: "/protected/administrasi-ujian/berita-acara", icon: PenSquare, color: "text-orange-500" },
+    { title: "Administrasi Ujian", href: "/protected/administrasi-ujian", icon: PenSquare, color: "text-orange-500" },
 
 
     // Laporan & Rekapitulasi

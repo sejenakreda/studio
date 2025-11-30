@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { getBeritaAcaraById, getPrintSettings } from '@/lib/firestoreService';
-import { BeritaAcaraUjian, PrintSettings } from '@/types';
+import { getBeritaAcaraById, getPrintSettings, getUserProfile } from '@/lib/firestoreService';
+import { BeritaAcaraUjian, PrintSettings, UserProfile } from '@/types';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ export default function PrintBeritaAcaraPage() {
     const params = useParams();
     const beritaAcaraId = params.beritaAcaraId as string;
     const [data, setData] = useState<BeritaAcaraUjian | null>(null);
+    const [authorProfile, setAuthorProfile] = useState<UserProfile | null>(null); // State for author profile
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -28,16 +29,22 @@ export default function PrintBeritaAcaraPage() {
 
         async function fetchData() {
             try {
-                const [fetchedData, fetchedPrintSettings] = await Promise.all([
-                    getBeritaAcaraById(beritaAcaraId),
-                    getPrintSettings()
-                ]);
+                const fetchedData = await getBeritaAcaraById(beritaAcaraId);
 
                 if (!fetchedData) {
                     throw new Error("Data Berita Acara tidak ditemukan.");
                 }
                 setData(fetchedData);
+                
+                // Now fetch the latest profile of the author and the print settings
+                const [authorData, fetchedPrintSettings] = await Promise.all([
+                    getUserProfile(fetchedData.createdByUid),
+                    getPrintSettings()
+                ]);
+
+                setAuthorProfile(authorData);
                 setPrintSettings(fetchedPrintSettings);
+
             } catch (err: any) {
                 setError(err.message || "Gagal memuat data untuk dicetak.");
             } finally {
@@ -64,6 +71,8 @@ export default function PrintBeritaAcaraPage() {
       return { totalPeserta: total, jumlahHadir: Math.max(0, hadirCount), jumlahTidakHadir: tidakHadirCount };
     }, [data]);
     
+    // Prioritize the latest signature from the user's profile
+    const finalSignatureUrl = authorProfile?.signatureUrl || data?.pengawasTandaTanganUrl || null;
 
     if (isLoading) {
         return (
@@ -178,7 +187,7 @@ export default function PrintBeritaAcaraPage() {
                         <p style={{margin: 0}}>Yang membuat berita acara</p>
                         <p style={{margin: 0}}>Pengawas</p>
                         <div style={{height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                            {data.pengawasTandaTanganUrl && <Image src={data.pengawasTandaTanganUrl} alt="Tanda Tangan Pengawas" width={120} height={60} style={{objectFit: 'contain'}} />}
+                            {finalSignatureUrl && <Image src={finalSignatureUrl} alt="Tanda Tangan Pengawas" width={120} height={60} style={{objectFit: 'contain'}} />}
                         </div>
                         <p className="signature-name" style={{margin: 0, marginTop: '0', fontWeight: 'bold', textDecoration: 'underline'}}>
                             ( {data.pengawasNama} )

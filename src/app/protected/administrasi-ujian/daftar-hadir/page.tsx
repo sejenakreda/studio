@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -64,7 +65,7 @@ export default function DaftarHadirPengawasPage() {
           ruangUjian: "R-01",
           waktuMulai: "07:30",
           waktuSelesai: "09:30",
-          tandaTanganUrl: "",
+          tandaTanganUrl: userProfile?.signatureUrl || "",
         },
     });
 
@@ -86,6 +87,12 @@ export default function DaftarHadirPengawasPage() {
     useEffect(() => {
         if(userProfile) fetchRiwayat();
     }, [fetchRiwayat, userProfile]);
+    
+    useEffect(() => {
+        if (userProfile) {
+            form.setValue('tandaTanganUrl', userProfile.signatureUrl || "");
+        }
+    }, [userProfile, form]);
 
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
@@ -104,7 +111,7 @@ export default function DaftarHadirPengawasPage() {
                 ruangUjian: "R-01",
                 waktuMulai: "07:30",
                 waktuSelesai: "09:30",
-                tandaTanganUrl: "",
+                tandaTanganUrl: userProfile.signatureUrl || "",
             });
             fetchRiwayat();
         } catch (err: any) {

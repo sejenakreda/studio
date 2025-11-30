@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -64,7 +65,7 @@ const beritaAcaraSchema = z.object({
 
   catatanUjian: z.string().optional(),
   pengawasNama: z.string().min(3, "Nama pengawas harus diisi"),
-  pengawasTandaTanganUrl: z.string().optional(),
+  pengawasTandaTanganUrl: z.string().nullable().optional(),
 });
 
 type BeritaAcaraFormData = z.infer<typeof beritaAcaraSchema>;
@@ -114,7 +115,7 @@ export default function BeritaAcaraPage() {
           jumlahBeritaAcara: 1,
           catatanUjian: "",
           pengawasNama: userProfile?.displayName || "",
-          pengawasTandaTanganUrl: "",
+          pengawasTandaTanganUrl: userProfile?.signatureUrl || "",
         },
     });
 
@@ -140,6 +141,7 @@ export default function BeritaAcaraPage() {
     useEffect(() => {
         if (userProfile && !editingBeritaAcara) {
            form.setValue('pengawasNama', userProfile.displayName || "");
+           form.setValue('pengawasTandaTanganUrl', userProfile.signatureUrl || "");
         }
     }, [userProfile, editingBeritaAcara, form]);
 
@@ -157,7 +159,7 @@ export default function BeritaAcaraPage() {
     const onSubmit = async (data: BeritaAcaraFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        const payload: Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'> = {
+        const payload: Partial<Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'>> = {
             ...data,
             createdByUid: userProfile.uid,
             createdByDisplayName: userProfile.displayName || 'Pengawas',
@@ -168,7 +170,7 @@ export default function BeritaAcaraPage() {
                 await updateBeritaAcara(editingBeritaAcara.id!, payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil diperbarui." });
             } else {
-                await addBeritaAcara(payload);
+                await addBeritaAcara(payload as Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'>);
                 toast({ title: "Sukses", description: "Berita acara berhasil disimpan." });
             }
             form.reset({
@@ -184,7 +186,8 @@ export default function BeritaAcaraPage() {
                 pesertaHadirNomor: "",
                 pesertaTidakHadirNomor: "",
                 catatanUjian: "",
-                pengawasTandaTanganUrl: "",
+                pengawasNama: userProfile.displayName || "",
+                pengawasTandaTanganUrl: userProfile.signatureUrl || "",
             });
             setEditingBeritaAcara(null);
             fetchRiwayat();
@@ -260,7 +263,7 @@ export default function BeritaAcaraPage() {
                                 <FormField control={form.control} name="jumlahBeritaAcara" render={({ field }) => (<FormItem><FormLabel>Jumlah Berita Acara</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
                              <FormField control={form.control} name="pengawasNama" render={({ field }) => (<FormItem><FormLabel>Nama Pengawas</FormLabel><FormControl><Input placeholder="Nama lengkap pengawas..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="pengawasTandaTanganUrl" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ImageIcon className="h-4 w-4"/> Tanda Tangan Pengawas (Opsional)</FormLabel><FormControl><ImageUploadField value={field.value} onChange={field.onChange} folderPath="tanda-tangan-pengawas" /></FormControl><FormMessage /></FormItem>)} />
+                             <FormField control={form.control} name="pengawasTandaTanganUrl" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ImageIcon className="h-4 w-4"/> Tanda Tangan Pengawas</FormLabel><FormControl><ImageUploadField value={field.value} onChange={field.onChange} folderPath="tanda-tangan-pengawas" /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="catatanUjian" render={({ field }) => (<FormItem><FormLabel>Catatan Selama Ujian (Opsional)</FormLabel><FormControl><Textarea placeholder="Catatan kejadian penting selama ujian..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
                         </CardContent>
                         <CardFooter className="gap-2">

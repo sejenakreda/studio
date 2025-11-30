@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDesc } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, Loader2, AlertCircle, UserCog, BookOpen, Briefcase } from "lucide-react";
+import { ArrowLeft, Save, Loader2, AlertCircle, UserCog, BookOpen, Briefcase, Image as ImageIcon } from "lucide-react";
 import { getUserProfile, updateUserProfile, addActivityLog, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { UserProfile, MataPelajaranMaster, TugasTambahan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -20,11 +20,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImageUploadField } from '@/components/form/ImageUploadField';
 
 const editTeacherSchema = z.object({
   displayName: z.string().min(3, "Nama tampilan minimal 3 karakter"),
   assignedMapel: z.array(z.string()).optional().default([]),
   tugasTambahan: z.array(z.string()).optional().default([]),
+  signatureUrl: z.string().url("URL tidak valid.").or(z.literal("")).nullable().optional(),
 });
 
 type EditTeacherFormData = z.infer<typeof editTeacherSchema>;
@@ -78,6 +80,7 @@ export default function EditTeacherPage() {
       displayName: "",
       assignedMapel: [],
       tugasTambahan: [],
+      signatureUrl: null,
     },
   });
 
@@ -113,6 +116,7 @@ export default function EditTeacherPage() {
           displayName: fetchedTeacher.displayName || "",
           assignedMapel: validAssignedMapel,
           tugasTambahan: fetchedTeacher.tugasTambahan || [],
+          signatureUrl: fetchedTeacher.signatureUrl || null,
         });
       } else {
         setFetchError("Data guru tidak ditemukan atau peran tidak sesuai.");
@@ -151,6 +155,7 @@ export default function EditTeacherPage() {
         displayName: data.displayName,
         assignedMapel: data.assignedMapel || [], 
         tugasTambahan: cleanedTugasTambahan as TugasTambahan[],
+        signatureUrl: data.signatureUrl || null,
       });
 
       const oldMapel = teacherData.assignedMapel?.join(', ') || 'N/A';
@@ -163,6 +168,7 @@ export default function EditTeacherPage() {
       let logDetails = `Profil Guru ${teacherData.email}: Nama -> ${data.displayName}.`;
       if (oldMapel !== newMapel) logDetails += ` Mapel: ${oldMapel} -> ${newMapel}.`;
       if (oldTugas !== newTugas) logDetails += ` Tugas: ${oldTugas} -> ${newTugas}.`;
+      if (teacherData.signatureUrl !== data.signatureUrl) logDetails += ` Tanda tangan diperbarui.`;
       logDetails += ` Oleh Admin: ${currentAdminProfile.displayName}`;
 
       await addActivityLog(
@@ -272,7 +278,7 @@ export default function EditTeacherPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Edit Data Guru & Tugas</h1>
           <p className="text-muted-foreground">
-            Perbarui nama, mata pelajaran, dan tugas tambahan untuk guru <span className="font-semibold">{teacherData.displayName}</span>.
+            Perbarui nama, mapel, dan tugas tambahan untuk guru <span className="font-semibold">{teacherData.displayName}</span>.
           </p>
         </div>
       </div>
@@ -308,6 +314,24 @@ export default function EditTeacherPage() {
                   </FormControl>
                   <FormDesc>Email tidak dapat diubah.</FormDesc>
                 </FormItem>
+                <FormField
+                  control={form.control}
+                  name="signatureUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2"><ImageIcon className="h-4 w-4"/> Tanda Tangan Guru</FormLabel>
+                      <FormControl>
+                        <ImageUploadField 
+                          value={field.value} 
+                          onChange={field.onChange} 
+                          folderPath={`signatures/${teacherData.uid}`} 
+                        />
+                      </FormControl>
+                      <FormDesc>Unggah gambar tanda tangan untuk guru ini. Gambar akan otomatis digunakan di form berita acara & daftar hadir.</FormDesc>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <FormField
@@ -442,5 +466,3 @@ export default function EditTeacherPage() {
     </div>
   );
 }
-
-    

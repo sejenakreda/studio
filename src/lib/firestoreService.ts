@@ -1,3 +1,4 @@
+
 import {
   doc,
   getDoc,
@@ -154,6 +155,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
         role: profile.role,
         assignedMapel: profile.assignedMapel || [],
         tugasTambahan: profile.tugasTambahan || [],
+        signatureUrl: profile.signatureUrl || null,
         createdAt: profile.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -170,6 +172,7 @@ const userProfileConverter: FirestoreDataConverter<UserProfile> = {
       role: data.role as Role,
       assignedMapel: Array.isArray(data.assignedMapel) ? data.assignedMapel : [],
       tugasTambahan: Array.isArray(data.tugasTambahan) ? data.tugasTambahan : [],
+      signatureUrl: data.signatureUrl || null,
       fcmToken: data.fcmToken,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
@@ -1012,10 +1015,14 @@ export const getAllUsersByRole = async (role: Role): Promise<UserProfile[]> => {
 };
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
   try {
-    const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
+    const userDocRef = doc(db, 'users', uid);
     const updateData: any = { ...data, updatedAt: serverTimestamp() };
-    if (data.hasOwnProperty('assignedMapel')) updateData.assignedMapel = data.assignedMapel || [];
-    if (data.hasOwnProperty('tugasTambahan')) updateData.tugasTambahan = data.tugasTambahan || [];
+    
+    // Explicitly handle null or undefined for signatureUrl
+    if (data.hasOwnProperty('signatureUrl')) {
+        updateData.signatureUrl = data.signatureUrl || null;
+    }
+    
     delete updateData.uid; delete updateData.email; delete updateData.role; delete updateData.createdAt;
     await updateDoc(userDocRef, updateData);
   } catch (error) {

@@ -139,8 +139,6 @@ export default function BeritaAcaraPage() {
     }, [fetchRiwayat, userProfile]);
 
     useEffect(() => {
-        // This effect ensures the form is populated with user data when it becomes available,
-        // especially on initial load or when not editing.
         if (userProfile && !editingBeritaAcara) {
            form.setValue('pengawasNama', userProfile.displayName || "");
            form.setValue('pengawasTandaTanganUrl', userProfile.signatureUrl || "");
@@ -161,7 +159,7 @@ export default function BeritaAcaraPage() {
     const onSubmit = async (data: BeritaAcaraFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        const payload: Partial<Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'>> = {
+        const payload: Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'> = {
             ...data,
             createdByUid: userProfile.uid,
             createdByDisplayName: userProfile.displayName || 'Pengawas',
@@ -172,7 +170,7 @@ export default function BeritaAcaraPage() {
                 await updateBeritaAcara(editingBeritaAcara.id!, payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil diperbarui." });
             } else {
-                await addBeritaAcara(payload as Omit<BeritaAcaraUjian, 'id' | 'createdAt' | 'updatedAt'>);
+                await addBeritaAcara(payload);
                 toast({ title: "Sukses", description: "Berita acara berhasil disimpan." });
             }
             form.reset({

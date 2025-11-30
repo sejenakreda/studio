@@ -29,9 +29,7 @@ const allMenuItems: AdminMenuItem[] = [
     { title: "Pengumuman", href: "/protected/admin/announcements", icon: Megaphone, color: "text-cyan-500" },
     { title: "Profil Sekolah", href: "/protected/admin/school-profile", icon: Building, color: "text-gray-500" },
     { title: "Pengaturan Cetak", href: "/protected/admin/print-settings", icon: Printer, color: "text-pink-500" },
-    { title: "Administrasi Ujian", href: "/protected/administrasi-ujian", icon: PenSquare, color: "text-orange-500" },
-
-
+    
     // Laporan & Rekapitulasi
     { title: "Semua Nilai", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
     { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
@@ -39,9 +37,10 @@ const allMenuItems: AdminMenuItem[] = [
     { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },
     { title: "Laporan Kegiatan", href: "/protected/admin/kegiatan-reports", icon: Award, color: "text-fuchsia-500" },
     { title: "Statistik", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
-    // New Menu Items
-    { title: "Rekap Berita Acara", href: "/protected/admin/exam-reports/berita-acara", icon: FileSignature, color: "text-green-600" },
-    { title: "Rekap Hadir Pengawas", href: "/protected/admin/exam-reports/daftar-hadir", icon: CalendarCheck, color: "text-blue-600" },
+    
+    // Administrasi Ujian
+    { title: "Berita Acara Ujian", href: "/protected/administrasi-ujian/berita-acara", icon: FileSignature, color: "text-green-600" },
+    { title: "Daftar Hadir Pengawas", href: "/protected/administrasi-ujian/daftar-hadir", icon: ClipboardCheck, color: "text-blue-600" },
 ];
 
 

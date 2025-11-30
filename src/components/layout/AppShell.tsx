@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -143,7 +142,6 @@ const navigationStructure: NavGroup[] = [
     groupIcon: FileSignature,
     roles: ['admin', 'guru'],
     items: [
-      { href: "/protected/administrasi-ujian", label: "Menu Ujian", icon: FileSignature },
       { href: "/protected/administrasi-ujian/berita-acara", label: "Berita Acara", icon: FileSignature },
       { href: "/protected/administrasi-ujian/daftar-hadir", label: "Daftar Hadir Pengawas", icon: ClipboardCheck },
     ],

@@ -112,13 +112,21 @@ const siswaConverter: FirestoreDataConverter<Siswa> = {
 
 const nilaiConverter: FirestoreDataConverter<Nilai> = {
   toFirestore: (nilai: Omit<Nilai, 'id'>): DocumentData => {
-    const { ...dataToStore } = nilai;
-    const data: any = { ...dataToStore };
-    if (!data.createdAt) {
-      data.createdAt = serverTimestamp();
-    }
-    data.updatedAt = serverTimestamp();
-    return data;
+    // Ensure all numeric fields that could be undefined are defaulted to 0.
+    const dataToStore: Partial<Omit<Nilai, 'id'>> = {
+      ...nilai,
+      tugas: nilai.tugas || [],
+      tes: nilai.tes ?? 0,
+      pts: nilai.pts ?? 0,
+      pas: nilai.pas ?? 0,
+      kehadiran: nilai.kehadiran ?? 0,
+      eskul: nilai.eskul ?? 0,
+      osis: nilai.osis ?? 0,
+      nilai_akhir: nilai.nilai_akhir ?? 0,
+      createdAt: nilai.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    return dataToStore as DocumentData;
   },
   fromFirestore: (
     snapshot: QueryDocumentSnapshot,
@@ -145,6 +153,7 @@ const nilaiConverter: FirestoreDataConverter<Nilai> = {
     };
   }
 };
+
 
 const userProfileConverter: FirestoreDataConverter<UserProfile> = {
   toFirestore: (profile: UserProfile): DocumentData => {
@@ -849,9 +858,7 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: str
 
       if (gradeId) {
           const docRef = doc(gradesCollRef, gradeId);
-          const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
-          delete updateData.createdAt;
-          await updateDoc(docRef, updateData as DocumentData);
+          await updateDoc(docRef, nilaiToProcess as DocumentData);
           const updatedDoc = await getDoc(docRef);
           return updatedDoc.data()!;
       }
@@ -867,14 +874,11 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: str
 
       if (!querySnapshot.empty) {
           const existingDoc = querySnapshot.docs[0];
-          const updateData: Partial<Nilai> = { ...nilaiToProcess, updatedAt: serverTimestamp() as Timestamp };
-          delete updateData.createdAt;
-          await updateDoc(existingDoc.ref, updateData as DocumentData);
-          return { ...existingDoc.data(), ...updateData, id: existingDoc.id };
+          await updateDoc(existingDoc.ref, nilaiToProcess as DocumentData);
+          return { ...existingDoc.data(), ...nilaiToProcess, id: existingDoc.id };
       } else {
-          const dataForAdd = { ...nilaiToProcess, createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
-          const docRef = await addDoc(gradesCollRef, dataForAdd);
-          return { ...dataForAdd, id: docRef.id };
+          const docRef = await addDoc(gradesCollRef, nilaiToProcess);
+          return { ...nilaiToProcess, id: docRef.id };
       }
     } catch (error) {
       handleFirestoreError(error, 'menyimpan', 'nilai');

@@ -1,4 +1,5 @@
 
+
 import {
   doc,
   getDoc,
@@ -856,7 +857,6 @@ export const addOrUpdateGrade = async (nilai: Omit<Nilai, 'id'>, teacherUid: str
       }
       
       const q = query(gradesCollRef,
-          where('teacherUid', '==', teacherUid),
           where('id_siswa', '==', nilaiToProcess.id_siswa),
           where('mapel', '==', nilaiToProcess.mapel),
           where('semester', '==', nilaiToProcess.semester),

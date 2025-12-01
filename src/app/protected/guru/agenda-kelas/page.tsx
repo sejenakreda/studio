@@ -105,6 +105,12 @@ export default function AgendaKelasPage() {
 
     const uniqueClasses = useMemo(() => [...new Set(students.map(s => s.kelas).filter(Boolean))].sort(), [students]);
     const selectedKelas = form.watch('kelas');
+    
+    // Effect to clear absentees when class changes
+    useEffect(() => {
+        form.setValue('siswaAbsen', []);
+    }, [selectedKelas, form]);
+    
     const studentsInSelectedClass = useMemo(() => students.filter(s => s.kelas === selectedKelas), [students, selectedKelas]);
 
     const onSubmit = async (data: AgendaFormData) => {

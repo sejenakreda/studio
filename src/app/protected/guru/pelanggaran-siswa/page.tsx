@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, PlusCircle, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
+import { ArrowLeft, PlusCircle, Loader2, AlertCircle, ShieldAlert, CalendarIcon } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { getStudents, addPelanggaran, addActivityLog } from '@/lib/firestoreService';
@@ -19,6 +19,10 @@ import type { Siswa } from '@/types';
 import { Combobox } from '@/components/ui/combobox';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { id as indonesiaLocale } from 'date-fns/locale';
 
 const pelanggaranSchema = z.object({
   id_siswa: z.string({ required_error: "Siswa harus dipilih." }).min(1, "Siswa harus dipilih."),
@@ -88,7 +92,13 @@ export default function CatatPelanggaranPage() {
 
             await addActivityLog("Pelanggaran Siswa Dicatat", `Siswa: ${selectedStudent.nama}, Pelanggaran: ${data.pelanggaran} (Poin: ${data.poin}) oleh ${userProfile.displayName}`, userProfile.uid, userProfile.displayName!);
             toast({ title: "Sukses", description: "Catatan pelanggaran berhasil disimpan." });
-            form.reset();
+            form.reset({
+                id_siswa: "",
+                tanggal: new Date(),
+                pelanggaran: "",
+                poin: 1,
+                catatan: "",
+            });
 
         } catch (err: any) {
              toast({ variant: "destructive", title: "Gagal Menyimpan", description: err.message });
@@ -135,17 +145,31 @@ export default function CatatPelanggaranPage() {
                                 )}
                             />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="tanggal"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                            <FormLabel>Tanggal Pelanggaran</FormLabel>
-                                            <Input type="date" value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} onChange={(e) => field.onChange(e.target.valueAsDate)} />
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                               <FormField
+                                control={form.control}
+                                name="tanggal"
+                                render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Tanggal Pelanggaran</FormLabel>
+                                     <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                {field.value ? (format(field.value, "PPP", {locale: indonesiaLocale})) : (<span>Pilih tanggal</span>)}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus disabled={(date) => date > new Date()} />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                                 <FormField
                                     control={form.control}
                                     name="poin"

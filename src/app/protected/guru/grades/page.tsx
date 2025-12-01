@@ -268,7 +268,7 @@ export default function InputNilaiPage() {
         if (!file) return;
         setIsImporting(true);
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const data = e.target?.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
@@ -277,12 +277,20 @@ export default function InputNilaiPage() {
                 const importedData = XLSX.utils.sheet_to_json<StudentImportData>(worksheet);
 
                 let updatedCount = 0;
-                const currentStudentsInForm = form.getValues().students;
+                
+                // Create a map for quick lookup: NIS -> student index in form
+                const nisToFormIndexMap = new Map<string, number>();
+                form.getValues().students.forEach((student, index) => {
+                    const studentData = allStudents.find(s => s.id_siswa === student.id_siswa);
+                    if (studentData) {
+                        nisToFormIndexMap.set(studentData.nis, index);
+                    }
+                });
 
                 importedData.forEach(row => {
-                    const studentNis = String(row["NIS"]).trim();
-                    const studentIndex = currentStudentsInForm.findIndex(s => allStudents.find(as => as.id_siswa === s.id_siswa)?.nis === studentNis);
-                    if (studentIndex !== -1) {
+                    const studentNis = String(row["NIS"] || "").trim();
+                    if (nisToFormIndexMap.has(studentNis)) {
+                        const studentIndex = nisToFormIndexMap.get(studentNis)!;
                         setValue(`students.${studentIndex}.grades.tugas`, String(row.Tugas ?? ''));
                         setValue(`students.${studentIndex}.grades.tes`, row.Tes ?? undefined);
                         setValue(`students.${studentIndex}.grades.pts`, row.PTS ?? undefined);
@@ -294,8 +302,9 @@ export default function InputNilaiPage() {
                     }
                 });
                 toast({ title: "Impor Selesai", description: `${updatedCount} data siswa berhasil diperbarui di formulir.` });
-            } catch (error) {
-                toast({ variant: "destructive", title: "Gagal Impor", description: "Terjadi kesalahan saat memproses file." });
+            } catch (error: any) {
+                console.error("Import error:", error);
+                toast({ variant: "destructive", title: "Gagal Impor", description: `Terjadi kesalahan saat memproses file: ${error.message}` });
             } finally {
                 setIsImporting(false);
                 if (fileInputRef.current) fileInputRef.current.value = "";

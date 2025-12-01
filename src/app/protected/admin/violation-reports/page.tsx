@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -39,53 +38,61 @@ export default function ViolationReportsPage() {
   const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
 
   const [filterKelas, setFilterKelas] = useState("all");
   const [filterYear, setFilterYear] = useState<number>(currentYear);
   const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
 
 
-  const fetchData = useCallback(async () => {
+  const fetchInitialData = useCallback(async () => {
+    setIsLoadingStudents(true);
+    try {
+        const [fetchedStudents, fetchedPrintSettings] = await Promise.all([
+            getStudents(),
+            getPrintSettings(),
+        ]);
+        setStudents(fetchedStudents);
+        setPrintSettings(fetchedPrintSettings);
+    } catch (err: any) {
+        setError("Gagal memuat data siswa. Silakan coba lagi.");
+        toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+        setIsLoadingStudents(false);
+    }
+  }, [toast]);
+
+  const fetchViolations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [fetchedViolations, fetchedStudents, fetchedPrintSettings] = await Promise.all([
-        getAllPelanggaran(),
-        getStudents(),
-        getPrintSettings(),
-      ]);
+      const monthQuery = filterMonth === 'all' ? null : filterMonth;
+      const fetchedViolations = await getAllPelanggaran(filterYear, monthQuery);
       setViolations(fetchedViolations);
-      setStudents(fetchedStudents);
-      setPrintSettings(fetchedPrintSettings);
     } catch (err: any) {
-      setError("Gagal memuat data. Silakan coba lagi.");
+      setError("Gagal memuat data pelanggaran. Silakan coba lagi.");
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, filterYear, filterMonth]);
+  
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchViolations();
+  }, [fetchViolations]);
 
   const uniqueClasses = useMemo(() => {
     return [...new Set(students.map(s => s.kelas).filter(Boolean))].sort();
   }, [students]);
 
   const filteredViolations = useMemo(() => {
-    return violations
-      .filter(v => {
-        if (filterKelas !== "all" && v.kelasSiswa !== filterKelas) return false;
-        
-        const violationDate = v.tanggal.toDate();
-        if (violationDate.getFullYear() !== filterYear) return false;
-        if (filterMonth !== "all" && violationDate.getMonth() !== filterMonth - 1) return false;
-        
-        return true;
-      })
-      .sort((a, b) => b.tanggal.toMillis() - a.tanggal.toMillis());
-  }, [violations, filterKelas, filterYear, filterMonth]);
+    if (filterKelas === "all") return violations;
+    return violations.filter(v => v.kelasSiswa === filterKelas);
+  }, [violations, filterKelas]);
   
   const handlePrint = () => {
     window.print();
@@ -144,7 +151,7 @@ export default function ViolationReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
               <div>
                 <label htmlFor="filter-kelas" className="text-sm font-medium">Filter Kelas</label>
-                <Select value={filterKelas} onValueChange={setFilterKelas}><SelectTrigger id="filter-kelas" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{uniqueClasses.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent></Select>
+                <Select value={filterKelas} onValueChange={setFilterKelas} disabled={isLoadingStudents}><SelectTrigger id="filter-kelas" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih kelas..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{uniqueClasses.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent></Select>
               </div>
               <div>
                 <label htmlFor="filter-year" className="text-sm font-medium">Filter Tahun</label>

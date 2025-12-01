@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -33,47 +32,56 @@ export default function LaporanAgendaKelasPage() {
     const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
 
     const [filterTeacher, setFilterTeacher] = useState("all");
     const [filterYear, setFilterYear] = useState<number>(currentYear);
     const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
 
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
+    const fetchInitialData = useCallback(async () => {
+        setIsLoadingTeachers(true);
         try {
-            const [fetchedAgendas, fetchedTeachers, fetchedPrintSettings] = await Promise.all([
-                getAllAgendas(),
+            const [fetchedTeachers, fetchedPrintSettings] = await Promise.all([
                 getAllUsersByRole('guru'),
                 getPrintSettings()
             ]);
-            setAgendas(fetchedAgendas);
             setTeachers(fetchedTeachers);
             setPrintSettings(fetchedPrintSettings);
         } catch (err: any) {
-            setError("Gagal memuat data. Silakan coba lagi.");
+            setError("Gagal memuat daftar guru. Silakan coba lagi.");
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        } finally {
+            setIsLoadingTeachers(false);
+        }
+    }, [toast]);
+
+    const fetchAgendas = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const monthQuery = filterMonth === "all" ? null : filterMonth;
+            const fetchedAgendas = await getAllAgendas(filterYear, monthQuery);
+            setAgendas(fetchedAgendas);
+        } catch (err: any) {
+            setError("Gagal memuat data agenda. Silakan coba lagi.");
             toast({ variant: "destructive", title: "Error", description: err.message });
         } finally {
             setIsLoading(false);
         }
-    }, [toast]);
+    }, [toast, filterYear, filterMonth]);
+    
+    useEffect(() => {
+        fetchInitialData();
+    }, [fetchInitialData]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchAgendas();
+    }, [fetchAgendas]);
 
     const filteredAgendas = useMemo(() => {
-        return agendas.filter(agenda => {
-            if (filterTeacher !== "all" && agenda.teacherUid !== filterTeacher) return false;
-            
-            if (!agenda.tanggal || typeof agenda.tanggal.toDate !== 'function') return false;
-            
-            const agendaDate = agenda.tanggal.toDate();
-            if (agendaDate.getFullYear() !== filterYear) return false;
-            if (filterMonth !== "all" && agendaDate.getMonth() !== filterMonth - 1) return false;
-            return true;
-        });
-    }, [agendas, filterTeacher, filterYear, filterMonth]);
+        if (filterTeacher === "all") return agendas;
+        return agendas.filter(agenda => agenda.teacherUid === filterTeacher);
+    }, [agendas, filterTeacher]);
     
     const handleDownloadExcel = () => {
         if (filteredAgendas.length === 0) {
@@ -131,7 +139,7 @@ export default function LaporanAgendaKelasPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                             <div>
                                 <label htmlFor="filter-teacher" className="text-sm font-medium">Filter Guru</label>
-                                <Select value={filterTeacher} onValueChange={setFilterTeacher}><SelectTrigger id="filter-teacher" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih guru..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>)}</SelectContent></Select>
+                                <Select value={filterTeacher} onValueChange={setFilterTeacher} disabled={isLoadingTeachers}><SelectTrigger id="filter-teacher" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih guru..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Guru</SelectItem>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.displayName}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div>
                                 <label htmlFor="filter-year" className="text-sm font-medium">Filter Tahun</label>

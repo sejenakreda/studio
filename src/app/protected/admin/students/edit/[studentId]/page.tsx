@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -30,6 +29,7 @@ const kegiatanOptions: { id: TugasTambahan; label: string }[] = [
     { id: 'pembina_eskul_pencak_silat', label: 'Ekstrakurikuler Pencak Silat' },
     { id: 'pembina_eskul_volly_ball', label: 'Ekstrakurikuler Volly Ball' },
 ];
+const validKegiatanIds = new Set(kegiatanOptions.map(k => k.id));
 
 const editStudentSchema = z.object({
   nama: z.string().min(3, "Nama minimal 3 karakter"),
@@ -74,10 +74,14 @@ export default function AdminEditStudentPage() {
       const fetchedStudent = await getStudentById(docId);
       if (fetchedStudent) {
         setStudentData(fetchedStudent);
+        
+        // Filter kegiatan to only include valid ones before setting the form
+        const validKegiatan = (fetchedStudent.kegiatan || []).filter(k => validKegiatanIds.has(k));
+
         form.reset({
           nama: fetchedStudent.nama,
           kelas: fetchedStudent.kelas,
-          kegiatan: fetchedStudent.kegiatan || [],
+          kegiatan: validKegiatan,
         });
       } else {
         setFetchError("Data siswa tidak ditemukan.");

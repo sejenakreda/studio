@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -100,7 +99,7 @@ export default function InputNilaiPage() {
     });
     
     const { fields, replace } = useFieldArray({ control: form.control, name: "students" });
-    const { setValue } = form; // Correctly get setValue from useForm
+    const { setValue } = form;
 
     const fetchPrerequisites = useCallback(async () => {
       if (!userProfile) return;
@@ -287,9 +286,20 @@ export default function InputNilaiPage() {
                         nisToFormIndexMap.set(studentData.nis, index);
                     }
                 });
+                
+                const processedNis = new Set<string>();
 
-                importedData.forEach(row => {
+                for(const row of importedData) {
                     const studentNis = String(row["NIS"] || "").trim();
+                    
+                    if (!studentNis) continue; // Skip empty rows
+                    
+                    if (processedNis.has(studentNis)) {
+                         console.warn(`Duplicate NIS ${studentNis} found in Excel file. Skipping subsequent entries.`);
+                         continue;
+                    }
+                    processedNis.add(studentNis);
+
                     if (nisToFormIndexMap.has(studentNis)) {
                         const studentIndex = nisToFormIndexMap.get(studentNis)!;
                         setValue(`students.${studentIndex}.grades.tugas`, String(row.Tugas ?? ''));
@@ -301,7 +311,7 @@ export default function InputNilaiPage() {
                         setValue(`students.${studentIndex}.grades.osis`, row.OSIS ?? undefined);
                         updatedCount++;
                     }
-                });
+                }
                 toast({ title: "Impor Selesai", description: `${updatedCount} data siswa berhasil diperbarui di formulir.` });
             } catch (error: any) {
                 console.error("Import error:", error);

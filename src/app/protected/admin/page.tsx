@@ -5,7 +5,7 @@ import React from 'react';
 import Link from "next/link";
 import { 
     Users, Settings, FileText, CalendarCog, 
-    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff, PenSquare, FileSignature
+    ListChecks, Megaphone, BookUser, BookCopy, CalendarCheck, Building, FileWarning, Award, ShieldCheck, BarChart3, Printer, CalendarOff, PenSquare, FileSignature, ClipboardCheck
 } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 
@@ -39,8 +39,8 @@ const allMenuItems: AdminMenuItem[] = [
     { title: "Statistik", href: "/protected/admin/reports", icon: BarChart3, color: "text-rose-500" },
     
     // Administrasi Ujian
-    { title: "Berita Acara Ujian", href: "/protected/administrasi-ujian/berita-acara", icon: FileSignature, color: "text-green-600" },
-    { title: "Daftar Hadir Pengawas", href: "/protected/administrasi-ujian/daftar-hadir", icon: ClipboardCheck, color: "text-blue-600" },
+    { title: "Rekap Berita Acara", href: "/protected/admin/exam-reports/berita-acara", icon: FileSignature, color: "text-green-600" },
+    { title: "Rekap Hadir Pengawas", href: "/protected/admin/exam-reports/daftar-hadir", icon: CalendarCheck, color: "text-blue-600" },
 ];
 
 

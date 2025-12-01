@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -98,7 +99,8 @@ export default function InputNilaiPage() {
         defaultValues: { students: [] },
     });
     
-    const { fields, replace, setValue } = useFieldArray({ control: form.control, name: "students" });
+    const { fields, replace } = useFieldArray({ control: form.control, name: "students" });
+    const { setValue } = form; // Correctly get setValue from useForm
 
     const fetchPrerequisites = useCallback(async () => {
       if (!userProfile) return;
@@ -278,7 +280,6 @@ export default function InputNilaiPage() {
 
                 let updatedCount = 0;
                 
-                // Create a map for quick lookup: NIS -> student index in form
                 const nisToFormIndexMap = new Map<string, number>();
                 form.getValues().students.forEach((student, index) => {
                     const studentData = allStudents.find(s => s.id_siswa === student.id_siswa);

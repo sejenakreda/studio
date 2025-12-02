@@ -23,6 +23,7 @@ const startYearRange = currentYear - 10;
 const endYearRange = currentYear + 5;
 const YEARS = Array.from({ length: endYearRange - startYearRange + 1 }, (_, i) => endYearRange - i);
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: format(new Date(0, i), "MMMM", { locale: indonesiaLocale }) }));
+const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 export default function AdminRekapBeritaAcaraPage() {
     const { toast } = useToast();
@@ -33,6 +34,8 @@ export default function AdminRekapBeritaAcaraPage() {
 
     const [filterYear, setFilterYear] = useState<number>(currentYear);
     const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
+    const [filterHari, setFilterHari] = useState<string>("all");
+    const [filterMapel, setFilterMapel] = useState<string>("all");
 
     const fetchData = useCallback(async () => {
         if (!userProfile) return;
@@ -53,14 +56,21 @@ export default function AdminRekapBeritaAcaraPage() {
         fetchData();
     }, [fetchData]);
 
+    const availableMapel = useMemo(() => {
+        const mapelSet = new Set(allBeritaAcara.map(item => item.mataUjian));
+        return Array.from(mapelSet).sort();
+    }, [allBeritaAcara]);
+
     const filteredData = useMemo(() => {
         return allBeritaAcara.filter(item => {
             const itemDate = new Date(item.tahun, MONTHS.findIndex(m => m.label === item.bulan), item.tanggal);
             if (itemDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && itemDate.getMonth() !== filterMonth - 1) return false;
+            if (filterHari !== "all" && item.hari !== filterHari) return false;
+            if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;
             return true;
         });
-    }, [allBeritaAcara, filterYear, filterMonth]);
+    }, [allBeritaAcara, filterYear, filterMonth, filterHari, filterMapel]);
     
     const handleDownloadExcel = () => {
         if (filteredData.length === 0) {
@@ -109,7 +119,7 @@ export default function AdminRekapBeritaAcaraPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Filter Rekapitulasi</CardTitle>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
                         <div>
                             <label htmlFor="filter-year" className="text-sm font-medium">Filter Tahun</label>
                             <Select value={String(filterYear)} onValueChange={(v) => setFilterYear(parseInt(v))}><SelectTrigger id="filter-year" className="w-full mt-1"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger><SelectContent>{YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
@@ -117,6 +127,14 @@ export default function AdminRekapBeritaAcaraPage() {
                         <div>
                             <label htmlFor="filter-month" className="text-sm font-medium">Filter Bulan</label>
                             <Select value={String(filterMonth)} onValueChange={(v) => setFilterMonth(v === "all" ? "all" : parseInt(v))}><SelectTrigger id="filter-month" className="w-full mt-1"><SelectValue placeholder="Pilih bulan..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Bulan</SelectItem>{MONTHS.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
+                        </div>
+                         <div>
+                            <label htmlFor="filter-hari" className="text-sm font-medium">Filter Hari</label>
+                            <Select value={filterHari} onValueChange={setFilterHari}><SelectTrigger id="filter-hari" className="w-full mt-1"><SelectValue placeholder="Pilih hari..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Hari</SelectItem>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>
+                        </div>
+                         <div>
+                            <label htmlFor="filter-mapel" className="text-sm font-medium">Filter Mata Pelajaran</label>
+                            <Select value={filterMapel} onValueChange={setFilterMapel}><SelectTrigger id="filter-mapel" className="w-full mt-1"><SelectValue placeholder="Pilih mapel..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Mapel</SelectItem>{availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
                         </div>
                     </div>
                     <div className="pt-4 flex gap-2">

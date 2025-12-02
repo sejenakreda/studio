@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -97,6 +96,7 @@ export default function DaftarHadirPengawasPage() {
     }, [fetchRiwayat, userProfile]);
     
     useEffect(() => {
+        // Automatically set signature URL from profile if it exists and form field is empty
         if (userProfile?.signatureUrl && !form.getValues('tandaTanganUrl')) {
             form.setValue('tandaTanganUrl', userProfile.signatureUrl);
         }
@@ -121,8 +121,11 @@ export default function DaftarHadirPengawasPage() {
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        if (!data.tandaTanganUrl) {
-            form.setError("tandaTanganUrl", { type: "manual", message: "Tanda tangan wajib diisi. Silakan unggah atau perbarui profil Anda." });
+        // Smart validation: check form value OR profile value
+        const finalSignatureUrl = data.tandaTanganUrl || userProfile.signatureUrl;
+
+        if (!finalSignatureUrl) {
+            form.setError("tandaTanganUrl", { type: "manual", message: "Tanda tangan wajib diisi. Silakan unggah atau perbarui profil Anda di menu 'Kelola Guru'." });
             toast({ variant: "destructive", title: "Validasi Gagal", description: "Tanda tangan wajib diisi." });
             return;
         }
@@ -130,7 +133,7 @@ export default function DaftarHadirPengawasPage() {
         try {
             await addDaftarHadirPengawas({ 
               ...data,
-              tandaTanganUrl: data.tandaTanganUrl,
+              tandaTanganUrl: finalSignatureUrl,
               tanggalUjian: Timestamp.fromDate(data.tanggalUjian),
               namaPengawas: userProfile.displayName || "Pengawas",
               createdByUid: userProfile.uid,

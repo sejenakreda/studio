@@ -37,14 +37,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 
-// Schema is relaxed here; validation happens in onSubmit
 const daftarHadirSchema = z.object({
   tanggalUjian: z.date({ required_error: "Tanggal ujian harus diisi." }),
   mataUjian: z.string().min(3, "Mata ujian minimal 3 karakter"),
   ruangUjian: z.string().min(1, "Ruang ujian harus diisi"),
   waktuMulai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
   waktuSelesai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
-  tandaTanganUrl: z.string().optional(), // Make optional here
+  tandaTanganUrl: z.string().url("URL tanda tangan tidak valid.").nullable().optional(),
 });
 
 
@@ -97,8 +96,6 @@ export default function DaftarHadirPengawasPage() {
         if(userProfile) fetchRiwayat();
     }, [fetchRiwayat, userProfile]);
     
-    // This effect now correctly populates the signature field from the user's profile
-    // and ensures it runs whenever the profile data is available.
     useEffect(() => {
         if (userProfile?.signatureUrl && !form.getValues('tandaTanganUrl')) {
             form.setValue('tandaTanganUrl', userProfile.signatureUrl);
@@ -124,7 +121,6 @@ export default function DaftarHadirPengawasPage() {
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        // Manual validation for signature
         if (!data.tandaTanganUrl) {
             form.setError("tandaTanganUrl", { type: "manual", message: "Tanda tangan wajib diisi. Silakan unggah atau perbarui profil Anda." });
             toast({ variant: "destructive", title: "Validasi Gagal", description: "Tanda tangan wajib diisi." });
@@ -134,7 +130,7 @@ export default function DaftarHadirPengawasPage() {
         try {
             await addDaftarHadirPengawas({ 
               ...data,
-              tandaTanganUrl: data.tandaTanganUrl, // Ensure it's passed
+              tandaTanganUrl: data.tandaTanganUrl,
               tanggalUjian: Timestamp.fromDate(data.tanggalUjian),
               namaPengawas: userProfile.displayName || "Pengawas",
               createdByUid: userProfile.uid,

@@ -730,10 +730,14 @@ export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjia
     if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
        q = query(collRef, orderBy('createdAt', 'desc'));
     } else {
-       q = query(collRef, where('createdByUid', '==', user.uid), orderBy('createdAt', 'desc'));
+       q = query(collRef, where('createdByUid', '==', user.uid));
     }
     const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map(doc => doc.data());
+    // Sort client-side if not sorting by the same field as the where clause
+    if (user.role !== 'admin' && !user.tugasTambahan?.includes('kurikulum')) {
+        data.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    }
     return data;
   } catch (error) {
     handleFirestoreError(error, 'membaca semua', BERITA_ACARA_COLLECTION);
@@ -1066,7 +1070,7 @@ export const createUserProfile = async (
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
     const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-    const docSnap = await getDoc(userDocRef);
+    const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'profil pengguna');
@@ -1660,3 +1664,4 @@ export const deleteSchoolHoliday = async (dateString: string): Promise<void> => 
     handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }
 };
+

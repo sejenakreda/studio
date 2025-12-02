@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Loader2, AlertCircle, Trash2, Edit, FileSignature, Image as ImageIcon, Printer } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, Loader2, AlertCircle, Trash2, Edit, FileSignature, Image as ImageIcon, Printer, Filter } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -79,6 +80,8 @@ function getDayName(date: Date): string {
     return days[date.getDay()];
 }
 
+const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+
 export default function BeritaAcaraPage() {
     const { toast } = useToast();
     const { userProfile, isKurikulum } = useAuth();
@@ -89,6 +92,10 @@ export default function BeritaAcaraPage() {
     const [error, setError] = useState<string | null>(null);
     const [editingBeritaAcara, setEditingBeritaAcara] = useState<BeritaAcaraUjian | null>(null);
     const [beritaAcaraToDelete, setBeritaAcaraToDelete] = useState<BeritaAcaraUjian | null>(null);
+    
+    // Filter states
+    const [filterHari, setFilterHari] = useState<string>("all");
+    const [filterMapel, setFilterMapel] = useState<string>("all");
 
     const form = useForm<BeritaAcaraFormData>({
         resolver: zodResolver(beritaAcaraSchema),
@@ -153,6 +160,19 @@ export default function BeritaAcaraPage() {
         const hadirCount = total - (Number(tidakHadirManual) || 0);
         return [total, Math.max(0, hadirCount)];
     }, [watchedValues]);
+    
+    const availableMapel = useMemo(() => {
+        const mapelSet = new Set(riwayat.map(item => item.mataUjian));
+        return Array.from(mapelSet).sort();
+    }, [riwayat]);
+
+    const filteredData = useMemo(() => {
+        return riwayat.filter(item => {
+            if (filterHari !== "all" && item.hari !== filterHari) return false;
+            if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;
+            return true;
+        });
+    }, [riwayat, filterHari, filterMapel]);
 
 
     const onSubmit = async (data: BeritaAcaraFormData) => {
@@ -276,17 +296,27 @@ export default function BeritaAcaraPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Riwayat Berita Acara</CardTitle>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <label htmlFor="filter-hari" className="text-sm font-medium">Filter Hari</label>
+                            <Select value={filterHari} onValueChange={setFilterHari}><SelectTrigger id="filter-hari" className="w-full mt-1"><SelectValue placeholder="Pilih hari..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Hari</SelectItem>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>
+                        </div>
+                         <div>
+                            <label htmlFor="filter-mapel" className="text-sm font-medium">Filter Mata Pelajaran</label>
+                            <Select value={filterMapel} onValueChange={setFilterMapel}><SelectTrigger id="filter-mapel" className="w-full mt-1"><SelectValue placeholder="Pilih mapel..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Mapel</SelectItem>{availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (<Skeleton className="h-40 w-full" />)
                     : error ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>)
-                    : riwayat.length === 0 ? (
-                        <div className="text-center py-10"><FileSignature className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-semibold">Belum Ada Riwayat</h3><p className="mt-1 text-sm text-muted-foreground">Anda belum membuat berita acara.</p></div>
+                    : filteredData.length === 0 ? (
+                        <div className="text-center py-10"><FileSignature className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-2 text-sm font-semibold">Belum Ada Riwayat</h3><p className="mt-1 text-sm text-muted-foreground">Tidak ada berita acara yang cocok dengan filter.</p></div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table><TableHeader><TableRow><TableHead>Jenis Ujian</TableHead><TableHead>Mata Ujian</TableHead><TableHead>Tanggal</TableHead><TableHead>Oleh</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
                                 <TableBody>
-                                    {riwayat.map(item => (
+                                    {filteredData.map(item => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.jenisUjian}</TableCell>
                                         <TableCell>{item.mataUjian}</TableCell>

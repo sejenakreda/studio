@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -65,7 +64,7 @@ export default function DaftarHadirPengawasPage() {
           ruangUjian: "R-01",
           waktuMulai: "07:30",
           waktuSelesai: "09:30",
-          tandaTanganUrl: userProfile?.signatureUrl || "",
+          tandaTanganUrl: "",
         },
     });
 
@@ -180,7 +179,7 @@ export default function DaftarHadirPengawasPage() {
                                 <FormField control={form.control} name="waktuMulai" render={({ field }) => (<FormItem><FormLabel>Waktu Mulai</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="waktuSelesai" render={({ field }) => (<FormItem><FormLabel>Waktu Selesai</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
-                             <FormField control={form.control} name="tandaTanganUrl" render={({ field }) => (<FormItem><FormLabel>Tanda Tangan</FormLabel><FormControl><ImageUploadField value={field.value} onChange={field.onChange} folderPath="tanda-tangan-pengawas" /></FormControl><FormMessage /></FormItem>)} />
+                             <FormField control={form.control} name="tandaTanganUrl" render={({ field }) => (<FormItem><FormLabel>Tanda Tangan</FormLabel><FormControl><ImageUploadField value={field.value} onChange={field.onChange} folderPath={`signatures/${userProfile?.uid}`} /></FormControl><FormMessage /></FormItem>)} />
                         </CardContent>
                         <CardFooter className="gap-2">
                             <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Simpan Kehadiran</Button>

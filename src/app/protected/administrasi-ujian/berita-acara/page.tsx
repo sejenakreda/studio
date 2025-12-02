@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -114,8 +113,8 @@ export default function BeritaAcaraPage() {
           jumlahDaftarHadir: 1,
           jumlahBeritaAcara: 1,
           catatanUjian: "",
-          pengawasNama: userProfile?.displayName || "",
-          pengawasTandaTanganUrl: userProfile?.signatureUrl || "",
+          pengawasNama: "",
+          pengawasTandaTanganUrl: "",
         },
     });
 

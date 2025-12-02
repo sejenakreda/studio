@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -42,8 +41,9 @@ export default function PrintDaftarHadirPage() {
 
         async function fetchDataForPrint() {
             try {
+                // getDaftarHadirPengawas now correctly fetches all data for admin/kurikulum
                 const [fetchedRecords, fetchedPrintSettings] = await Promise.all([
-                    getDaftarHadirPengawas(userProfile),
+                    getDaftarHadirPengawas(userProfile), 
                     getPrintSettings()
                 ]);
 

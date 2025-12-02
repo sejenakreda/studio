@@ -34,7 +34,7 @@ export default function AdminRekapDaftarHadirPage() {
     const [error, setError] = useState<string | null>(null);
 
     const [filterYear, setFilterYear] = useState<number>(currentYear);
-    const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
+    const [filterMonth, setFilterMonth] = useState<number | "all">("all");
     const [filterHari, setFilterHari] = useState<string>("all");
     const [filterMapel, setFilterMapel] = useState<string>("all");
 
@@ -66,9 +66,14 @@ export default function AdminRekapDaftarHadirPage() {
         return allRecords.filter(item => {
             const itemDate = item.tanggalUjian.toDate();
             const dayName = format(itemDate, 'EEEE', { locale: indonesiaLocale });
+            
+            if(filterMonth !== "all" && (itemDate.getFullYear() !== filterYear || itemDate.getMonth() !== filterMonth - 1)) {
+                return false;
+            }
+            if(filterMonth === "all" && itemDate.getFullYear() !== filterYear) {
+                return false;
+            }
 
-            if (filterYear && itemDate.getFullYear() !== filterYear) return false;
-            if (filterMonth !== "all" && itemDate.getMonth() !== filterMonth - 1) return false;
             if (filterHari !== "all" && dayName !== filterHari) return false;
             if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;
             return true;

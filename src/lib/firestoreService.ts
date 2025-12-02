@@ -27,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian, DaftarHadirPengawas, ArsipLink } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian, DaftarHadirPengawas, ArsipLinkCategory } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -592,23 +592,25 @@ const daftarHadirPengawasConverter: FirestoreDataConverter<DaftarHadirPengawas> 
   },
 };
 
-const arsipLinkConverter: FirestoreDataConverter<ArsipLink> = {
-  toFirestore(arsip: Omit<ArsipLink, 'id'>): DocumentData {
+const arsipLinkCategoryConverter: FirestoreDataConverter<ArsipLinkCategory> = {
+  toFirestore(category: Omit<ArsipLinkCategory, 'id'>): DocumentData {
     return {
-      judul: arsip.judul,
-      url: arsip.url,
-      deskripsi: arsip.deskripsi,
-      createdAt: arsip.createdAt || serverTimestamp(),
+      title: category.title,
+      description: category.description,
+      links: category.links || [],
+      createdAt: category.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
   },
-  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): ArsipLink {
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): ArsipLinkCategory {
     const data = snapshot.data(options)!;
     return {
       id: snapshot.id,
-      judul: data.judul,
-      url: data.url,
-      deskripsi: data.deskripsi,
+      title: data.title,
+      description: data.description,
+      links: data.links || [],
       createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   },
 };
@@ -616,45 +618,45 @@ const arsipLinkConverter: FirestoreDataConverter<ArsipLink> = {
 
 // --- Service Functions with Error Handling ---
 // --- Arsip Link Service ---
-const ARSIP_LINK_COLLECTION = 'arsipLink';
+const ARSIP_LINK_CATEGORY_COLLECTION = 'arsipLinkCategories';
 
-export const addArsipLink = async (data: Omit<ArsipLink, 'id' | 'createdAt'>): Promise<ArsipLink> => {
+export const addArsipCategory = async (data: Omit<ArsipLinkCategory, 'id' | 'createdAt' | 'updatedAt' | 'links'>): Promise<ArsipLinkCategory> => {
   try {
-    const collRef = collection(db, ARSIP_LINK_COLLECTION).withConverter(arsipLinkConverter);
-    const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+    const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
+    const dataToSave = { ...data, links: [], createdAt: serverTimestamp() as Timestamp, updatedAt: serverTimestamp() as Timestamp };
     const docRef = await addDoc(collRef, dataToSave);
-    return { id: docRef.id, ...dataToSave };
+    return { id: docRef.id, ...dataToSave, links: [] };
   } catch (error) {
-    handleFirestoreError(error, 'menambah', ARSIP_LINK_COLLECTION);
+    handleFirestoreError(error, 'menambah', ARSIP_LINK_CATEGORY_COLLECTION);
   }
 };
 
-export const getArsipLinks = async (): Promise<ArsipLink[]> => {
+export const getArsipCategories = async (): Promise<ArsipLinkCategory[]> => {
   try {
-    const collRef = collection(db, ARSIP_LINK_COLLECTION).withConverter(arsipLinkConverter);
+    const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
     const q = query(collRef, orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
   } catch (error) {
-    handleFirestoreError(error, 'mendapatkan', ARSIP_LINK_COLLECTION);
+    handleFirestoreError(error, 'mendapatkan', ARSIP_LINK_CATEGORY_COLLECTION);
   }
 };
 
-export const updateArsipLink = async (id: string, data: Partial<Omit<ArsipLink, 'id' | 'createdAt'>>): Promise<void> => {
+export const updateArsipCategory = async (id: string, data: Partial<Omit<ArsipLinkCategory, 'id' | 'createdAt'>>): Promise<void> => {
   try {
-    const docRef = doc(db, ARSIP_LINK_COLLECTION, id);
-    await updateDoc(docRef, data);
+    const docRef = doc(db, ARSIP_LINK_CATEGORY_COLLECTION, id);
+    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
   } catch (error) {
-    handleFirestoreError(error, 'memperbarui', ARSIP_LINK_COLLECTION);
+    handleFirestoreError(error, 'memperbarui', ARSIP_LINK_CATEGORY_COLLECTION);
   }
 };
 
-export const deleteArsipLink = async (id: string): Promise<void> => {
+export const deleteArsipCategory = async (id: string): Promise<void> => {
   try {
-    const docRef = doc(db, ARSIP_LINK_COLLECTION, id);
+    const docRef = doc(db, ARSIP_LINK_CATEGORY_COLLECTION, id);
     await deleteDoc(docRef);
   } catch (error) {
-    handleFirestoreError(error, 'menghapus', ARSIP_LINK_COLLECTION);
+    handleFirestoreError(error, 'menghapus', ARSIP_LINK_CATEGORY_COLLECTION);
   }
 };
 

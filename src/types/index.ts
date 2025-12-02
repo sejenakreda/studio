@@ -1,4 +1,3 @@
-
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -283,10 +282,18 @@ export interface DaftarHadirPengawas {
     updatedAt: Timestamp;
 }
 
-export interface ArsipLink {
-  id?: string;
+export interface ArsipLinkItem {
+  id: string; // UUID
   judul: string;
   url: string;
   deskripsi: string;
+}
+
+export interface ArsipLinkCategory {
+  id?: string; // Firestore Document ID
+  title: string;
+  description: string;
+  links: ArsipLinkItem[];
   createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }

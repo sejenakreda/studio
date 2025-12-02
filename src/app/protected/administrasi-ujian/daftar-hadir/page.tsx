@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Loader2, AlertCircle, Trash2, ClipboardCheck, CalendarIcon, Printer } from "lucide-react";
+import { PlusCircle, Loader2, AlertCircle, Trash2, ClipboardCheck, CalendarIcon, Printer, Filter } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -83,7 +84,7 @@ export default function DaftarHadirPengawasPage() {
             const data = await getDaftarHadirPengawas(userProfile);
             setRiwayat(data);
         } catch (err: any) {
-            setError("Gagal memuat riwayat daftar hadir.");
+            setError("Gagal memuat riwayat daftar hadir. " + err.message);
             toast({ variant: "destructive", title: "Error", description: err.message });
         } finally {
             setIsLoading(false);
@@ -95,8 +96,8 @@ export default function DaftarHadirPengawasPage() {
     }, [fetchRiwayat, userProfile]);
     
     useEffect(() => {
-        if (userProfile) {
-            form.setValue('tandaTanganUrl', userProfile.signatureUrl || "");
+        if (userProfile && userProfile.signatureUrl) {
+            form.setValue('tandaTanganUrl', userProfile.signatureUrl);
         }
     }, [userProfile, form]);
 
@@ -219,11 +220,11 @@ export default function DaftarHadirPengawasPage() {
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label htmlFor="filter-hari" className="text-sm font-medium">Filter Hari</label>
-                                <Select value={filterHari} onValueChange={setFilterHari}><SelectTrigger id="filter-hari" className="w-full mt-1"><SelectValue placeholder="Pilih hari..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Hari</SelectItem>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>
+                                <Select value={filterHari} onValueChange={setFilterHari}><SelectTrigger id="filter-hari" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih hari..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Hari</SelectItem>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>
                             </div>
                              <div>
                                 <label htmlFor="filter-mapel" className="text-sm font-medium">Filter Mata Pelajaran</label>
-                                <Select value={filterMapel} onValueChange={setFilterMapel}><SelectTrigger id="filter-mapel" className="w-full mt-1"><SelectValue placeholder="Pilih mapel..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Mapel</SelectItem>{availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                                <Select value={filterMapel} onValueChange={setFilterMapel}><SelectTrigger id="filter-mapel" className="w-full mt-1"><Filter className="h-4 w-4 mr-2 opacity-70" /><SelectValue placeholder="Pilih mapel..." /></SelectTrigger><SelectContent><SelectItem value="all">Semua Mapel</SelectItem>{availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
                             </div>
                         </div>
                     </div>

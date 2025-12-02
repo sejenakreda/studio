@@ -681,10 +681,14 @@ export const getDaftarHadirPengawas = async (user: UserProfile): Promise<DaftarH
     if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
       q = query(collRef, orderBy('tanggalUjian', 'desc'));
     } else {
-      q = query(collRef, where('createdByUid', '==', user.uid), orderBy('tanggalUjian', 'desc'));
+      q = query(collRef, where('createdByUid', '==', user.uid));
     }
     const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map(doc => doc.data());
+    // Sort client-side if not sorting by the same field as the where clause
+    if (user.role !== 'admin' && !user.tugasTambahan?.includes('kurikulum')) {
+        data.sort((a, b) => b.tanggalUjian.toMillis() - a.tanggalUjian.toMillis());
+    }
     return data;
   } catch (error) {
     handleFirestoreError(error, 'membaca riwayat', DAFTAR_HADIR_PENGAWAS_COLLECTION);

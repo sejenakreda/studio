@@ -149,7 +149,7 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (isAdmin() || isKurikulum() || resource.data.createdByUid == request.auth.uid);
     }
     
-    match /arsipLink/{docId} {
+    match /arsipLinkCategories/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

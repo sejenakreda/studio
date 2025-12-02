@@ -90,7 +90,7 @@ export default function ArsipLinkPage() {
             <Card key={link.id} className="flex flex-col">
               <CardHeader>
                 <CardTitle className="flex items-start gap-2 text-xl">
-                  <LinkIcon className="h-5 w-5 text-primary flex-shrink-0 mt-1" />
+                  <Link2 className="h-5 w-5 text-primary flex-shrink-0 mt-1" />
                   {link.judul}
                 </CardTitle>
                 <CardDescription>

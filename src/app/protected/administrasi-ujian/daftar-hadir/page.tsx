@@ -42,7 +42,7 @@ const daftarHadirSchema = z.object({
   ruangUjian: z.string().min(1, "Ruang ujian harus diisi"),
   waktuMulai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
   waktuSelesai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
-  tandaTanganUrl: z.string().url("URL tanda tangan tidak valid.").nullable().optional(),
+  tandaTanganUrl: z.string().url("URL tanda tangan tidak valid.").nullable().optional().or(z.literal('')),
 });
 
 
@@ -96,7 +96,6 @@ export default function DaftarHadirPengawasPage() {
     }, [fetchRiwayat, userProfile]);
     
     useEffect(() => {
-        // Automatically set signature URL from profile if it exists and form field is empty
         if (userProfile?.signatureUrl && !form.getValues('tandaTanganUrl')) {
             form.setValue('tandaTanganUrl', userProfile.signatureUrl);
         }
@@ -121,7 +120,6 @@ export default function DaftarHadirPengawasPage() {
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
-        // Smart validation: check form value OR profile value
         const finalSignatureUrl = data.tandaTanganUrl || userProfile.signatureUrl;
 
         if (!finalSignatureUrl) {
@@ -284,3 +282,5 @@ export default function DaftarHadirPengawasPage() {
         </div>
     );
 }
+
+    

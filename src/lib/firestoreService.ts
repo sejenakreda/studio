@@ -677,18 +677,15 @@ export const getDaftarHadirPengawas = async (user: UserProfile): Promise<DaftarH
   try {
     const collRef = collection(db, DAFTAR_HADIR_PENGAWAS_COLLECTION).withConverter(daftarHadirPengawasConverter);
     let q;
-    let querySnapshot: QuerySnapshot<DaftarHadirPengawas>;
 
     if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
       q = query(collRef, orderBy('tanggalUjian', 'desc'));
-      querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => doc.data());
     } else {
       q = query(collRef, where('createdByUid', '==', user.uid), orderBy('tanggalUjian', 'desc'));
-      querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => doc.data());
-      return data;
     }
+    const querySnapshot = await getDocs(q);
+    const data = querySnapshot.docs.map(doc => doc.data());
+    return data;
   } catch (error) {
     handleFirestoreError(error, 'membaca riwayat', DAFTAR_HADIR_PENGAWAS_COLLECTION);
   }

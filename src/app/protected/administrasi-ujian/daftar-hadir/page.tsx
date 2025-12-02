@@ -51,7 +51,7 @@ const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 export default function DaftarHadirPengawasPage() {
     const { toast } = useToast();
-    const { userProfile } = useAuth();
+    const { userProfile, isKurikulum } = useAuth();
     const router = useRouter();
 
     const [riwayat, setRiwayat] = useState<DaftarHadirPengawas[]>([]);

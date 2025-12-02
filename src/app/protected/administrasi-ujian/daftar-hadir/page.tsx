@@ -37,14 +37,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 
+// Schema is relaxed here; validation happens in onSubmit
 const daftarHadirSchema = z.object({
   tanggalUjian: z.date({ required_error: "Tanggal ujian harus diisi." }),
   mataUjian: z.string().min(3, "Mata ujian minimal 3 karakter"),
   ruangUjian: z.string().min(1, "Ruang ujian harus diisi"),
   waktuMulai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
   waktuSelesai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
-  tandaTanganUrl: z.string().min(1, "Tanda tangan wajib diisi."),
+  tandaTanganUrl: z.string().optional(), // Make optional here
 });
+
 
 type DaftarHadirFormData = z.infer<typeof daftarHadirSchema>;
 
@@ -95,8 +97,10 @@ export default function DaftarHadirPengawasPage() {
         if(userProfile) fetchRiwayat();
     }, [fetchRiwayat, userProfile]);
     
+    // This effect now correctly populates the signature field from the user's profile
+    // and ensures it runs whenever the profile data is available.
     useEffect(() => {
-        if (userProfile && userProfile.signatureUrl) {
+        if (userProfile?.signatureUrl && !form.getValues('tandaTanganUrl')) {
             form.setValue('tandaTanganUrl', userProfile.signatureUrl);
         }
     }, [userProfile, form]);
@@ -120,9 +124,17 @@ export default function DaftarHadirPengawasPage() {
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
+        // Manual validation for signature
+        if (!data.tandaTanganUrl) {
+            form.setError("tandaTanganUrl", { type: "manual", message: "Tanda tangan wajib diisi. Silakan unggah atau perbarui profil Anda." });
+            toast({ variant: "destructive", title: "Validasi Gagal", description: "Tanda tangan wajib diisi." });
+            return;
+        }
+
         try {
             await addDaftarHadirPengawas({ 
               ...data,
+              tandaTanganUrl: data.tandaTanganUrl, // Ensure it's passed
               tanggalUjian: Timestamp.fromDate(data.tanggalUjian),
               namaPengawas: userProfile.displayName || "Pengawas",
               createdByUid: userProfile.uid,
@@ -246,7 +258,9 @@ export default function DaftarHadirPengawasPage() {
                                         <TableCell>{item.ruangUjian}</TableCell>
                                         <TableCell>{`${item.waktuMulai} - ${item.waktuSelesai}`}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setHadirToDelete(item)}><Trash2 className="h-4 w-4"/></Button>
+                                            {(userProfile?.role === 'admin' || userProfile?.uid === item.createdByUid || isKurikulum) && (
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setHadirToDelete(item)}><Trash2 className="h-4 w-4"/></Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                     ))}

@@ -148,6 +148,10 @@ service cloud.firestore {
       allow read: if isAuthenticated(); // All authenticated users can read for list views.
       allow delete: if isAuthenticated() && (isAdmin() || isKurikulum() || resource.data.createdByUid == request.auth.uid);
     }
+    
+    match /arsipLink/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }
-    

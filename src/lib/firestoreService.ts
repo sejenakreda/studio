@@ -27,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian, DaftarHadirPengawas } from '@/types';
+import type { Bobot, Siswa, Nilai, UserProfile, Role, ActivityLog, AcademicYearSetting, KkmSetting, MataPelajaranMaster, Pengumuman, PrioritasPengumuman, TeacherDailyAttendance, TeacherDailyAttendanceStatus, SchoolProfile, ClassDetail, SaranaDetail, SchoolStats, TugasTambahan, PelanggaranSiswa, LaporanKegiatan, AgendaKelas, PrintSettings, SchoolHoliday, BeritaAcaraUjian, DaftarHadirPengawas, ArsipLink } from '@/types';
 import { User } from 'firebase/auth';
 import { getCurrentAcademicYear } from './utils';
 
@@ -592,8 +592,72 @@ const daftarHadirPengawasConverter: FirestoreDataConverter<DaftarHadirPengawas> 
   },
 };
 
+const arsipLinkConverter: FirestoreDataConverter<ArsipLink> = {
+  toFirestore(arsip: Omit<ArsipLink, 'id'>): DocumentData {
+    return {
+      judul: arsip.judul,
+      url: arsip.url,
+      deskripsi: arsip.deskripsi,
+      createdAt: arsip.createdAt || serverTimestamp(),
+    };
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): ArsipLink {
+    const data = snapshot.data(options)!;
+    return {
+      id: snapshot.id,
+      judul: data.judul,
+      url: data.url,
+      deskripsi: data.deskripsi,
+      createdAt: data.createdAt,
+    };
+  },
+};
+
 
 // --- Service Functions with Error Handling ---
+// --- Arsip Link Service ---
+const ARSIP_LINK_COLLECTION = 'arsipLink';
+
+export const addArsipLink = async (data: Omit<ArsipLink, 'id' | 'createdAt'>): Promise<ArsipLink> => {
+  try {
+    const collRef = collection(db, ARSIP_LINK_COLLECTION).withConverter(arsipLinkConverter);
+    const dataToSave = { ...data, createdAt: serverTimestamp() as Timestamp };
+    const docRef = await addDoc(collRef, dataToSave);
+    return { id: docRef.id, ...dataToSave };
+  } catch (error) {
+    handleFirestoreError(error, 'menambah', ARSIP_LINK_COLLECTION);
+  }
+};
+
+export const getArsipLinks = async (): Promise<ArsipLink[]> => {
+  try {
+    const collRef = collection(db, ARSIP_LINK_COLLECTION).withConverter(arsipLinkConverter);
+    const q = query(collRef, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data());
+  } catch (error) {
+    handleFirestoreError(error, 'mendapatkan', ARSIP_LINK_COLLECTION);
+  }
+};
+
+export const updateArsipLink = async (id: string, data: Partial<Omit<ArsipLink, 'id' | 'createdAt'>>): Promise<void> => {
+  try {
+    const docRef = doc(db, ARSIP_LINK_COLLECTION, id);
+    await updateDoc(docRef, data);
+  } catch (error) {
+    handleFirestoreError(error, 'memperbarui', ARSIP_LINK_COLLECTION);
+  }
+};
+
+export const deleteArsipLink = async (id: string): Promise<void> => {
+  try {
+    const docRef = doc(db, ARSIP_LINK_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, 'menghapus', ARSIP_LINK_COLLECTION);
+  }
+};
+
 // --- Daftar Hadir Pengawas Service ---
 const DAFTAR_HADIR_PENGAWAS_COLLECTION = 'daftarHadirPengawas';
 
@@ -1371,10 +1435,18 @@ export const updatePelanggaran = async (id: string, data: Partial<Omit<Pelanggar
   }
 };
 
-export const getAllPelanggaran = async (): Promise<PelanggaranSiswa[]> => {
+export const getAllPelanggaran = async (year: number, month?: number | null): Promise<PelanggaranSiswa[]> => {
   try {
     const collRef = collection(db, PELANGGARAN_COLLECTION).withConverter(pelanggaranConverter);
-    const q = query(collRef, orderBy('tanggal', 'desc'));
+     let startDate: Timestamp, endDate: Timestamp;
+    if (month && month >= 1 && month <= 12) {
+      startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+      endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+    } else {
+      startDate = Timestamp.fromDate(new Date(year, 0, 1));
+      endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
+    }
+    const q = query(collRef, where('tanggal', '>=', startDate), where('tanggal', '<=', endDate), orderBy('tanggal', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data());
   } catch (error) {
@@ -1496,10 +1568,18 @@ export const getAgendasForTeacher = async (teacherUid: string, year: number, mon
   }
 };
 
-export const getAllAgendas = async (): Promise<AgendaKelas[]> => {
+export const getAllAgendas = async (year: number, month?: number | null): Promise<AgendaKelas[]> => {
   try {
     const coll = collection(db, AGENDA_KELAS_COLLECTION).withConverter(agendaKelasConverter);
-    const q = query(coll, orderBy('tanggal', 'desc'));
+    let startDate: Timestamp, endDate: Timestamp;
+    if (month && month >= 1 && month <= 12) {
+      startDate = Timestamp.fromDate(new Date(year, month - 1, 1));
+      endDate = Timestamp.fromDate(new Date(year, month, 0, 23, 59, 59, 999));
+    } else {
+      startDate = Timestamp.fromDate(new Date(year, 0, 1));
+      endDate = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59, 999));
+    }
+    const q = query(coll, where('tanggal', '>=', startDate), where('tanggal', '<=', endDate), orderBy('tanggal', 'desc'));
     const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map(doc => doc.data());
     return data;

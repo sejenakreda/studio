@@ -31,7 +31,7 @@ export interface UserProfile {
   fcmToken?: string;
   assignedMapel?: string[]; // Daftar mapel yang ditugaskan ke guru
   tugasTambahan?: TugasTambahan[]; // Daftar tugas tambahan guru
-  signatureUrl?: string; // URL tanda tangan guru
+  signatureUrl?: string | null; // URL tanda tangan guru
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -281,4 +281,12 @@ export interface DaftarHadirPengawas {
     createdByUid: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;
+}
+
+export interface ArsipLink {
+  id?: string;
+  judul: string;
+  url: string;
+  deskripsi: string;
+  createdAt?: Timestamp;
 }

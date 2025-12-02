@@ -5,7 +5,7 @@ import React from 'react';
 import Link from "next/link";
 import { 
     BookUser, Edit3, BarChartHorizontalBig, Megaphone, Building, 
-    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion, CalendarCheck, FileWarning, PenSquare, FileSignature, ClipboardCheck
+    BookCheck, CalendarPlus, UserCheck, FileClock, ShieldAlert, HeartHandshake, Library, Users2, CircleDollarSign, Award, Briefcase, DatabaseZap, ShieldQuestion, CalendarCheck, FileWarning, PenSquare, FileSignature, ClipboardCheck, Link2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; 
 
@@ -27,6 +27,7 @@ const menuItems: GuruMenuItem[] = [
     { title: "Rekap Kehadiran", href: "/protected/guru/rekap-kehadiran-saya", icon: FileClock, color: "text-amber-500", requiredTugas: () => true },
     { title: "Pengumuman", href: "/protected/guru/announcements", icon: Megaphone, color: "text-cyan-500", requiredTugas: () => true },
     { title: "Profil Sekolah", href: "/protected/guru/school-profile", icon: Building, color: "text-gray-500", requiredTugas: () => true },
+    { title: "Arsip Link", href: "/protected/arsip-link", icon: Link2, color: "text-violet-500", requiredTugas: () => true },
     
     // Administrasi Ujian
     { title: "Berita Acara Ujian", href: "/protected/administrasi-ujian/berita-acara", icon: FileSignature, color: "text-orange-500", requiredTugas: () => true },

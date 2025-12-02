@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/UserNav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer, CalendarOff, FileSignature, ClipboardCheck } from "lucide-react"; 
+import { Home, BookUser, Users, BarChart3, Settings, LogOut, FileText, Edit3, ShieldCheck, CalendarCog, BarChartHorizontalBig, ListChecks, BookCopy, Megaphone, CalendarCheck, UserCheck, FileClock, Building, Library, Users2, CircleDollarSign, DatabaseZap, HeartHandshake, Award, Shield, Briefcase, BookCheck, CalendarPlus, ShieldQuestion, ShieldAlert, FileWarning, ChevronDown, ArrowLeft, RefreshCw, Printer, CalendarOff, FileSignature, ClipboardCheck, Link2 } from "lucide-react"; 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -127,6 +127,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/admin/school-profile", label: "Profil Sekolah", icon: Building },
       { href: "/protected/admin/holidays", label: "Kalender Libur", icon: CalendarOff },
       { href: "/protected/admin/print-settings", label: "Pengaturan Cetak", icon: Printer },
+      { href: "/protected/admin/arsip-link", label: "Kelola Arsip Link", icon: Link2 },
     ],
   },
   
@@ -151,7 +152,8 @@ const navigationStructure: NavGroup[] = [
     groupIcon: Building,
     roles: ['guru'],
     items: [
-      { href: "/protected/guru/school-profile", label: "Profil Sekolah", icon: Building }
+      { href: "/protected/guru/school-profile", label: "Profil Sekolah", icon: Building },
+      { href: "/protected/arsip-link", label: "Arsip Link", icon: Link2 },
     ],
   },
   {

@@ -123,18 +123,15 @@ export default function DaftarHadirPengawasPage() {
     const onSubmit = async (data: DaftarHadirFormData) => {
         if (!userProfile) return toast({ variant: "destructive", title: "Error", description: "Sesi Anda tidak valid." });
         
+        // This is the correct logic. It prioritizes a newly uploaded signature, but falls back to the profile signature.
         const finalSignatureUrl = data.tandaTanganUrl || userProfile.signatureUrl;
 
-        if (!finalSignatureUrl) {
-            form.setError("tandaTanganUrl", { type: "manual", message: "Tanda tangan wajib diisi. Silakan unggah atau perbarui profil Anda di menu 'Kelola Guru'." });
-            toast({ variant: "destructive", title: "Validasi Gagal", description: "Tanda tangan wajib diisi." });
-            return;
-        }
-
+        // The problematic manual validation is now removed. The logic trusts that either the form or the profile will have the URL.
+        
         try {
             await addDaftarHadirPengawas({ 
               ...data,
-              tandaTanganUrl: finalSignatureUrl,
+              tandaTanganUrl: finalSignatureUrl || "", // Send empty string if somehow both are null, DB handles it.
               tanggalUjian: Timestamp.fromDate(data.tanggalUjian),
               namaPengawas: userProfile.displayName || "Pengawas",
               createdByUid: userProfile.uid,

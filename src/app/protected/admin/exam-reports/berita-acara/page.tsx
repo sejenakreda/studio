@@ -42,6 +42,7 @@ export default function AdminRekapBeritaAcaraPage() {
         setIsLoading(true);
         setError(null);
         try {
+            // Fetch all data regardless of date, then filter client-side
             const fetchedData = await getBeritaAcara(userProfile);
             setAllBeritaAcara(fetchedData);
         } catch (err: any) {
@@ -53,8 +54,10 @@ export default function AdminRekapBeritaAcaraPage() {
     }, [userProfile, toast]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (userProfile) {
+            fetchData();
+        }
+    }, [userProfile, fetchData]);
 
     const availableMapel = useMemo(() => {
         const mapelSet = new Set(allBeritaAcara.map(item => item.mataUjian));
@@ -63,9 +66,10 @@ export default function AdminRekapBeritaAcaraPage() {
 
     const filteredData = useMemo(() => {
         return allBeritaAcara.filter(item => {
-            const itemDate = new Date(item.tahun, MONTHS.findIndex(m => m.label === item.bulan), item.tanggal);
-            if (filterYear !== new Date().getFullYear() && itemDate.getFullYear() !== filterYear) return false;
-            if (filterMonth !== "all" && itemDate.getMonth() !== filterMonth - 1) return false;
+            const itemMonth = MONTHS.findIndex(m => m.label.toLowerCase() === item.bulan.toLowerCase()) + 1;
+            
+            if (filterYear && item.tahun !== filterYear) return false;
+            if (filterMonth !== "all" && itemMonth !== filterMonth) return false;
             if (filterHari !== "all" && item.hari !== filterHari) return false;
             if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;
             return true;
@@ -155,7 +159,7 @@ export default function AdminRekapBeritaAcaraPage() {
                             <TableBody>
                                 {filteredData.map(item => (
                                 <TableRow key={item.id}>
-                                    <TableCell>{`${item.tanggal} ${item.bulan} ${item.tahun}`}</TableCell>
+                                    <TableCell>{`${item.hari}, ${item.tanggal} ${item.bulan} ${item.tahun}`}</TableCell>
                                     <TableCell className="font-medium">{item.mataUjian}</TableCell>
                                     <TableCell>{item.pengawasNama}</TableCell>
                                     <TableCell>{item.ruangUjian}</TableCell>

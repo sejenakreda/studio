@@ -684,11 +684,10 @@ export const getDaftarHadirPengawas = async (user: UserProfile): Promise<DaftarH
       querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data());
     } else {
-      q = query(collRef, where('createdByUid', '==', user.uid));
+      q = query(collRef, where('createdByUid', '==', user.uid), orderBy('tanggalUjian', 'desc'));
       querySnapshot = await getDocs(q);
-      // Manual sort on the client side
       const data = querySnapshot.docs.map(doc => doc.data());
-      return data.sort((a, b) => b.tanggalUjian.toMillis() - a.tanggalUjian.toMillis());
+      return data;
     }
   } catch (error) {
     handleFirestoreError(error, 'membaca riwayat', DAFTAR_HADIR_PENGAWAS_COLLECTION);
@@ -728,14 +727,13 @@ export const getBeritaAcara = async (user: UserProfile): Promise<BeritaAcaraUjia
     const collRef = collection(db, BERITA_ACARA_COLLECTION).withConverter(beritaAcaraConverter);
     let q;
     if (user.role === 'admin' || user.tugasTambahan?.includes('kurikulum')) {
-       q = query(collRef);
+       q = query(collRef, orderBy('createdAt', 'desc'));
     } else {
-       q = query(collRef, where('createdByUid', '==', user.uid));
+       q = query(collRef, where('createdByUid', '==', user.uid), orderBy('createdAt', 'desc'));
     }
     const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map(doc => doc.data());
-    // Manual sort on the client side after fetching
-    return data.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    return data;
   } catch (error) {
     handleFirestoreError(error, 'membaca semua', BERITA_ACARA_COLLECTION);
   }

@@ -67,7 +67,7 @@ export default function AdminRekapDaftarHadirPage() {
             const itemDate = item.tanggalUjian.toDate();
             const dayName = format(itemDate, 'EEEE', { locale: indonesiaLocale });
 
-            if (itemDate.getFullYear() !== filterYear) return false;
+            if (filterYear !== new Date().getFullYear() && itemDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && itemDate.getMonth() !== filterMonth - 1) return false;
             if (filterHari !== "all" && dayName !== filterHari) return false;
             if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;

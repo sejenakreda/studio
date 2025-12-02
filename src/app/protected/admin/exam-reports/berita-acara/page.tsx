@@ -13,8 +13,8 @@ import { ArrowLeft, Loader2, AlertCircle, FileSignature, Filter, Download, Print
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getBeritaAcara, getAllUsersByRole } from '@/lib/firestoreService'; // getBeritaAcara will fetch all for admin
-import type { BeritaAcaraUjian, UserProfile } from '@/types';
+import { getBeritaAcara } from '@/lib/firestoreService';
+import type { BeritaAcaraUjian } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 
@@ -64,7 +64,7 @@ export default function AdminRekapBeritaAcaraPage() {
     const filteredData = useMemo(() => {
         return allBeritaAcara.filter(item => {
             const itemDate = new Date(item.tahun, MONTHS.findIndex(m => m.label === item.bulan), item.tanggal);
-            if (itemDate.getFullYear() !== filterYear) return false;
+            if (filterYear !== new Date().getFullYear() && itemDate.getFullYear() !== filterYear) return false;
             if (filterMonth !== "all" && itemDate.getMonth() !== filterMonth - 1) return false;
             if (filterHari !== "all" && item.hari !== filterHari) return false;
             if (filterMapel !== "all" && item.mataUjian !== filterMapel) return false;

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -43,7 +42,7 @@ const daftarHadirSchema = z.object({
   ruangUjian: z.string().min(1, "Ruang ujian harus diisi"),
   waktuMulai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
   waktuSelesai: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, "Format waktu tidak valid (HH:MM)"),
-  tandaTanganUrl: z.string().url("URL tanda tangan tidak valid.").nullable().optional().or(z.literal('')),
+  tandaTanganUrl: z.string().nullable().optional(),
 });
 
 
@@ -97,8 +96,11 @@ export default function DaftarHadirPengawasPage() {
     }, [fetchRiwayat, userProfile]);
     
     useEffect(() => {
-        if (userProfile?.signatureUrl && !form.getValues('tandaTanganUrl')) {
-            form.setValue('tandaTanganUrl', userProfile.signatureUrl);
+        if (userProfile?.signatureUrl) {
+            const currentSignature = form.getValues('tandaTanganUrl');
+            if (!currentSignature) {
+                form.setValue('tandaTanganUrl', userProfile.signatureUrl);
+            }
         }
     }, [userProfile, form]);
 
@@ -283,5 +285,3 @@ export default function DaftarHadirPengawasPage() {
         </div>
     );
 }
-
-    

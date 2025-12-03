@@ -48,8 +48,11 @@ export default function RekapNilaiKosongPage() {
 
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
     const [selectedSemester, setSelectedSemester] = useState<number>(1);
-    const [selectedMapel, setSelectedMapel] = useState<string[]>([]); // Changed to array for multi-select
+    const [selectedMapel, setSelectedMapel] = useState<string[]>([]);
     const [selectedGradeType, setSelectedGradeType] = useState<GradeType>('pas');
+    const [selectedClass, setSelectedClass] = useState<string>("all");
+    const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
+
 
     const fetchPrerequisites = useCallback(async () => {
         setIsLoading(true);
@@ -64,6 +67,10 @@ export default function RekapNilaiKosongPage() {
             setAllGrades(grades);
             setActiveYears(years);
             setAvailableMapel(mapelList.map(m => m.namaMapel));
+            
+            const klasses = [...new Set(students.map(s => s.kelas).filter(Boolean))].sort();
+            setUniqueClasses(klasses);
+            
         } catch (err) {
             toast({ variant: "destructive", title: "Gagal memuat data awal." });
         } finally {
@@ -88,9 +95,13 @@ export default function RekapNilaiKosongPage() {
             
         const missingGradesList: MissingGradeInfo[] = [];
 
+        const studentsToCheck = selectedClass === "all"
+            ? allStudents
+            : allStudents.filter(s => s.kelas === selectedClass);
+        
         const mapelToCheck = selectedMapel;
 
-        allStudents.forEach(student => {
+        studentsToCheck.forEach(student => {
             mapelToCheck.forEach(mapel => {
                 const gradeKey = `${student.id_siswa}-${mapel}`;
                 const gradeRecord = gradesMap.get(gradeKey);
@@ -127,7 +138,7 @@ export default function RekapNilaiKosongPage() {
             return a.missingMapel.localeCompare(b.missingMapel);
         });
 
-    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading]);
+    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, selectedClass, isLoading]);
 
     const handleDownloadExcel = () => {
         if (studentsWithMissingGrades.length === 0) {
@@ -160,11 +171,18 @@ export default function RekapNilaiKosongPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/> Filter Data</CardTitle>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-4">
                         <Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>
                         <Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select>
                         
-                        {/* Multi-select for Mapel */}
+                        <Select value={selectedClass} onValueChange={setSelectedClass}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Semua Kelas</SelectItem>
+                                {uniqueClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -188,22 +206,19 @@ export default function RekapNilaiKosongPage() {
                                         <CommandItem
                                             onSelect={() => {
                                                 if (selectedMapel.length === availableMapel.length) {
-                                                    setSelectedMapel([]); // Deselect all
+                                                    setSelectedMapel([]);
                                                 } else {
-                                                    setSelectedMapel(availableMapel); // Select all
+                                                    setSelectedMapel(availableMapel);
                                                 }
                                             }}
                                             className="cursor-pointer"
                                             >
                                             <Checkbox
                                                 className="mr-2"
-                                                checked={selectedMapel.length === availableMapel.length}
-                                                onCheckedChange={() => {
-                                                    if (selectedMapel.length === availableMapel.length) {
-                                                        setSelectedMapel([]);
-                                                    } else {
-                                                        setSelectedMapel(availableMapel);
-                                                    }
+                                                checked={selectedMapel.length > 0 && selectedMapel.length === availableMapel.length}
+                                                indeterminate={selectedMapel.length > 0 && selectedMapel.length < availableMapel.length}
+                                                onCheckedChange={(checked) => {
+                                                     setSelectedMapel(checked ? availableMapel : [])
                                                 }}
                                             />
                                             (Pilih Semua)

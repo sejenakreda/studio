@@ -37,7 +37,7 @@ export default function RekapNilaiKosongPage() {
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
     const [selectedSemester, setSelectedSemester] = useState<number>(1);
     const [selectedMapel, setSelectedMapel] = useState<string>("");
-    const [selectedGradeType, setSelectedGradeType] = useState<GradeType>('tugas');
+    const [selectedGradeType, setSelectedGradeType] = useState<GradeType>('pas');
 
     const fetchPrerequisites = useCallback(async () => {
         setIsLoading(true);
@@ -89,10 +89,8 @@ export default function RekapNilaiKosongPage() {
             if (selectedGradeType === 'tugas') {
                 return !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
             } else {
-                // For tes, pts, pas, check if it's null, undefined, or 0.
-                // We check for falsy values, but specifically allow 0 if it's not the desired check.
-                // A value of 0 might be a real grade, so we look for null/undefined.
-                return gradeValue === null || gradeValue === undefined;
+                // For tes, pts, pas, check if it's null, undefined, or explicitly 0.
+                return gradeValue === null || gradeValue === undefined || gradeValue === 0;
             }
         });
     }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading]);

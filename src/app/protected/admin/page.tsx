@@ -33,7 +33,7 @@ const allMenuItems: AdminMenuItem[] = [
     
     // Laporan & Rekapitulasi
     { title: "Semua Nilai", href: "/protected/admin/grades", icon: FileText, color: "text-purple-500" },
-    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500" },
+    { title: "Rekap Nilai Kosong", href: "/protected/guru/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500" },
     { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-teal-500" },
     { title: "Agenda Kelas", href: "/protected/admin/agenda-kelas", icon: BookCopy, color: "text-lime-500" },
     { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500" },

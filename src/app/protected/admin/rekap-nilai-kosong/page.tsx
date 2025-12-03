@@ -216,7 +216,7 @@ export default function RekapNilaiKosongPage() {
                                             <Checkbox
                                                 className="mr-2"
                                                 checked={selectedMapel.length > 0 && selectedMapel.length === availableMapel.length}
-                                                indeterminate={selectedMapel.length > 0 && selectedMapel.length < availableMapel.length}
+                                                indeterminate={selectedMapel.length > 0 && selectedMapel.length < availableMapel.length ? true : undefined}
                                                 onCheckedChange={(checked) => {
                                                      setSelectedMapel(checked ? availableMapel : [])
                                                 }}
@@ -299,3 +299,5 @@ export default function RekapNilaiKosongPage() {
         </div>
     );
 }
+
+    

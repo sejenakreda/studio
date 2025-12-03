@@ -101,6 +101,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
       { href: "/protected/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
       { href: "/protected/admin/grades", label: "Semua Nilai", icon: FileText },
+      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {

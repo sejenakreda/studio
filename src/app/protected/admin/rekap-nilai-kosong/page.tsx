@@ -26,6 +26,14 @@ const GRADE_TYPES: { value: GradeType, label: string }[] = [
     { value: 'pas', label: 'PAS' },
 ];
 
+interface MissingGradeInfo {
+    studentName: string;
+    studentNis: string;
+    studentClass: string;
+    studentId: string;
+    missingMapel: string;
+}
+
 export default function RekapNilaiKosongPage() {
     const { toast } = useToast();
     const [allStudents, setAllStudents] = useState<Siswa[]>([]);
@@ -36,7 +44,7 @@ export default function RekapNilaiKosongPage() {
 
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
     const [selectedSemester, setSelectedSemester] = useState<number>(1);
-    const [selectedMapel, setSelectedMapel] = useState<string>("");
+    const [selectedMapel, setSelectedMapel] = useState<string>("all");
     const [selectedGradeType, setSelectedGradeType] = useState<GradeType>('pas');
 
     const fetchPrerequisites = useCallback(async () => {
@@ -52,9 +60,6 @@ export default function RekapNilaiKosongPage() {
             setAllGrades(grades);
             setActiveYears(years);
             setAvailableMapel(mapelList);
-            if (mapelList.length > 0) {
-                setSelectedMapel(mapelList[0]);
-            }
         } catch (err) {
             toast({ variant: "destructive", title: "Gagal memuat data awal." });
         } finally {
@@ -66,53 +71,70 @@ export default function RekapNilaiKosongPage() {
         fetchPrerequisites();
     }, [fetchPrerequisites]);
 
-    const studentsWithMissingGrades = useMemo(() => {
-        if (!selectedMapel || isLoading) return [];
+    const studentsWithMissingGrades = useMemo<MissingGradeInfo[]>(() => {
+        if (isLoading) return [];
 
-        const relevantGrades = allGrades.filter(g =>
-            g.tahun_ajaran === selectedYear &&
-            g.semester === selectedSemester &&
-            g.mapel === selectedMapel
-        );
-
-        const gradesMap = new Map(relevantGrades.map(g => [g.id_siswa, g]));
-
-        const filteredStudents = allStudents.filter(student => {
-            const gradeRecord = gradesMap.get(student.id_siswa);
-
-            if (!gradeRecord) {
-                return true; // No grade record at all for this student, mapel, semester, year.
-            }
+        const gradesMap = new Map<string, Nilai>();
+        allGrades
+            .filter(g => g.tahun_ajaran === selectedYear && g.semester === selectedSemester)
+            .forEach(g => {
+                const key = `${g.id_siswa}-${g.mapel}`;
+                gradesMap.set(key, g);
+            });
             
-            const gradeValue = gradeRecord[selectedGradeType];
+        const missingGradesList: MissingGradeInfo[] = [];
 
-            if (selectedGradeType === 'tugas') {
-                return !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
-            } else {
-                return gradeValue === null || gradeValue === undefined || gradeValue === 0;
-            }
+        const mapelToCheck = selectedMapel === "all" ? availableMapel : [selectedMapel];
+
+        allStudents.forEach(student => {
+            mapelToCheck.forEach(mapel => {
+                const gradeKey = `${student.id_siswa}-${mapel}`;
+                const gradeRecord = gradesMap.get(gradeKey);
+
+                let isMissing = false;
+                if (!gradeRecord) {
+                    isMissing = true;
+                } else {
+                    const gradeValue = gradeRecord[selectedGradeType];
+                    if (selectedGradeType === 'tugas') {
+                        isMissing = !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
+                    } else {
+                        isMissing = gradeValue === null || gradeValue === undefined || gradeValue === 0;
+                    }
+                }
+
+                if (isMissing) {
+                    missingGradesList.push({
+                        studentName: student.nama,
+                        studentNis: student.nis,
+                        studentClass: student.kelas,
+                        studentId: student.id_siswa,
+                        missingMapel: mapel,
+                    });
+                }
+            });
         });
         
-        // Sort the results by class, then by name
-        return filteredStudents.sort((a, b) => {
-            if (a.kelas < b.kelas) return -1;
-            if (a.kelas > b.kelas) return 1;
-            if (a.nama < b.nama) return -1;
-            if (a.nama > b.nama) return 1;
-            return 0;
+        return missingGradesList.sort((a, b) => {
+            if (a.studentClass < b.studentClass) return -1;
+            if (a.studentClass > b.studentClass) return 1;
+            if (a.studentName < b.studentName) return -1;
+            if (a.studentName > b.studentName) return 1;
+            return a.missingMapel.localeCompare(b.missingMapel);
         });
 
-    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading]);
+    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading, availableMapel]);
 
     const handleDownloadExcel = () => {
         if (studentsWithMissingGrades.length === 0) {
             toast({ variant: "default", title: "Tidak ada data untuk diunduh." });
             return;
         }
-        const dataForExcel = studentsWithMissingGrades.map(student => ({
-            'Nama Siswa': student.nama,
-            'NIS': student.nis,
-            'Kelas': student.kelas,
+        const dataForExcel = studentsWithMissingGrades.map(item => ({
+            'Nama Siswa': item.studentName,
+            'NIS': item.studentNis,
+            'Kelas': item.studentClass,
+            'Mata Pelajaran': item.missingMapel,
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const workbook = XLSX.utils.book_new();
@@ -137,7 +159,10 @@ export default function RekapNilaiKosongPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                         <Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>
                         <Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select>
-                        <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={availableMapel.length === 0}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>{availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                        <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={availableMapel.length === 0}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>
+                            <SelectItem value="all">Semua Mapel</SelectItem>
+                            {availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent></Select>
                         <Select value={selectedGradeType} onValueChange={(v: GradeType) => setSelectedGradeType(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{GRADE_TYPES.map(gt => <SelectItem key={gt.value} value={gt.value}>{gt.label}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </CardHeader>
@@ -148,7 +173,7 @@ export default function RekapNilaiKosongPage() {
                         </Button>
                     </div>
                     {isLoading ? <Skeleton className="h-64 w-full" />
-                    : !selectedMapel ? <Alert><Info className="h-4 w-4" /><AlertTitle>Pilih Filter</AlertTitle><AlertDescription>Silakan pilih mata pelajaran untuk memulai pencarian.</AlertDescription></Alert>
+                    : (selectedMapel === "" && availableMapel.length > 0) ? <Alert><Info className="h-4 w-4" /><AlertTitle>Pilih Filter</AlertTitle><AlertDescription>Silakan pilih mata pelajaran untuk memulai pencarian.</AlertDescription></Alert>
                     : studentsWithMissingGrades.length === 0 ? <Alert><Info className="h-4 w-4" /><AlertTitle>Data Lengkap</AlertTitle><AlertDescription>Tidak ditemukan siswa dengan nilai kosong untuk kriteria yang Anda pilih.</AlertDescription></Alert>
                     : (
                         <div className="overflow-x-auto">
@@ -158,14 +183,16 @@ export default function RekapNilaiKosongPage() {
                                         <TableHead>Nama Siswa</TableHead>
                                         <TableHead>NIS</TableHead>
                                         <TableHead>Kelas</TableHead>
+                                        <TableHead>Mapel Kosong</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {studentsWithMissingGrades.map(student => (
-                                        <TableRow key={student.id_siswa}>
-                                            <TableCell className="font-medium">{student.nama}</TableCell>
-                                            <TableCell>{student.nis}</TableCell>
-                                            <TableCell>{student.kelas}</TableCell>
+                                    {studentsWithMissingGrades.map(item => (
+                                        <TableRow key={`${item.studentId}-${item.missingMapel}`}>
+                                            <TableCell className="font-medium">{item.studentName}</TableCell>
+                                            <TableCell>{item.studentNis}</TableCell>
+                                            <TableCell>{item.studentClass}</TableCell>
+                                            <TableCell className="text-destructive font-semibold">{item.missingMapel}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

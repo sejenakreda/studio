@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -40,19 +39,19 @@ export default function ProtectedLayout({
       
       // Guru logic: Check if a guru is trying to access an admin route
       if (userProfile.role === 'guru' && isAdminRoute) {
-        // Define which special roles are allowed to access *any* admin routes
         const canAccessAdminArea = isKepalaSekolah || isKepalaTataUsaha || isKesiswaan;
         
+        // A specific exception for the rekap-nilai-kosong page which we now allow for all teachers
+        if (pathname.startsWith('/protected/admin/rekap-nilai-kosong')) {
+             // This path no longer exists, but as a safeguard, redirect to the new guru path
+             router.replace('/protected/guru/rekap-nilai-kosong');
+             return;
+        }
+
         if (!canAccessAdminArea) {
-          // If the guru does not have any special role, redirect them away from admin area
           router.replace('/protected/guru');
           return;
         }
-
-        // Further granular checks for special roles if needed in the future
-        // For now, if they have any of the special roles, we allow them into the /admin space,
-        // and the AppShell will filter the menu items they can see.
-        // This is a simpler and more robust approach than listing allowed routes here.
       }
     }
   }, [user, userProfile, loading, router, pathname, isKepalaSekolah, isKesiswaan, isKepalaTataUsaha]);
@@ -85,3 +84,5 @@ export default function ProtectedLayout({
 
   return <AppShell>{children}</AppShell>;
 }
+
+    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -172,7 +171,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/guru/grades", label: "Input Nilai", icon: Edit3 },
       { href: "/protected/guru/agenda-kelas", label: "Agenda Kelas", icon: CalendarPlus },
       { href: "/protected/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
-      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
+      { href: "/protected/guru/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {
@@ -561,3 +560,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+    

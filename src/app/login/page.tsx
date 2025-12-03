@@ -46,11 +46,6 @@ export default function LoginPage() {
         } else {
           router.replace('/protected/guru');
         }
-      } else {
-        // Should not happen if AuthContext handles invalid roles by logging out
-        console.warn("LoginPage: User has profile but unexpected role:", userProfile.role);
-        // Stay on login or redirect to a generic error page if you have one.
-        // For now, let AuthContext's logout handle it if role is truly invalid.
       }
     }
     // If !authContextLoading and !user (meaning truly logged out or initial unauthed state),
@@ -218,3 +213,5 @@ function LoginForm() {
     </form>
   );
 }
+
+    

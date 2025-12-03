@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -23,7 +22,7 @@ const menuItems: GuruMenuItem[] = [
     { title: "Daftar Siswa", href: "/protected/guru/students", icon: BookUser, color: "text-green-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Agenda Mengajar", href: "/protected/guru/agenda-kelas", icon: CalendarPlus, color: "text-sky-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Rekap Nilai", href: "/protected/guru/rekap-nilai", icon: BarChartHorizontalBig, color: "text-purple-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
-    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
+    { title: "Rekap Nilai Kosong", href: "/protected/guru/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Catat Kehadiran", href: "/protected/guru/attendance", icon: UserCheck, color: "text-indigo-500", requiredTugas: () => true },
     { title: "Rekap Kehadiran", href: "/protected/guru/rekap-kehadiran-saya", icon: FileClock, color: "text-amber-500", requiredTugas: () => true },
     { title: "Pengumuman", href: "/protected/guru/announcements", icon: Megaphone, color: "text-cyan-500", requiredTugas: () => true },
@@ -85,3 +84,5 @@ export default function GuruDashboardPage() {
     </div>
   );
 }
+
+    

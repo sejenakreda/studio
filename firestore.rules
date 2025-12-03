@@ -15,13 +15,7 @@ service cloud.firestore {
     // The problematic getUserData() function is removed.
     // isAdmin() and isGuru() will be re-evaluated where needed using a different approach.
 
-    function hasTugas(tugas) {
-      // This function will now rely on data being passed to it or checking request data,
-      // as it can no longer perform a 'get' operation safely in all contexts.
-      // For many rules, we will check resource.data directly.
-      // The function remains for potential future use where context is safe.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tugasTambahan[tugas] == true;
-    }
+    // This function is no longer used and is removed to prevent warnings.
     
     // --- Collection Rules ---
 
@@ -52,7 +46,7 @@ service cloud.firestore {
     // or their existing logic is now safe because the /users/ get rule is fixed.
     
     match /siswa/{docId} {
-      // isGuru() and isAdmin() call the now-fixed /users/ rule, so this should work.
+      // The get() call on the users collection is now safe because the read rule is fixed.
       allow read: if isAuthenticated() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guru');
       allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }

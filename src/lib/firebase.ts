@@ -20,44 +20,30 @@ export const isFirebaseConfigValid =
   !!firebaseConfig.authDomain &&
   !!firebaseConfig.projectId;
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
-// Initialize Firebase only if the configuration is valid
-if (isFirebaseConfigValid) {
-  if (!getApps().length) {
-    try {
+// This function initializes Firebase and ensures it's a singleton.
+function initializeFirebase() {
+  if (isFirebaseConfigValid) {
+    if (!getApps().length) {
       app = initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error("Firebase initialization error:", e);
-      // Ensure services are null if initialization fails
-      app = null;
-      auth = null;
-      db = null;
-      storage = null;
+    } else {
+      app = getApp();
     }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
   } else {
-    app = getApp();
+    console.warn("Firebase configuration is missing or incomplete. Firebase services will be unavailable.");
   }
-
-  if (app) {
-    try {
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
-    } catch (e) {
-      // This is where the invalid-api-key error was likely thrown from
-      console.error("Error getting Firebase services:", e);
-      auth = null;
-      db = null;
-      storage = null;
-    }
-  }
-} else {
-    // This message is helpful for developers in the server console
-    console.warn("Firebase configuration is missing or incomplete. Please check your environment variables (.env.local).");
 }
 
+// Initialize on load.
+initializeFirebase();
+
+// Export the initialized services.
+// If config is invalid, these will be undefined, and checks in components should handle this.
 export { app, auth, db, storage };

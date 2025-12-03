@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Aturan yang lebih spesifik untuk folder 'signatures'
+    match /signatures/{userId}/{allPaths=**} {
+      // 1. Pengguna hanya bisa menulis (upload, update, delete) ke dalam folder mereka sendiri.
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // 2. Siapapun yang memiliki link (URL) dapat membaca gambar tersebut.
+      // Ini penting agar gambar bisa ditampilkan di aplikasi oleh pengguna lain (misalnya admin melihat TTD guru).
+      // Keamanan dijaga karena nama file yang acak (UUID) sulit ditebak.
+      allow get;
+    }
+
+    // Aturan fallback untuk path lain jika diperlukan di masa depan.
+    // Untuk saat ini, hanya autentikasi yang diperlukan, tetapi bisa diperketat.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

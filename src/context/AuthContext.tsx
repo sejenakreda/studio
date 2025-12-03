@@ -37,9 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!isFirebaseConfigValid || !auth) {
-      console.warn("AuthContext: Firebase is not configured correctly. Please check your environment variables. Auth features will be disabled.");
+      console.warn("AuthContext: Firebase is not configured correctly. Auth features will be disabled.");
       setLoading(false);
-      return; // Early return
+      return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -53,7 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userDocSnap.exists()) {
             const profileDataFromDb = userDocSnap.data();
 
-            if (profileDataFromDb && typeof profileDataFromDb.role === 'string' && (profileDataFromDb.role === 'admin' || profileDataFromDb.role === 'guru')) {
+            // Strict validation: role must be 'admin' or 'guru'
+            if (profileDataFromDb && (profileDataFromDb.role === 'admin' || profileDataFromDb.role === 'guru')) {
               const constructedProfile: UserProfile = {
                 uid: fbUser.uid,
                 email: fbUser.email,
@@ -61,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: profileDataFromDb.role as Role,
                 assignedMapel: profileDataFromDb.assignedMapel || [],
                 tugasTambahan: profileDataFromDb.tugasTambahan || [],
+                signatureUrl: profileDataFromDb.signatureUrl || null,
                 fcmToken: profileDataFromDb.fcmToken,
                 createdAt: profileDataFromDb.createdAt,
                 updatedAt: profileDataFromDb.updatedAt,
@@ -68,16 +70,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(fbUser);
               setUserProfile(constructedProfile);
             } else {
-              console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has missing, malformed, or invalid 'role'. Logging out.`, profileDataFromDb);
+              // If role is invalid or missing, force logout.
+              console.warn(`AuthContext: Firestore profile for UID ${fbUser.uid} has a missing or invalid 'role'. Logging out.`, profileDataFromDb);
               await signOut(auth);
+              setUser(null);
+              setUserProfile(null);
             }
           } else {
+            // If the user document does not exist in Firestore, they shouldn't be in the app.
             console.warn(`AuthContext: Firestore profile document for UID ${fbUser.uid} not found. Logging out.`);
             await signOut(auth);
+            setUser(null);
+            setUserProfile(null);
           }
         } catch (error) {
-          console.error(`AuthContext: Error fetching/processing user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
+          console.error(`AuthContext: Error fetching user profile for UID ${fbUser.uid}. Logging out. Error:`, error);
           await signOut(auth);
+          setUser(null);
+          setUserProfile(null);
         }
       } else {
         setUser(null);
@@ -88,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
-
 
   const isAdmin = useMemo(() => userProfile?.role === 'admin', [userProfile]);
   const isGuru = useMemo(() => userProfile?.role === 'guru', [userProfile]);

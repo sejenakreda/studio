@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -74,14 +75,6 @@ const tuAndSecurityReportItems: NavMenuItem[] = [
   { href: "/protected/admin/kegiatan-reports?activity=satpam", label: "Laporan Satpam", icon: ShieldQuestion },
   { href: "/protected/admin/kegiatan-reports?activity=penjaga_sekolah", label: "Laporan Penjaga Sekolah", icon: ShieldAlert },
 ];
-
-const reportableRolesForTU: { id: TugasTambahan; label: string; icon: React.ElementType }[] = [
-    { id: 'operator', label: 'Operator', icon: DatabaseZap },
-    { id: 'staf_tu', label: 'Staf TU', icon: Users },
-    { id: 'satpam', label: 'Satpam', icon: ShieldQuestion },
-    { id: 'penjaga_sekolah', label: 'Penjaga Sekolah', icon: ShieldAlert },
-];
-
 
 const navigationStructure: NavGroup[] = [
   // --- Admin Items ---
@@ -300,9 +293,10 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Laporan Lanjutan",
     groupIcon: FileWarning,
-    roles: ['admin'],
+    roles: ['admin', 'guru'], // Accessible to Admin, and Guru (Kepsek)
+    requiredTugas: ({ isAdmin, isKepalaSekolah }) => isAdmin || isKepalaSekolah,
     items: [
-        { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
+        { href: "/protected/guru/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {
@@ -560,5 +554,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-    

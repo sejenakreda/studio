@@ -194,6 +194,7 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/protected/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
       { href: "/protected/guru/laporan-kegiatan?context=kurikulum", label: "Laporan Kegiatan", icon: BookCheck },
+      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {

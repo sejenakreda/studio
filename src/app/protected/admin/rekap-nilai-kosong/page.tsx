@@ -152,19 +152,36 @@ export default function RekapNilaiKosongPage() {
             toast({ variant: "default", title: "Tidak ada data untuk diunduh." });
             return;
         }
+
+        const gradeTypeLabel = (GRADE_TYPES.find(gt => gt.value === selectedGradeType)?.label || "Nilai").toUpperCase();
+        const title = `REKAP NILAI KOSONG (${gradeTypeLabel})`;
+
         const dataForExcel = studentsWithMissingGrades.map(item => ({
             'Nama Siswa': item.studentName,
             'NIS': item.studentNis,
             'Kelas': item.studentClass,
-            'Mata Pelajaran': item.missingMapel,
+            'Mapel Kosong': item.missingMapel,
             'Nilai Tercatat': item.recordedValue,
         }));
-        const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+        
+        // Create worksheet with title
+        const worksheet = XLSX.utils.json_to_sheet([], { skipHeader: true });
+        XLSX.utils.sheet_add_aoa(worksheet, [[title]], { origin: "A1" });
+        XLSX.utils.sheet_add_json(worksheet, dataForExcel, { origin: "A3", skipHeader: false });
+        
+        // Merge cell for the title
+        worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+
+        // Set column widths
+        const wscols = [ {wch:30}, {wch:15}, {wch:10}, {wch:30}, {wch:15} ];
+        worksheet['!cols'] = wscols;
+
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Nilai Kosong");
-        const gradeTypeLabel = GRADE_TYPES.find(gt => gt.value === selectedGradeType)?.label || "Nilai";
-        XLSX.writeFile(workbook, `rekap_nilai_${gradeTypeLabel}_kosong.xlsx`);
+        
+        XLSX.writeFile(workbook, `rekap_nilai_${gradeTypeLabel.toLowerCase()}_kosong.xlsx`);
     };
+
 
     return (
         <div className="space-y-6">

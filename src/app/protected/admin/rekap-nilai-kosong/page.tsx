@@ -8,14 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Info } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Info, Check, ChevronsUpDown, ListFilter } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
-import { getStudents, getAllGrades, getActiveAcademicYears, getUniqueMapelNamesFromGrades } from '@/lib/firestoreService';
+import { getStudents, getAllGrades, getActiveAcademicYears, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { Siswa, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type GradeType = 'tugas' | 'tes' | 'pts' | 'pas';
 
@@ -44,7 +48,7 @@ export default function RekapNilaiKosongPage() {
 
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
     const [selectedSemester, setSelectedSemester] = useState<number>(1);
-    const [selectedMapel, setSelectedMapel] = useState<string>("all");
+    const [selectedMapel, setSelectedMapel] = useState<string[]>([]); // Changed to array for multi-select
     const [selectedGradeType, setSelectedGradeType] = useState<GradeType>('pas');
 
     const fetchPrerequisites = useCallback(async () => {
@@ -54,12 +58,12 @@ export default function RekapNilaiKosongPage() {
                 getStudents(),
                 getAllGrades(),
                 getActiveAcademicYears(),
-                getUniqueMapelNamesFromGrades()
+                getMataPelajaranMaster()
             ]);
             setAllStudents(students);
             setAllGrades(grades);
             setActiveYears(years);
-            setAvailableMapel(mapelList);
+            setAvailableMapel(mapelList.map(m => m.namaMapel));
         } catch (err) {
             toast({ variant: "destructive", title: "Gagal memuat data awal." });
         } finally {
@@ -72,7 +76,7 @@ export default function RekapNilaiKosongPage() {
     }, [fetchPrerequisites]);
 
     const studentsWithMissingGrades = useMemo<MissingGradeInfo[]>(() => {
-        if (isLoading) return [];
+        if (isLoading || selectedMapel.length === 0) return [];
 
         const gradesMap = new Map<string, Nilai>();
         allGrades
@@ -84,7 +88,7 @@ export default function RekapNilaiKosongPage() {
             
         const missingGradesList: MissingGradeInfo[] = [];
 
-        const mapelToCheck = selectedMapel === "all" ? availableMapel : [selectedMapel];
+        const mapelToCheck = selectedMapel;
 
         allStudents.forEach(student => {
             mapelToCheck.forEach(mapel => {
@@ -123,7 +127,7 @@ export default function RekapNilaiKosongPage() {
             return a.missingMapel.localeCompare(b.missingMapel);
         });
 
-    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading, availableMapel]);
+    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading]);
 
     const handleDownloadExcel = () => {
         if (studentsWithMissingGrades.length === 0) {
@@ -159,10 +163,86 @@ export default function RekapNilaiKosongPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                         <Select value={selectedYear} onValueChange={setSelectedYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{activeYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>
                         <Select value={String(selectedSemester)} onValueChange={v => setSelectedSemester(Number(v))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SEMESTERS.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent></Select>
-                        <Select value={selectedMapel} onValueChange={setSelectedMapel} disabled={availableMapel.length === 0}><SelectTrigger><SelectValue placeholder="Pilih mapel..."/></SelectTrigger><SelectContent>
-                            <SelectItem value="all">Semua Mapel</SelectItem>
-                            {availableMapel.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                        </SelectContent></Select>
+                        
+                        {/* Multi-select for Mapel */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal"
+                                >
+                                {selectedMapel.length > 0
+                                    ? `${selectedMapel.length} mapel dipilih`
+                                    : "Pilih mapel..."}
+                                <ListFilter className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0">
+                                <Command>
+                                <CommandInput placeholder="Cari mapel..." />
+                                <CommandList>
+                                    <CommandEmpty>Mapel tidak ditemukan.</CommandEmpty>
+                                    <CommandGroup>
+                                    <ScrollArea className="h-48">
+                                        <CommandItem
+                                            onSelect={() => {
+                                                if (selectedMapel.length === availableMapel.length) {
+                                                    setSelectedMapel([]); // Deselect all
+                                                } else {
+                                                    setSelectedMapel(availableMapel); // Select all
+                                                }
+                                            }}
+                                            className="cursor-pointer"
+                                            >
+                                            <Checkbox
+                                                className="mr-2"
+                                                checked={selectedMapel.length === availableMapel.length}
+                                                onCheckedChange={() => {
+                                                    if (selectedMapel.length === availableMapel.length) {
+                                                        setSelectedMapel([]);
+                                                    } else {
+                                                        setSelectedMapel(availableMapel);
+                                                    }
+                                                }}
+                                            />
+                                            (Pilih Semua)
+                                        </CommandItem>
+                                        {availableMapel.map((mapel) => (
+                                        <CommandItem
+                                            key={mapel}
+                                            onSelect={() => {
+                                                const isSelected = selectedMapel.includes(mapel);
+                                                if (isSelected) {
+                                                    setSelectedMapel(selectedMapel.filter(m => m !== mapel));
+                                                } else {
+                                                    setSelectedMapel([...selectedMapel, mapel]);
+                                                }
+                                            }}
+                                            className="cursor-pointer"
+                                        >
+                                            <Checkbox
+                                                className="mr-2"
+                                                checked={selectedMapel.includes(mapel)}
+                                                onCheckedChange={() => {
+                                                    const isSelected = selectedMapel.includes(mapel);
+                                                    if (isSelected) {
+                                                        setSelectedMapel(selectedMapel.filter(m => m !== mapel));
+                                                    } else {
+                                                        setSelectedMapel([...selectedMapel, mapel]);
+                                                    }
+                                                }}
+                                            />
+                                            {mapel}
+                                        </CommandItem>
+                                        ))}
+                                    </ScrollArea>
+                                    </CommandGroup>
+                                </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+
                         <Select value={selectedGradeType} onValueChange={(v: GradeType) => setSelectedGradeType(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{GRADE_TYPES.map(gt => <SelectItem key={gt.value} value={gt.value}>{gt.label}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </CardHeader>
@@ -173,7 +253,7 @@ export default function RekapNilaiKosongPage() {
                         </Button>
                     </div>
                     {isLoading ? <Skeleton className="h-64 w-full" />
-                    : (selectedMapel === "" && availableMapel.length > 0) ? <Alert><Info className="h-4 w-4" /><AlertTitle>Pilih Filter</AlertTitle><AlertDescription>Silakan pilih mata pelajaran untuk memulai pencarian.</AlertDescription></Alert>
+                    : selectedMapel.length === 0 ? <Alert><Info className="h-4 w-4" /><AlertTitle>Pilih Filter</AlertTitle><AlertDescription>Silakan pilih satu atau beberapa mata pelajaran untuk memulai pencarian.</AlertDescription></Alert>
                     : studentsWithMissingGrades.length === 0 ? <Alert><Info className="h-4 w-4" /><AlertTitle>Data Lengkap</AlertTitle><AlertDescription>Tidak ditemukan siswa dengan nilai kosong untuk kriteria yang Anda pilih.</AlertDescription></Alert>
                     : (
                         <div className="overflow-x-auto">

@@ -77,7 +77,7 @@ export default function RekapNilaiKosongPage() {
 
         const gradesMap = new Map(relevantGrades.map(g => [g.id_siswa, g]));
 
-        return allStudents.filter(student => {
+        const filteredStudents = allStudents.filter(student => {
             const gradeRecord = gradesMap.get(student.id_siswa);
 
             if (!gradeRecord) {
@@ -89,10 +89,19 @@ export default function RekapNilaiKosongPage() {
             if (selectedGradeType === 'tugas') {
                 return !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
             } else {
-                // For tes, pts, pas, check if it's null, undefined, or explicitly 0.
                 return gradeValue === null || gradeValue === undefined || gradeValue === 0;
             }
         });
+        
+        // Sort the results by class, then by name
+        return filteredStudents.sort((a, b) => {
+            if (a.kelas < b.kelas) return -1;
+            if (a.kelas > b.kelas) return 1;
+            if (a.nama < b.nama) return -1;
+            if (a.nama > b.nama) return 1;
+            return 0;
+        });
+
     }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, isLoading]);
 
     const handleDownloadExcel = () => {

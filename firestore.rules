@@ -48,7 +48,10 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /users/{userId} {
-      allow get: if isAuthenticated() && (isAdmin() || isUser(userId));
+      // FIX: The rule is split to avoid circular dependency.
+      // 1. Any authenticated user can read their OWN profile. This is crucial for login.
+      // 2. An admin can read ANY user's profile.
+      allow get: if isAuthenticated() && (isUser(userId) || isAdmin());
       allow list: if isAdmin() || isKepalaSekolah() || isKepalaTataUsaha();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || isUser(userId);

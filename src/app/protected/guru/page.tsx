@@ -47,11 +47,10 @@ const menuItems: GuruMenuItem[] = [
     { title: "Dasbor Ka. TU", href: "/protected/guru/tata-usaha", icon: Briefcase, color: "text-teal-500", requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha },
 
     // --- Headmaster & Kurikulum Specific Admin-Level Reports ---
+    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah, isKurikulum }) => isKepalaSekolah || isKurikulum },
     { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
     { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
     { title: "Laporan Kegiatan Staf", href: "/protected/admin/kegiatan-reports", icon: Briefcase, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
-    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah, isKurikulum }) => isKepalaSekolah || isKurikulum },
-
 ];
 
 export default function GuruDashboardPage() {

@@ -101,7 +101,6 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/admin/weights", label: "Atur Bobot Nilai", icon: Settings },
       { href: "/protected/admin/academic-years", label: "Tahun Ajaran", icon: CalendarCog },
       { href: "/protected/admin/grades", label: "Semua Nilai", icon: FileText },
-      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {
@@ -194,7 +193,6 @@ const navigationStructure: NavGroup[] = [
     items: [
       { href: "/protected/guru/kurikulum", label: "Dasbor Kurikulum", icon: Home },
       { href: "/protected/guru/laporan-kegiatan?context=kurikulum", label: "Laporan Kegiatan", icon: BookCheck },
-      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {
@@ -297,6 +295,15 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/admin/agenda-kelas", label: "Agenda Mengajar Guru", icon: BookCheck },
       { href: "/protected/admin/teacher-attendance", label: "Kehadiran Guru", icon: CalendarCheck },
       { href: "/protected/admin/violation-reports", label: "Laporan Pelanggaran", icon: FileWarning },
+    ],
+  },
+  {
+    groupLabel: "Laporan Lanjutan",
+    groupIcon: FileWarning,
+    roles: ['admin', 'guru'],
+    requiredTugas: ({ isKepalaSekolah, isAdmin, isKurikulum }) => isKepalaSekolah || isAdmin || isKurikulum,
+    items: [
+        { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {

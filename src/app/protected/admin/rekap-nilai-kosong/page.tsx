@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Info, Check, ChevronsUpDown, ListFilter } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Info, Check, ListFilter } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 import { getStudents, getAllGrades, getActiveAcademicYears, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { Siswa, Nilai } from '@/types';
@@ -36,6 +36,7 @@ interface MissingGradeInfo {
     studentClass: string;
     studentId: string;
     missingMapel: string;
+    recordedValue: string; // To show '0' or 'N/A'
 }
 
 export default function RekapNilaiKosongPage() {
@@ -66,7 +67,8 @@ export default function RekapNilaiKosongPage() {
             setAllStudents(students);
             setAllGrades(grades);
             setActiveYears(years);
-            setAvailableMapel(mapelList.map(m => m.namaMapel));
+            const sortedMapel = mapelList.map(m => m.namaMapel).sort();
+            setAvailableMapel(sortedMapel);
             
             const klasses = [...new Set(students.map(s => s.kelas).filter(Boolean))].sort();
             setUniqueClasses(klasses);
@@ -107,14 +109,18 @@ export default function RekapNilaiKosongPage() {
                 const gradeRecord = gradesMap.get(gradeKey);
 
                 let isMissing = false;
+                let recordedValueStr = "N/A";
+
                 if (!gradeRecord) {
                     isMissing = true;
                 } else {
                     const gradeValue = gradeRecord[selectedGradeType];
                     if (selectedGradeType === 'tugas') {
                         isMissing = !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
+                        if(isMissing) recordedValueStr = "Kosong";
                     } else {
                         isMissing = gradeValue === null || gradeValue === undefined || gradeValue === 0;
+                        if(isMissing && gradeValue === 0) recordedValueStr = "0";
                     }
                 }
 
@@ -125,6 +131,7 @@ export default function RekapNilaiKosongPage() {
                         studentClass: student.kelas,
                         studentId: student.id_siswa,
                         missingMapel: mapel,
+                        recordedValue: recordedValueStr,
                     });
                 }
             });
@@ -150,6 +157,7 @@ export default function RekapNilaiKosongPage() {
             'NIS': item.studentNis,
             'Kelas': item.studentClass,
             'Mata Pelajaran': item.missingMapel,
+            'Nilai Tercatat': item.recordedValue,
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const workbook = XLSX.utils.book_new();
@@ -217,9 +225,6 @@ export default function RekapNilaiKosongPage() {
                                                 className="mr-2"
                                                 checked={selectedMapel.length > 0 && selectedMapel.length === availableMapel.length}
                                                 indeterminate={selectedMapel.length > 0 && selectedMapel.length < availableMapel.length ? true : undefined}
-                                                onCheckedChange={(checked) => {
-                                                     setSelectedMapel(checked ? availableMapel : [])
-                                                }}
                                             />
                                             (Pilih Semua)
                                         </CommandItem>
@@ -239,14 +244,6 @@ export default function RekapNilaiKosongPage() {
                                             <Checkbox
                                                 className="mr-2"
                                                 checked={selectedMapel.includes(mapel)}
-                                                onCheckedChange={() => {
-                                                    const isSelected = selectedMapel.includes(mapel);
-                                                    if (isSelected) {
-                                                        setSelectedMapel(selectedMapel.filter(m => m !== mapel));
-                                                    } else {
-                                                        setSelectedMapel([...selectedMapel, mapel]);
-                                                    }
-                                                }}
                                             />
                                             {mapel}
                                         </CommandItem>
@@ -279,6 +276,7 @@ export default function RekapNilaiKosongPage() {
                                         <TableHead>NIS</TableHead>
                                         <TableHead>Kelas</TableHead>
                                         <TableHead>Mapel Kosong</TableHead>
+                                        <TableHead>Nilai Tercatat</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -288,6 +286,7 @@ export default function RekapNilaiKosongPage() {
                                             <TableCell>{item.studentNis}</TableCell>
                                             <TableCell>{item.studentClass}</TableCell>
                                             <TableCell className="text-destructive font-semibold">{item.missingMapel}</TableCell>
+                                            <TableCell className="font-mono text-center">{item.recordedValue}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

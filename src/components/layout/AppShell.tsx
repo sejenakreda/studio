@@ -172,6 +172,7 @@ const navigationStructure: NavGroup[] = [
       { href: "/protected/guru/grades", label: "Input Nilai", icon: Edit3 },
       { href: "/protected/guru/agenda-kelas", label: "Agenda Kelas", icon: CalendarPlus },
       { href: "/protected/guru/rekap-nilai", label: "Rekap Nilai", icon: BarChartHorizontalBig },
+      { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],
   },
   {
@@ -300,8 +301,7 @@ const navigationStructure: NavGroup[] = [
   {
     groupLabel: "Laporan Lanjutan",
     groupIcon: FileWarning,
-    roles: ['admin', 'guru'],
-    requiredTugas: ({ isKepalaSekolah, isAdmin, isKurikulum }) => isKepalaSekolah || isAdmin || isKurikulum,
+    roles: ['admin'],
     items: [
         { href: "/protected/admin/rekap-nilai-kosong", label: "Rekap Nilai Kosong", icon: FileWarning },
     ],

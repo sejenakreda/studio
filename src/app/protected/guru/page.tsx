@@ -23,6 +23,7 @@ const menuItems: GuruMenuItem[] = [
     { title: "Daftar Siswa", href: "/protected/guru/students", icon: BookUser, color: "text-green-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Agenda Mengajar", href: "/protected/guru/agenda-kelas", icon: CalendarPlus, color: "text-sky-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Rekap Nilai", href: "/protected/guru/rekap-nilai", icon: BarChartHorizontalBig, color: "text-purple-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
+    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isStafTu, isSatpam, isPenjagaSekolah }) => !isStafTu && !isSatpam && !isPenjagaSekolah },
     { title: "Catat Kehadiran", href: "/protected/guru/attendance", icon: UserCheck, color: "text-indigo-500", requiredTugas: () => true },
     { title: "Rekap Kehadiran", href: "/protected/guru/rekap-kehadiran-saya", icon: FileClock, color: "text-amber-500", requiredTugas: () => true },
     { title: "Pengumuman", href: "/protected/guru/announcements", icon: Megaphone, color: "text-cyan-500", requiredTugas: () => true },
@@ -47,7 +48,6 @@ const menuItems: GuruMenuItem[] = [
     { title: "Dasbor Ka. TU", href: "/protected/guru/tata-usaha", icon: Briefcase, color: "text-teal-500", requiredTugas: ({ isKepalaTataUsaha }) => isKepalaTataUsaha },
 
     // --- Headmaster & Kurikulum Specific Admin-Level Reports ---
-    { title: "Rekap Nilai Kosong", href: "/protected/admin/rekap-nilai-kosong", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah, isKurikulum }) => isKepalaSekolah || isKurikulum },
     { title: "Rekap Kehadiran Guru", href: "/protected/admin/teacher-attendance", icon: CalendarCheck, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
     { title: "Laporan Pelanggaran", href: "/protected/admin/violation-reports", icon: FileWarning, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },
     { title: "Laporan Kegiatan Staf", href: "/protected/admin/kegiatan-reports", icon: Briefcase, color: "text-orange-500", requiredTugas: ({ isKepalaSekolah }) => isKepalaSekolah },

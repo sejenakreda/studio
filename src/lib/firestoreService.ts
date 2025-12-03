@@ -1070,7 +1070,7 @@ export const createUserProfile = async (
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
     const userDocRef = doc(db, 'users', uid).withConverter(userProfileConverter);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getDoc(userDocRef);
     return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
     handleFirestoreError(error, 'membaca', 'profil pengguna');
@@ -1664,5 +1664,6 @@ export const deleteSchoolHoliday = async (dateString: string): Promise<void> => 
     handleFirestoreError(error, 'menghapus', 'hari libur sekolah');
   }
 };
+
 
 

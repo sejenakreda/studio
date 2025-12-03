@@ -1,16 +1,15 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject as deleteFile } from 'firebase/storage';
+import React, { useState, useEffect } from 'react';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject as deleteFile, FirebaseStorage } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Loader2, Trash2, Upload } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
-import { storage } from '@/lib/firebase'; // Import your initialized Firebase storage
+import { app as firebaseApp, isFirebaseConfigValid } from '@/lib/firebase'; // Import the initialized Firebase app
 
 interface ImageUploadFieldProps {
   value: string | null | undefined;
@@ -21,11 +20,29 @@ interface ImageUploadFieldProps {
 export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onChange, folderPath }) => {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [storageInstance, setStorageInstance] = useState<FirebaseStorage | null>(null);
+
+  useEffect(() => {
+    // Initialize storage instance safely on the client side.
+    // This makes the component self-reliant and not dependent on other initializations.
+    if (isFirebaseConfigValid && firebaseApp) {
+      setStorageInstance(getStorage(firebaseApp));
+    }
+  }, []);
+  
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !storage) return;
+    if (!file) return;
+
+    if (!storageInstance) {
+      toast({
+        variant: 'destructive',
+        title: 'Layanan Penyimpanan Belum Siap',
+        description: 'Konfigurasi Firebase Storage tidak ditemukan. Silakan refresh halaman.',
+      });
+      return;
+    }
 
     if (!file.type.startsWith('image/')) {
         toast({
@@ -36,8 +53,6 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
         return;
     }
 
-    // You might want to remove this if you handle large files,
-    // but for signatures, it's a good safeguard.
     if (file.size > 1 * 1024 * 1024) { // 1MB limit
         toast({
             variant: 'destructive',
@@ -48,16 +63,26 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
     }
 
     setIsUploading(true);
-    setUploadProgress(0);
 
     const fileName = `${uuidv4()}-${file.name}`;
-    const storageRef = ref(storage, `${folderPath}/${fileName}`);
+    const storageRef = ref(storageInstance, `${folderPath}/${fileName}`);
 
     try {
-      // For simplicity, we use uploadBytes. For large files, use uploadBytesResumable
+      // If there's an old image, delete it first.
+      if (value) {
+        try {
+          const oldImageRef = ref(storageInstance, value);
+          await deleteFile(oldImageRef);
+        } catch (deleteError: any) {
+          if (deleteError.code !== 'storage/object-not-found') {
+            console.warn("Could not delete old image, proceeding with upload anyway:", deleteError);
+          }
+        }
+      }
+      
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
-      onChange(downloadURL);
+      onChange(downloadURL); // Update the form state with the new URL
       toast({
         title: 'Sukses',
         description: 'Gambar berhasil diunggah.',
@@ -67,7 +92,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
       toast({
         variant: 'destructive',
         title: 'Gagal Unggah',
-        description: 'Terjadi kesalahan saat mengunggah gambar.',
+        description: 'Terjadi kesalahan saat mengunggah gambar. Coba lagi nanti.',
       });
     } finally {
       setIsUploading(false);
@@ -75,12 +100,15 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
   };
   
   const handleRemoveImage = async () => {
-    if (value && storage) {
+    if (!storageInstance) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Layanan penyimpanan belum siap.' });
+        return;
+    }
+    if (value) {
       try {
-        const imageRef = ref(storage, value);
+        const imageRef = ref(storageInstance, value);
         await deleteFile(imageRef);
       } catch (error: any) {
-        // If file doesn't exist on storage (e.g., was already deleted), don't show an error
         if (error.code !== 'storage/object-not-found') {
           console.error("Delete error:", error);
           toast({
@@ -88,11 +116,11 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
             title: 'Gagal Menghapus Gambar dari Cloud',
             description: 'Silakan coba lagi.',
           });
-          return; // Stop if we can't delete the cloud file
+          return; 
         }
       }
     }
-    onChange(null);
+    onChange(null); // Clear the URL from the form state
     toast({
         title: 'Gambar Dihapus',
         description: 'Gambar telah dihapus dari formulir.',
@@ -106,9 +134,9 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
                 <Input
                     id="image-upload"
                     type="file"
-                    accept="image/png, image/jpeg, image/jpg"
+                    accept="image/png, image/jpeg, image/gif"
                     onChange={handleFileChange}
-                    disabled={isUploading}
+                    disabled={isUploading || !storageInstance}
                     className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                 />
              </div>
@@ -118,20 +146,19 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({ value, onCha
             <div className="flex items-center justify-center p-4 border-2 border-dashed rounded-md">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p className="ml-2">Mengunggah...</p>
-                {/* For uploadBytesResumable, you'd use this progress bar */}
-                {/* <Progress value={uploadProgress} className="w-full" /> */}
             </div>
         )}
 
         {value && !isUploading && (
             <div className="relative group w-full p-2 border rounded-md min-h-[100px] flex justify-center items-center bg-gray-50">
-                 <Image src={value} alt="Pratinjau Tanda Tangan" width={200} height={100} style={{ objectFit: 'contain' }} />
+                 <Image src={value} alt="Pratinjau Tanda Tangan" width={200} height={100} style={{ objectFit: 'contain' }} unoptimized />
                 <Button
                     type="button"
                     variant="destructive"
                     size="icon"
                     className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={handleRemoveImage}
+                    disabled={!storageInstance}
                 >
                     <Trash2 className="h-4 w-4" />
                 </Button>

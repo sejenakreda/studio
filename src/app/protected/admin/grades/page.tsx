@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, AlertCircle, Info, ArrowUpDown, ArrowDown, ArrowUp, Filter as FilterIcon, ChevronLeft, ChevronRight, Download, Trash2 } from "lucide-react";
-import { getAllGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById, addActivityLog } from '@/lib/firestoreService';
+import { getFilteredGrades, getStudents, getActiveAcademicYears, getUniqueMapelNamesFromGrades, deleteGradeById, addActivityLog } from '@/lib/firestoreService';
 import { calculateAverage, SEMESTERS, getCurrentAcademicYear } from '@/lib/utils';
 import type { Nilai, Siswa } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -41,25 +42,29 @@ interface SortConfig {
   direction: 'ascending' | 'descending';
 }
 
-const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYear();
 const ITEMS_PER_PAGE = 15;
 
 export default function ManageAllGradesPage() {
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  
+  const [allStudents, setAllStudents] = useState<Siswa[]>([]);
+  const [selectableYears, setSelectableYears] = useState<string[]>([]);
+  const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
+  const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
+  
   const [allGradesData, setAllGradesData] = useState<AdminGradeView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'namaSiswa', direction: 'ascending' });
   const [gradeToDelete, setGradeToDelete] = useState<AdminGradeView | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
-  const [selectableYears, setSelectableYears] = useState<string[]>([]);
-  const [availableMapelFilters, setAvailableMapelFilters] = useState<string[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
-  const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
-  const [semesterFilter, setSemesterFilter] = useState<string>("all");
+  const [academicYearFilter, setAcademicYearFilter] = useState<string>(getCurrentAcademicYear());
+  const [semesterFilter, setSemesterFilter] = useState<string>("1");
   const [mapelFilter, setMapelFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -67,61 +72,23 @@ export default function ManageAllGradesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [grades, students, activeYears, uniqueMapelList] = await Promise.all([
-        getAllGrades(),
+      const [students, activeYears, uniqueMapelList] = await Promise.all([
         getStudents(),
         getActiveAcademicYears(),
-        getUniqueMapelNamesFromGrades() // Admin gets all unique mapel names
+        getUniqueMapelNamesFromGrades()
       ]);
 
-      setSelectableYears(activeYears);
+      setAllStudents(students);
+      setSelectableYears(activeYears.length > 0 ? activeYears : [getCurrentAcademicYear()]);
       setAvailableMapelFilters(uniqueMapelList);
 
-      if (activeYears.includes(CURRENT_ACADEMIC_YEAR)) {
-        setAcademicYearFilter(CURRENT_ACADEMIC_YEAR);
-      } else if (activeYears.length > 0) {
-        setAcademicYearFilter(activeYears[0]); 
-      } else {
-        setAcademicYearFilter("all"); 
-      }
-
-      if (!Array.isArray(grades)) {
-        throw new Error("Gagal memuat data nilai. Data yang diterima bukan array.");
-      }
-      if (!Array.isArray(students)) {
-        throw new Error("Gagal memuat data siswa. Data yang diterima bukan array.");
-      }
-
-      const studentMap = new Map(students.map(s => [s.id_siswa, s]));
-
-      const enrichedGrades = grades.map(grade => {
-        const student = studentMap.get(grade.id_siswa);
-        return {
-          ...grade,
-          namaSiswa: student?.nama || 'N/A',
-          nisSiswa: student?.nis || 'N/A',
-          kelasSiswa: student?.kelas || 'N/A',
-          rataRataTugas: calculateAverage(grade.tugas || []),
-        };
-      });
-
-      setAllGradesData(enrichedGrades);
-
-      if (enrichedGrades.length > 0) {
-        const klasses = [...new Set(enrichedGrades.map(g => g.kelasSiswa).filter(Boolean) as string[])].sort();
-        setUniqueClasses(klasses);
-      } else {
-        setUniqueClasses([]);
-      }
+      const klasses = [...new Set(students.map(s => s.kelas).filter(Boolean) as string[])].sort();
+      setUniqueClasses(klasses);
 
     } catch (err: any) {
-      console.error("Error fetching all grades data:", err);
-      setError("Gagal memuat data nilai. Silakan coba lagi nanti.");
-      toast({
-        variant: "destructive",
-        title: "Error Memuat Data",
-        description: err.message || "Terjadi kesalahan saat mengambil data nilai.",
-      });
+      console.error("Error fetching prerequisites:", err);
+      setError("Gagal memuat data filter. Silakan coba lagi nanti.");
+      toast({ variant: "destructive", title: "Error Memuat Data", description: err.message || "Terjadi kesalahan saat mengambil data filter." });
     } finally {
       setIsLoading(false);
     }
@@ -130,6 +97,47 @@ export default function ManageAllGradesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const fetchFilteredData = async () => {
+      if (isLoading) return;
+      
+      setIsDataLoading(true);
+      try {
+        const studentIdsInClass = classFilter !== 'all' 
+            ? allStudents.filter(s => s.kelas === classFilter).map(s => s.id_siswa)
+            : undefined;
+
+        const grades = await getFilteredGrades({
+          tahunAjaran: academicYearFilter,
+          semester: Number(semesterFilter),
+          mapel: mapelFilter !== 'all' ? [mapelFilter] : undefined,
+          studentIds: studentIdsInClass,
+        });
+
+        const studentMap = new Map(allStudents.map(s => [s.id_siswa, s]));
+        const enrichedGrades = grades.map(grade => {
+          const student = studentMap.get(grade.id_siswa);
+          return {
+            ...grade,
+            namaSiswa: student?.nama || 'N/A',
+            nisSiswa: student?.nis || 'N/A',
+            kelasSiswa: student?.kelas || 'N/A',
+            rataRataTugas: calculateAverage(grade.tugas || []),
+          };
+        });
+        setAllGradesData(enrichedGrades);
+
+      } catch (err: any) {
+          console.error("Error fetching filtered grades:", err);
+          setError("Gagal memuat data nilai. Silakan coba lagi nanti.");
+          toast({ variant: "destructive", title: "Error Memuat Nilai", description: err.message || "Terjadi kesalahan saat mengambil data nilai." });
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+    fetchFilteredData();
+  }, [isLoading, allStudents, academicYearFilter, semesterFilter, classFilter, mapelFilter, toast]);
   
   useEffect(() => {
     setCurrentPage(1); 
@@ -146,20 +154,7 @@ export default function ManageAllGradesPage() {
 
   const filteredAndSortedGrades = useMemo(() => {
     let items = [...allGradesData];
-
-    if (classFilter !== "all") {
-      items = items.filter(grade => grade.kelasSiswa === classFilter);
-    }
-    if (academicYearFilter !== "all") {
-      items = items.filter(grade => grade.tahun_ajaran === academicYearFilter);
-    }
-    if (semesterFilter !== "all") {
-      items = items.filter(grade => String(grade.semester) === semesterFilter);
-    }
-    if (mapelFilter !== "all") {
-      items = items.filter(grade => grade.mapel === mapelFilter);
-    }
-    
+    // Filtering is now done server-side, so we just sort here.
     if (sortConfig.key !== null) {
       items.sort((a, b) => {
         const aValue = a[sortConfig.key as keyof AdminGradeView];
@@ -173,24 +168,8 @@ export default function ManageAllGradesPage() {
         if (bIsNull) return -1; 
         
         let comparison = 0;
-        if (sortConfig.key === 'nilai_akhir' || sortConfig.key === 'rataRataTugas' || 
-            sortConfig.key === 'tes' || sortConfig.key === 'pts' || sortConfig.key === 'pas' ||
-            sortConfig.key === 'kehadiran' || sortConfig.key === 'eskul' || sortConfig.key === 'osis') {
-            const numA = Number(aValue);
-            const numB = Number(bValue);
-            if (!isNaN(numA) && !isNaN(numB)) {
-                comparison = numA - numB;
-            } else if (!isNaN(numA)) {
-                comparison = -1; 
-            } else if (!isNaN(numB)) {
-                comparison = 1; 
-            } else {
-                 comparison = String(aValue).localeCompare(String(bValue));
-            }
-        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
           comparison = aValue - bValue;
-        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
-          comparison = aValue.localeCompare(bValue);
         } else {
            comparison = String(aValue).localeCompare(String(bValue));
         }
@@ -198,7 +177,7 @@ export default function ManageAllGradesPage() {
       });
     }
     return items;
-  }, [allGradesData, sortConfig, classFilter, academicYearFilter, semesterFilter, mapelFilter]);
+  }, [allGradesData, sortConfig]);
   
   const totalPages = Math.ceil(filteredAndSortedGrades.length / ITEMS_PER_PAGE);
 
@@ -254,7 +233,14 @@ export default function ManageAllGradesPage() {
       );
       toast({ title: "Sukses", description: `Nilai untuk ${gradeToDelete.namaSiswa} berhasil dihapus.` });
       setGradeToDelete(null);
-      fetchData(); // Refetch data
+      
+      // Re-trigger data fetching
+      const studentIdsInClass = classFilter !== 'all' ? allStudents.filter(s => s.kelas === classFilter).map(s => s.id_siswa) : undefined;
+      const grades = await getFilteredGrades({ tahunAjaran: academicYearFilter, semester: Number(semesterFilter), mapel: mapelFilter !== 'all' ? [mapelFilter] : undefined, studentIds: studentIdsInClass });
+      const studentMap = new Map(allStudents.map(s => [s.id_siswa, s]));
+      const enrichedGrades = grades.map(grade => ({ ...grade, namaSiswa: studentMap.get(grade.id_siswa)?.nama || 'N/A', nisSiswa: studentMap.get(grade.id_siswa)?.nis || 'N/A', kelasSiswa: studentMap.get(grade.id_siswa)?.kelas || 'N/A', rataRataTugas: calculateAverage(grade.tugas || []) }));
+      setAllGradesData(enrichedGrades);
+
     } catch (error: any) {
       console.error("Error deleting grade:", error);
       toast({ variant: "destructive", title: "Error Hapus", description: "Gagal menghapus nilai." });
@@ -366,89 +352,77 @@ export default function ManageAllGradesPage() {
             <div>
               <CardTitle>Daftar Semua Nilai Siswa</CardTitle>
               <CardDescription>
-                Menampilkan semua catatan nilai. Gunakan filter atau klik header kolom untuk mengurutkan.
+                Gunakan filter untuk memuat data nilai. Klik header kolom untuk mengurutkan.
               </CardDescription>
             </div>
-            {filteredAndSortedGrades.length > 0 && !isLoading && (
-              <Button onClick={handleDownloadExcel} variant="outline">
+            <Button onClick={handleDownloadExcel} variant="outline" disabled={isLoading || isDataLoading || filteredAndSortedGrades.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh Excel
-              </Button>
-            )}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {allGradesData.length > 0 && !isLoading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
-              <div>
-                <Label htmlFor="classFilter" className="text-sm font-medium">Filter Kelas</Label>
-                <Select value={classFilter} onValueChange={setClassFilter}>
-                  <SelectTrigger id="classFilter" className="w-full mt-1">
-                    <SelectValue placeholder="Pilih kelas..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kelas</SelectItem>
-                    {uniqueClasses.map(kelas => (
-                      <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="academicYearFilter" className="text-sm font-medium">Filter Tahun Ajaran</Label>
-                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
-                  <SelectTrigger id="academicYearFilter" className="w-full mt-1">
-                    <SelectValue placeholder="Pilih tahun ajaran..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Tahun</SelectItem>
-                    {selectableYears.map(year => (
-                      <SelectItem key={year} value={year}>{year}</SelectItem>
-                    ))}
-                    {selectableYears.length === 0 && <SelectItem value="all" disabled>Tidak ada tahun aktif</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="semesterFilter" className="text-sm font-medium">Filter Semester</Label>
-                <Select value={semesterFilter} onValueChange={setSemesterFilter}>
-                  <SelectTrigger id="semesterFilter" className="w-full mt-1">
-                    <SelectValue placeholder="Pilih semester..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Semester</SelectItem>
-                    {SEMESTERS.map(semester => (
-                      <SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
-                <Select value={mapelFilter} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
-                  <SelectTrigger id="mapelFilter" className="w-full mt-1">
-                    <SelectValue placeholder="Pilih mapel..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Mapel</SelectItem>
-                    {availableMapelFilters.map(mapel => (
-                      <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
-                    ))}
-                     {availableMapelFilters.length === 0 && <SelectItem value="no_mapel_data_placeholder" disabled>Belum ada data mapel</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-md bg-muted/30">
+            <div>
+              <Label htmlFor="classFilter" className="text-sm font-medium">Filter Kelas</Label>
+              <Select value={classFilter} onValueChange={setClassFilter}>
+                <SelectTrigger id="classFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih kelas..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kelas</SelectItem>
+                  {uniqueClasses.map(kelas => (
+                    <SelectItem key={kelas} value={kelas}>{kelas}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <div>
+              <Label htmlFor="academicYearFilter" className="text-sm font-medium">Filter Tahun Ajaran</Label>
+              <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
+                <SelectTrigger id="academicYearFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih tahun ajaran..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectableYears.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="semesterFilter" className="text-sm font-medium">Filter Semester</Label>
+              <Select value={semesterFilter} onValueChange={setSemesterFilter}>
+                <SelectTrigger id="semesterFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih semester..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEMESTERS.map(semester => (
+                    <SelectItem key={semester.value} value={String(semester.value)}>{semester.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="mapelFilter" className="text-sm font-medium">Filter Mata Pelajaran</Label>
+              <Select value={mapelFilter} onValueChange={setMapelFilter} disabled={availableMapelFilters.length === 0 && !isLoading}>
+                <SelectTrigger id="mapelFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Pilih mapel..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Mapel</SelectItem>
+                  {availableMapelFilters.map(mapel => (
+                    <SelectItem key={mapel} value={mapel}>{mapel}</SelectItem>
+                  ))}
+                   {availableMapelFilters.length === 0 && <SelectItem value="no_mapel_data_placeholder" disabled>Belum ada data mapel</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          {isLoading ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center min-h-[200px]">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              </div>
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full rounded-md" />
-              ))}
+          {isLoading || isDataLoading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
             </div>
           ) : error ? (
             <Alert variant="destructive">
@@ -459,16 +433,6 @@ export default function ManageAllGradesPage() {
                 Coba Lagi
               </Button>
             </Alert>
-          ) : allGradesData.length === 0 ? (
-             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
-              <Info className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">
-                Belum Ada Data Nilai
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Sistem belum memiliki data nilai siswa. Guru dapat mulai menginput nilai melalui dasbor mereka.
-              </p>
-            </div>
           ) : filteredAndSortedGrades.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] text-center p-6 border-2 border-dashed rounded-lg">
               <FilterIcon className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -478,7 +442,7 @@ export default function ManageAllGradesPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Tidak ada data nilai yang cocok dengan kriteria filter yang Anda pilih. Coba ubah pilihan filter Anda.
               </p>
-               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter(CURRENT_ACADEMIC_YEAR); setSemesterFilter("all"); setMapelFilter("all"); }} variant="outline" className="mt-4">
+               <Button onClick={() => { setClassFilter("all"); setAcademicYearFilter(getCurrentAcademicYear()); setSemesterFilter("1"); setMapelFilter("all"); }} variant="outline" className="mt-4">
                 Reset Filter
               </Button>
             </div>

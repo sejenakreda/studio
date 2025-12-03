@@ -22,6 +22,8 @@ import {
   limit,
   arrayRemove,
   arrayUnion,
+  Query,
+  QueryConstraint,
   QuerySnapshot,
   FirestoreError
 } from 'firebase/firestore';
@@ -984,6 +986,64 @@ export const getGradesByStudentId = async (id_siswa: string): Promise<Nilai[]> =
     handleFirestoreError(error, 'membaca nilai', 'siswa');
   }
 };
+
+export const getFilteredGrades = async (filters: {
+  tahunAjaran?: string;
+  semester?: number;
+  mapel?: string[];
+  studentIds?: string[];
+}): Promise<Nilai[]> => {
+  const { tahunAjaran, semester, mapel, studentIds } = filters;
+
+  if (!tahunAjaran && !semester && (!mapel || mapel.length === 0) && (!studentIds || studentIds.length === 0)) {
+    // Avoid running a full collection scan
+    return [];
+  }
+
+  try {
+    const collRef = collection(db, 'nilai').withConverter(nilaiConverter);
+    const queryConstraints: QueryConstraint[] = [];
+
+    if (tahunAjaran) {
+      queryConstraints.push(where('tahun_ajaran', '==', tahunAjaran));
+    }
+    if (semester) {
+      queryConstraints.push(where('semester', '==', semester));
+    }
+    if (mapel && mapel.length > 0 && mapel.length <= 30) {
+      // Firestore 'in' query supports up to 30 elements
+      queryConstraints.push(where('mapel', 'in', mapel));
+    }
+    if (studentIds && studentIds.length > 0 && studentIds.length <= 30) {
+      queryConstraints.push(where('id_siswa', 'in', studentIds));
+    }
+
+    // If more than 30 mapels or studentIds, we might need multiple queries, but let's keep it simple for now.
+    // This optimization already significantly reduces reads.
+
+    if (queryConstraints.length === 0) {
+        return []; // Don't query if no valid constraints
+    }
+
+    const q = query(collRef, ...queryConstraints);
+    const querySnapshot = await getDocs(q);
+    
+    let results = querySnapshot.docs.map(doc => doc.data());
+
+    // Client-side filtering for cases where we couldn't use 'in' (more than 30 items)
+    if (mapel && mapel.length > 30) {
+        results = results.filter(grade => mapel.includes(grade.mapel));
+    }
+     if (studentIds && studentIds.length > 30) {
+        results = results.filter(grade => studentIds.includes(grade.id_siswa));
+    }
+
+    return results;
+  } catch (error) {
+    handleFirestoreError(error, 'membaca semua', 'nilai');
+  }
+};
+
 export const getAllGrades = async (): Promise<Nilai[]> => {
   try {
     const collRef = collection(db, 'nilai').withConverter(nilaiConverter);

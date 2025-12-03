@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, AlertCircle, FileWarning, Filter, Download, Info, Check, ListFilter } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
-import { getStudents, getAllGrades, getActiveAcademicYears, getMataPelajaranMaster } from '@/lib/firestoreService';
+import { getStudents, getFilteredGrades, getActiveAcademicYears, getMataPelajaranMaster } from '@/lib/firestoreService';
 import type { Siswa, Nilai } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,11 +42,11 @@ interface MissingGradeInfo {
 export default function RekapNilaiKosongPage() {
     const { toast } = useToast();
     const [allStudents, setAllStudents] = useState<Siswa[]>([]);
-    const [allGrades, setAllGrades] = useState<Nilai[]>([]);
     const [activeYears, setActiveYears] = useState<string[]>([]);
     const [availableMapel, setAvailableMapel] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Filter states
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
     const [selectedSemester, setSelectedSemester] = useState<number>(1);
     const [selectedMapel, setSelectedMapel] = useState<string[]>([]);
@@ -54,18 +54,19 @@ export default function RekapNilaiKosongPage() {
     const [selectedClass, setSelectedClass] = useState<string>("all");
     const [uniqueClasses, setUniqueClasses] = useState<string[]>([]);
 
+    // Data state
+    const [fetchedGrades, setFetchedGrades] = useState<Nilai[]>([]);
+    const [isDataLoading, setIsDataLoading] = useState(false);
 
     const fetchPrerequisites = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [students, grades, years, mapelList] = await Promise.all([
+            const [students, years, mapelList] = await Promise.all([
                 getStudents(),
-                getAllGrades(),
                 getActiveAcademicYears(),
                 getMataPelajaranMaster()
             ]);
             setAllStudents(students);
-            setAllGrades(grades);
             setActiveYears(years);
             const sortedMapel = mapelList.map(m => m.namaMapel).sort();
             setAvailableMapel(sortedMapel);
@@ -83,28 +84,63 @@ export default function RekapNilaiKosongPage() {
     useEffect(() => {
         fetchPrerequisites();
     }, [fetchPrerequisites]);
+    
+    // This effect will run whenever the main filters change.
+    useEffect(() => {
+        const fetchGradesForFilter = async () => {
+            if (isLoading || selectedMapel.length === 0) {
+                setFetchedGrades([]);
+                return;
+            }
+            
+            setIsDataLoading(true);
+            try {
+                const studentsToFetch = selectedClass === 'all' 
+                    ? allStudents.map(s => s.id_siswa)
+                    : allStudents.filter(s => s.kelas === selectedClass).map(s => s.id_siswa);
+
+                if(studentsToFetch.length === 0) {
+                    setFetchedGrades([]);
+                    return;
+                }
+
+                // Fetch grades based on current filters
+                const grades = await getFilteredGrades({
+                    tahunAjaran: selectedYear,
+                    semester: selectedSemester,
+                    mapel: selectedMapel,
+                    studentIds: studentsToFetch,
+                });
+                setFetchedGrades(grades);
+
+            } catch(err) {
+                console.error("Error fetching filtered grades:", err);
+                toast({ variant: "destructive", title: "Gagal Memuat Data Nilai", description: "Terjadi kesalahan saat mengambil data nilai sesuai filter." });
+            } finally {
+                setIsDataLoading(false);
+            }
+        };
+        
+        fetchGradesForFilter();
+    }, [isLoading, allStudents, selectedClass, selectedMapel, selectedYear, selectedSemester, toast]);
 
     const studentsWithMissingGrades = useMemo<MissingGradeInfo[]>(() => {
-        if (isLoading || selectedMapel.length === 0) return [];
-
+        if (selectedMapel.length === 0) return [];
+        
         const gradesMap = new Map<string, Nilai>();
-        allGrades
-            .filter(g => g.tahun_ajaran === selectedYear && g.semester === selectedSemester)
-            .forEach(g => {
-                const key = `${g.id_siswa}-${g.mapel}`;
-                gradesMap.set(key, g);
-            });
-            
+        fetchedGrades.forEach(g => {
+            const key = `${g.id_siswa}-${g.mapel}`;
+            gradesMap.set(key, g);
+        });
+
         const missingGradesList: MissingGradeInfo[] = [];
 
         const studentsToCheck = selectedClass === "all"
             ? allStudents
             : allStudents.filter(s => s.kelas === selectedClass);
         
-        const mapelToCheck = selectedMapel;
-
         studentsToCheck.forEach(student => {
-            mapelToCheck.forEach(mapel => {
+            selectedMapel.forEach(mapel => {
                 const gradeKey = `${student.id_siswa}-${mapel}`;
                 const gradeRecord = gradesMap.get(gradeKey);
 
@@ -117,10 +153,10 @@ export default function RekapNilaiKosongPage() {
                     const gradeValue = gradeRecord[selectedGradeType];
                     if (selectedGradeType === 'tugas') {
                         isMissing = !gradeValue || (Array.isArray(gradeValue) && gradeValue.length === 0);
-                        if(isMissing) recordedValueStr = "Kosong";
+                        if (isMissing) recordedValueStr = "Kosong";
                     } else {
                         isMissing = gradeValue === null || gradeValue === undefined || gradeValue === 0;
-                        if(isMissing && gradeValue === 0) recordedValueStr = "0";
+                        if (isMissing && gradeValue === 0) recordedValueStr = "0";
                     }
                 }
 
@@ -145,7 +181,7 @@ export default function RekapNilaiKosongPage() {
             return a.missingMapel.localeCompare(b.missingMapel);
         });
 
-    }, [allStudents, allGrades, selectedYear, selectedSemester, selectedMapel, selectedGradeType, selectedClass, isLoading]);
+    }, [allStudents, fetchedGrades, selectedMapel, selectedClass, selectedGradeType]);
 
     const handleDownloadExcel = () => {
         if (studentsWithMissingGrades.length === 0) {
@@ -164,15 +200,12 @@ export default function RekapNilaiKosongPage() {
             'Nilai Tercatat': item.recordedValue,
         }));
         
-        // Create worksheet with title
         const worksheet = XLSX.utils.json_to_sheet([], { skipHeader: true });
         XLSX.utils.sheet_add_aoa(worksheet, [[title]], { origin: "A1" });
         XLSX.utils.sheet_add_json(worksheet, dataForExcel, { origin: "A3", skipHeader: false });
         
-        // Merge cell for the title
         worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
-        // Set column widths
         const wscols = [ {wch:30}, {wch:15}, {wch:10}, {wch:30}, {wch:15} ];
         worksheet['!cols'] = wscols;
 
@@ -277,11 +310,11 @@ export default function RekapNilaiKosongPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-end mb-4">
-                        <Button onClick={handleDownloadExcel} disabled={isLoading || studentsWithMissingGrades.length === 0}>
+                        <Button onClick={handleDownloadExcel} disabled={isLoading || isDataLoading || studentsWithMissingGrades.length === 0}>
                             <Download className="mr-2 h-4 w-4" /> Unduh Hasil Excel
                         </Button>
                     </div>
-                    {isLoading ? <Skeleton className="h-64 w-full" />
+                    {isLoading || isDataLoading ? <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     : selectedMapel.length === 0 ? <Alert><Info className="h-4 w-4" /><AlertTitle>Pilih Filter</AlertTitle><AlertDescription>Silakan pilih satu atau beberapa mata pelajaran untuk memulai pencarian.</AlertDescription></Alert>
                     : studentsWithMissingGrades.length === 0 ? <Alert><Info className="h-4 w-4" /><AlertTitle>Data Lengkap</AlertTitle><AlertDescription>Tidak ditemukan siswa dengan nilai kosong untuk kriteria yang Anda pilih.</AlertDescription></Alert>
                     : (

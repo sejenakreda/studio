@@ -213,5 +213,3 @@ function LoginForm() {
     </form>
   );
 }
-
-    

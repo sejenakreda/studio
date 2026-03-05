@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, type FormEvent, useEffect } from 'react';
@@ -32,7 +31,7 @@ export default function LoginPage() {
     setConfigStatus({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       hasApiKey: !!apiKey && apiKey.length > 10,
-      isPlaceholder: apiKey === 'your_api_key_here'
+      isPlaceholder: apiKey === 'your_api_key_here' || apiKey === 'AIzaSy_your_key'
     });
   }, []);
 
@@ -96,7 +95,7 @@ export default function LoginPage() {
         <div className="inline-flex flex-col items-center gap-1 p-3 bg-black/30 rounded-lg border border-white/10 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-[10px] font-mono">
                 <span>PROJECT: {configStatus.projectId || "KOSONG"}</span>
-                {configStatus.projectId ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
+                {configStatus.projectId && configStatus.projectId !== 'your_project_id_here' ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
             </div>
             <div className="flex items-center gap-2 text-[10px] font-mono">
                 <span>API KEY: {configStatus.isPlaceholder ? "PLACEHOLDER (SALAH)" : configStatus.hasApiKey ? "TERDETEKSI" : "TIDAK ADA"}</span>
@@ -122,7 +121,7 @@ function LoginForm() {
     setLoadingLoginForm(true);
 
     if (!auth || !isFirebaseConfigValid) {
-        setErrorLoginForm("Konfigurasi Firebase tidak valid. Pastikan file .env.local Anda sudah berisi API Key yang benar (bukan placeholder).");
+        setErrorLoginForm("Konfigurasi Firebase tidak valid. Pastikan file .env.local Anda sudah berisi API Key yang benar.");
         setLoadingLoginForm(false);
         return;
     }

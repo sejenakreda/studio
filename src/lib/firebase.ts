@@ -23,8 +23,8 @@ function getFirebaseApp() {
 // Check for valid config (not placeholders)
 export const isFirebaseConfigValid = 
   !!firebaseConfig.apiKey && 
-  firebaseConfig.apiKey !== 'masukkan_api_key_anda_disini' &&
-  !!firebaseConfig.projectId;
+  firebaseConfig.apiKey.length > 20 &&
+  firebaseConfig.apiKey !== 'your_api_key_here';
 
 let app: FirebaseApp;
 let auth: Auth;

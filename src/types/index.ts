@@ -294,6 +294,7 @@ export interface ArsipLinkCategory {
   title: string;
   description: string;
   links: ArsipLinkItem[];
+  order: number;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

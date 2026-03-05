@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
@@ -13,18 +12,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check for valid config (not placeholders)
-export const isFirebaseConfigValid = 
-  !!firebaseConfig.apiKey && 
-  firebaseConfig.apiKey !== 'your_api_key_here' &&
-  !!firebaseConfig.projectId &&
-  firebaseConfig.projectId !== 'your_project_id_here';
-
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
-
 // Singleton initialization pattern
 function getFirebaseApp() {
     if (!getApps().length) {
@@ -32,6 +19,17 @@ function getFirebaseApp() {
     }
     return getApp();
 }
+
+// Check for valid config (not placeholders)
+export const isFirebaseConfigValid = 
+  !!firebaseConfig.apiKey && 
+  firebaseConfig.apiKey !== 'masukkan_api_key_anda_disini' &&
+  !!firebaseConfig.projectId;
+
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
 if (typeof window !== 'undefined') {
     app = getFirebaseApp();

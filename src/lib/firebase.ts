@@ -4,7 +4,6 @@ import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
-// Pastikan menggunakan process.env agar fleksibel untuk pengembangan dan produksi
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -14,30 +13,31 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validasi apakah konfigurasi dasar sudah ada
+// Check for valid config (not placeholders)
 export const isFirebaseConfigValid = 
   !!firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== 'your_api_key_here' &&
-  !!firebaseConfig.projectId;
+  !!firebaseConfig.projectId &&
+  firebaseConfig.projectId !== 'your_project_id_here';
 
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
-if (typeof window !== 'undefined') {
-  if (isFirebaseConfigValid) {
-    try {
-      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
-    } catch (error) {
-      console.error("Firebase initialization error:", error);
+// Singleton initialization pattern
+function getFirebaseApp() {
+    if (!getApps().length) {
+        return initializeApp(firebaseConfig);
     }
-  } else {
-    console.warn("Firebase configuration is missing or using placeholders. Check your .env.local file.");
-  }
+    return getApp();
+}
+
+if (typeof window !== 'undefined') {
+    app = getFirebaseApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
 }
 
 export { app, auth, db, storage };

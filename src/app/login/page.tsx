@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent, useEffect } from 'react';
@@ -9,30 +10,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, LogIn, Loader2 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { AlertTriangle, LogIn, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, userProfile, loading: authContextLoading, isSatpam, isPenjagaSekolah, isStafTu } = useAuth();
 
-  // Debugging state to check for environment variable
-  const [debugProjectId, setDebugProjectId] = useState<string | undefined>(undefined);
-  const [debugApiKeyStatus, setDebugApiKeyStatus] = useState<string>("INVALID");
+  const [configStatus, setConfigStatus] = useState<{
+    projectId: string | undefined;
+    hasApiKey: boolean;
+    isPlaceholder: boolean;
+  }>({
+    projectId: undefined,
+    hasApiKey: false,
+    isPlaceholder: false
+  });
 
   useEffect(() => {
-    // This will run on the client side and show us what env var the build received.
-    setDebugProjectId(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
-    if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY.length > 5) {
-        setDebugApiKeyStatus("Valid");
-    }
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    setConfigStatus({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      hasApiKey: !!apiKey && apiKey.length > 10,
+      isPlaceholder: apiKey === 'your_api_key_here'
+    });
   }, []);
 
 
   useEffect(() => {
-    // This effect handles redirection:
-    // 1. If the user is already logged in when they land on /login.
-    // 2. After a successful login attempt updates the AuthContext.
     if (!authContextLoading && user && userProfile) {
       if (userProfile.role === 'admin') {
         router.replace('/protected/admin');
@@ -48,9 +53,6 @@ export default function LoginPage() {
         }
       }
     }
-    // If !authContextLoading and !user (meaning truly logged out or initial unauthed state),
-    // they stay on the login page, which is correct.
-    // If authContextLoading is true, this effect does nothing, waiting for context to settle.
   }, [user, userProfile, authContextLoading, router, isSatpam, isPenjagaSekolah, isStafTu]);
 
 
@@ -90,10 +92,17 @@ export default function LoginPage() {
           <LoginForm />
         )}
       </div>
-      <footer className="mt-8 text-center text-sm text-primary-foreground/80">
-        <p className="font-mono text-xs p-2 bg-black/20 rounded">
-            DEBUG - Project ID: {debugProjectId || "TIDAK TERBACA"} | API Key Status: {debugApiKeyStatus}
-        </p>
+      <footer className="mt-8 text-center text-sm text-primary-foreground/80 space-y-2">
+        <div className="inline-flex flex-col items-center gap-1 p-3 bg-black/30 rounded-lg border border-white/10 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+                <span>PROJECT: {configStatus.projectId || "KOSONG"}</span>
+                {configStatus.projectId ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+                <span>API KEY: {configStatus.isPlaceholder ? "PLACEHOLDER (SALAH)" : configStatus.hasApiKey ? "TERDETEKSI" : "TIDAK ADA"}</span>
+                {configStatus.hasApiKey && !configStatus.isPlaceholder ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
+            </div>
+        </div>
         <p className="mt-2">© {new Date().getFullYear()} SiAP Smapna. Hak Cipta Dilindungi.</p>
       </footer>
     </div>
@@ -105,7 +114,6 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [errorLoginForm, setErrorLoginForm] = useState<string | null>(null);
   const [loadingLoginForm, setLoadingLoginForm] = useState(false);
-  // Removed router from LoginForm as LoginPage now handles redirection
   const { toast } = useToast();
 
   const handleSubmit = async (event: FormEvent) => {
@@ -114,7 +122,7 @@ function LoginForm() {
     setLoadingLoginForm(true);
 
     if (!auth || !isFirebaseConfigValid) {
-        setErrorLoginForm("Konfigurasi Firebase tidak valid. Silakan periksa file .env.local Anda dan pastikan semua kunci (terutama API Key) sudah benar.");
+        setErrorLoginForm("Konfigurasi Firebase tidak valid. Pastikan file .env.local Anda sudah berisi API Key yang benar (bukan placeholder).");
         setLoadingLoginForm(false);
         return;
     }
@@ -125,23 +133,20 @@ function LoginForm() {
         title: "Login Berhasil",
         description: "Mengarahkan ke dasbor...",
       });
-      // DO NOT router.push('/') here. LoginPage's useEffect will handle redirection.
     } catch (e: any) {
-      // Log the full error to the console for debugging
       console.error("Detail Error Login:", e);
 
       let friendlyMessage = 'Terjadi kesalahan. Silakan coba lagi.';
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-        friendlyMessage = 'Email atau password yang Anda masukkan salah. Silakan periksa kembali.';
+        friendlyMessage = 'Email atau password yang Anda masukkan salah.';
       } else if (e.code === 'auth/too-many-requests') {
-        friendlyMessage = 'Terlalu banyak percobaan login yang gagal. Akun Anda telah dinonaktifkan sementara. Silakan coba lagi nanti atau reset password Anda.';
-      } else if (e.code === 'auth/invalid-email') {
-        friendlyMessage = 'Format email yang Anda masukkan tidak valid.';
-      } else if (e.code === 'auth/network-request-failed') {
-          friendlyMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda. Masalah ini juga bisa disebabkan oleh Kunci API atau domain yang belum diizinkan.';
+        friendlyMessage = 'Terlalu banyak percobaan login yang gagal. Silakan tunggu sebentar.';
       } else if (e.code === 'auth/api-key-not-valid') {
-          friendlyMessage = 'Kunci API Firebase tidak valid. Pastikan Environment Variable di Vercel sudah benar dan tidak ada kesalahan ketik.';
+          friendlyMessage = 'API Key Firebase tidak valid. Periksa kembali file .env.local Anda.';
+      } else if (e.code === 'auth/network-request-failed') {
+          friendlyMessage = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
       }
+      
       setErrorLoginForm(friendlyMessage);
       toast({
         variant: "destructive",
@@ -173,8 +178,7 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="contoh@example.com"
-          className="bg-background/50 border-border focus:border-primary focus:ring-primary"
-          aria-label="Alamat Email"
+          className="bg-background/50 border-border"
         />
       </div>
       <div className="space-y-2">
@@ -188,26 +192,18 @@ function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           placeholder="••••••••"
-          className="bg-background/50 border-border focus:border-primary focus:ring-primary"
-          aria-label="Password"
+          className="bg-background/50 border-border"
         />
       </div>
       <Button
         type="submit"
-        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
         disabled={loadingLoginForm}
-        aria-live="polite"
       >
         {loadingLoginForm ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Memproses...
-          </>
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memproses...</>
         ) : (
-          <>
-            <LogIn className="mr-2 h-4 w-4" />
-            Masuk
-          </>
+          <><LogIn className="mr-2 h-4 w-4" /> Masuk</>
         )}
       </Button>
     </form>

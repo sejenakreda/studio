@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Link as LinkIcon, Trash2, Edit, Info, FolderPlus, FolderKanban, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
+import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Link as LinkIcon, Trash2, Edit, Info, FolderPlus, FolderKanban, ChevronUp, ChevronDown, GripVertical, MoveVertical } from "lucide-react";
 import { addArsipCategory, getArsipCategories, deleteArsipCategory, updateArsipCategory, addActivityLog, reorderArsipCategories } from '@/lib/firestoreService';
 import type { ArsipLinkCategory, ArsipLinkItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -190,91 +190,108 @@ export default function ManageArsipLinkPage() {
   };
   
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div className="flex items-center gap-4">
-          <Link href="/protected/admin"><Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link href="/protected/admin">
+            <Button variant="outline" size="icon" className="rounded-full hover:bg-primary hover:text-white transition-all shadow-sm">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Kelola Arsip Link</h1>
-            <p className="text-muted-foreground text-sm">Atur kategori dan link penting untuk semua pengguna.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground font-headline flex items-center gap-2">
+              <FolderKanban className="h-8 w-8 text-primary" /> Kelola Arsip Link
+            </h1>
+            <p className="text-muted-foreground text-sm font-medium">Susun kategori dan tautan penting sekolah dengan rapi.</p>
           </div>
         </div>
         <CategoryFormDialog
             onSave={handleSaveCategory}
-            triggerButton={<Button className="w-full sm:w-auto shadow-sm"><PlusCircle className="mr-2 h-4 w-4" /> Tambah Kategori</Button>}
+            triggerButton={<Button className="w-full sm:w-auto shadow-md rounded-xl py-6 px-6 font-bold text-lg"><PlusCircle className="mr-2 h-5 w-5" /> Tambah Kategori</Button>}
         />
       </div>
 
-      {fetchError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>}
+      {fetchError && <Alert variant="destructive" className="rounded-2xl border-2"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{fetchError}</AlertDescription></Alert>}
       
       {isLoadingData ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Skeleton className="h-80 w-full rounded-3xl" />
+          <Skeleton className="h-80 w-full rounded-3xl" />
         </div>
       ) : categories.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-center p-6 border-2 border-dashed rounded-xl bg-card/50">
-            <FolderKanban className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">Belum Ada Arsip Link</h3>
-            <p className="text-sm text-muted-foreground mb-6">Silakan tambahkan kategori baru untuk mulai mengarsipkan tautan.</p>
-            <CategoryFormDialog onSave={handleSaveCategory} triggerButton={<Button variant="outline"><FolderPlus className="mr-2 h-4 w-4" /> Mulai Sekarang</Button>} />
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-12 border-4 border-dashed rounded-[2.5rem] bg-card/30 backdrop-blur-sm">
+            <div className="bg-primary/10 p-8 rounded-full mb-6">
+              <FolderPlus className="h-16 w-16 text-primary/40" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-2">Belum Ada Arsip Link</h3>
+            <p className="text-muted-foreground mb-8 max-w-md">Data lama Anda mungkin tersembunyi karena sistem pengurutan baru. Tambahkan kategori baru atau sistem akan memulihkan data Anda secara otomatis.</p>
+            <CategoryFormDialog onSave={handleSaveCategory} triggerButton={<Button variant="outline" className="rounded-xl px-8 py-6 font-bold"><PlusCircle className="mr-2 h-5 w-5" /> Mulai Sekarang</Button>} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {categories.map((category, catIndex) => (
-            <Card key={category.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow duration-200 border-t-4 border-t-primary">
-              <CardHeader className="pb-3">
+            <Card key={category.id} className="flex flex-col rounded-[2rem] overflow-hidden shadow-lg border-none bg-gradient-to-br from-card to-muted/20 hover:shadow-2xl transition-all duration-500 group">
+              <div className="h-2 w-full bg-primary opacity-80" />
+              <CardHeader className="pb-4 relative">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-grow">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold h-5">Urutan {catIndex + 1}</Badge>
-                      <CardTitle className="text-xl flex items-center gap-2 font-headline">{category.title}</CardTitle>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-widest">Urutan {catIndex + 1}</Badge>
                     </div>
-                    {category.description && <CardDescription className="line-clamp-2">{category.description}</CardDescription>}
+                    <CardTitle className="text-2xl font-black text-foreground font-headline group-hover:text-primary transition-colors">{category.title}</CardTitle>
+                    {category.description && <CardDescription className="line-clamp-2 text-sm mt-1 font-medium">{category.description}</CardDescription>}
                   </div>
-                  <div className="flex flex-col gap-1 flex-shrink-0">
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveCategory(catIndex, 'up')} disabled={catIndex === 0 || isOrdering}><ChevronUp className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveCategory(catIndex, 'down')} disabled={catIndex === categories.length - 1 || isOrdering}><ChevronDown className="h-4 w-4" /></Button>
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    <div className="flex gap-1 bg-background/50 p-1 rounded-xl backdrop-blur-sm border shadow-sm">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary hover:text-white rounded-lg" onClick={() => handleMoveCategory(catIndex, 'up')} disabled={catIndex === 0 || isOrdering}><ChevronUp className="h-5 w-5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary hover:text-white rounded-lg" onClick={() => handleMoveCategory(catIndex, 'down')} disabled={catIndex === categories.length - 1 || isOrdering}><ChevronDown className="h-5 w-5" /></Button>
                     </div>
-                    <div className="flex gap-1 border-t pt-1 mt-1">
-                      <CategoryFormDialog onSave={handleSaveCategory} category={category} triggerButton={<Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"><Edit className="h-4 w-4" /></Button>} />
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => setCategoryToDelete(category)}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex gap-1 justify-end">
+                      <CategoryFormDialog onSave={handleSaveCategory} category={category} triggerButton={<Button variant="ghost" size="icon" className="h-9 w-9 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl"><Edit className="h-4 w-4" /></Button>} />
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive bg-destructive/5 hover:bg-destructive/10 rounded-xl" onClick={() => setCategoryToDelete(category)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-grow space-y-2 px-4 pb-4">
-                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2">Daftar Link</h4>
+              <CardContent className="flex-grow space-y-3 px-6 pb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-px flex-grow bg-border" />
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] whitespace-nowrap">Daftar Tautan</span>
+                  <div className="h-px flex-grow bg-border" />
+                </div>
                 {category.links && category.links.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {category.links.map((link, linkIndex) => (
-                      <div key={link.id} className="group flex items-center gap-3 p-3 border rounded-xl bg-muted/20 hover:bg-background hover:border-primary/30 transition-all duration-200 shadow-sm hover:shadow">
-                        <GripVertical className="h-4 w-4 text-muted-foreground/30 flex-shrink-0 cursor-default" />
-                        <div className="flex-grow min-w-0">
-                          <p className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{link.judul}</p>
-                          <p className="text-[11px] text-muted-foreground truncate" title={link.url}>{link.url}</p>
+                      <div key={link.id} className="group/item flex items-center gap-4 p-4 border-2 border-transparent bg-background/60 hover:bg-background hover:border-primary/20 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md">
+                        <div className="p-2 bg-muted rounded-xl group-hover/item:bg-primary/10 transition-colors">
+                          <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover/item:text-primary/40" />
                         </div>
-                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveLink(category, linkIndex, 'up')} disabled={linkIndex === 0}><ChevronUp className="h-3 w-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveLink(category, linkIndex, 'down')} disabled={linkIndex === category.links.length - 1}><ChevronDown className="h-3 w-3" /></Button>
-                          <LinkFormDialog onSave={(data, isEdit) => handleSaveLink(data, category, isEdit)} category={category} link={link} triggerButton={<Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 hover:bg-blue-50"><Edit className="h-3.5 w-3.5" /></Button>} />
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteLink(category, link.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <div className="flex-grow min-w-0">
+                          <p className="font-bold text-sm text-foreground truncate group-hover/item:text-primary transition-colors">{link.judul}</p>
+                          <p className="text-[11px] font-medium text-muted-foreground truncate opacity-70" title={link.url}>{link.url}</p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-all translate-x-2 group-hover/item:translate-x-0">
+                          <div className="flex flex-col">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary hover:text-white" onClick={() => handleMoveLink(category, linkIndex, 'up')} disabled={linkIndex === 0}><ChevronUp className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary hover:text-white" onClick={() => handleMoveLink(category, linkIndex, 'down')} disabled={linkIndex === category.links.length - 1}><ChevronDown className="h-3 w-3" /></Button>
+                          </div>
+                          <LinkFormDialog onSave={(data, isEdit) => handleSaveLink(data, category, isEdit)} category={category} link={link} triggerButton={<Button variant="ghost" size="icon" className="h-9 w-9 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl"><Edit className="h-4 w-4" /></Button>} />
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive bg-destructive/5 hover:bg-destructive/10 rounded-xl" onClick={() => handleDeleteLink(category, link.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 border-2 border-dashed rounded-xl bg-muted/10">
-                    <p className="text-xs text-muted-foreground">Belum ada link di kategori ini.</p>
+                  <div className="text-center py-10 border-2 border-dashed rounded-2xl bg-muted/10 opacity-60">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Belum ada link</p>
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="bg-muted/30 py-3 rounded-b-lg border-t">
+              <CardFooter className="bg-primary/5 py-4 border-t flex justify-center">
                 <LinkFormDialog
                     onSave={(data, isEdit) => handleSaveLink(data, category, isEdit)}
                     category={category}
-                    triggerButton={<Button variant="link" size="sm" className="w-full text-primary hover:text-primary/80 font-bold"><PlusCircle className="mr-2 h-4 w-4" />Tambah Link Baru</Button>}
+                    triggerButton={<Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary/80 font-black tracking-wide"><PlusCircle className="mr-2 h-4 w-4" />TAMBAH TAUTAN BARU</Button>}
                 />
               </CardFooter>
             </Card>
@@ -284,16 +301,19 @@ export default function ManageArsipLinkPage() {
       
       {categoryToDelete && (
         <AlertDialog open={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)}>
-          <AlertDialogContent className="rounded-2xl">
+          <AlertDialogContent className="rounded-3xl border-none shadow-2xl p-8">
             <AlertDialogHeader>
-              <AlertDialogTitle>Hapus Kategori Arsip?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tindakan ini akan menghapus kategori <span className="font-bold text-foreground">"{categoryToDelete.title}"</span> beserta <span className="font-bold text-foreground">{categoryToDelete.links.length} link</span> di dalamnya. Tindakan ini tidak dapat dibatalkan.
+              <div className="mx-auto bg-destructive/10 p-4 rounded-full w-fit mb-4">
+                <Trash2 className="h-8 w-8 text-destructive" />
+              </div>
+              <AlertDialogTitle className="text-2xl font-black text-center">Hapus Kategori Arsip?</AlertDialogTitle>
+              <AlertDialogDescription className="text-center text-base mt-2">
+                Tindakan ini akan menghapus kategori <span className="font-bold text-foreground">"{categoryToDelete.title}"</span> beserta <span className="font-bold text-foreground">{categoryToDelete.links.length} link</span> di dalamnya secara permanen.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
-              <AlertDialogAction onClick={handleActualDeleteCategory} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl">Hapus Permanen</AlertDialogAction>
+            <AlertDialogFooter className="mt-8 flex-col sm:flex-row gap-3">
+              <AlertDialogCancel className="rounded-2xl py-6 font-bold sm:flex-1">Batalkan</AlertDialogCancel>
+              <AlertDialogAction onClick={handleActualDeleteCategory} className="bg-destructive hover:bg-destructive/90 text-white rounded-2xl py-6 font-bold sm:flex-1 shadow-lg shadow-destructive/30">Hapus Permanen</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -341,21 +361,24 @@ function CategoryFormDialog({ triggerButton, category, onSave }: CategoryFormDia
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{triggerButton}</DialogTrigger>
-            <DialogContent className="rounded-2xl">
+            <DialogContent className="rounded-[2rem] border-none shadow-2xl p-8 max-w-lg">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleFormSubmit)}>
                         <DialogHeader>
-                            <DialogTitle className="text-2xl font-headline">{isEditing ? 'Edit Kategori' : 'Kategori Baru'}</DialogTitle>
-                            <DialogDescription>Kategori membantu mengelompokkan link penting sesuai fungsinya.</DialogDescription>
+                            <div className="bg-primary/10 p-4 rounded-full w-fit mb-4">
+                              <FolderKanban className="h-8 w-8 text-primary" />
+                            </div>
+                            <DialogTitle className="text-3xl font-black font-headline text-foreground">{isEditing ? 'Edit Kategori' : 'Kategori Baru'}</DialogTitle>
+                            <DialogDescription className="text-base font-medium">Berikan identitas yang jelas untuk kelompok tautan ini.</DialogDescription>
                         </DialogHeader>
-                        <div className="py-6 space-y-4">
-                            <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Nama Kategori</FormLabel><FormControl><Input placeholder="cth: Administrasi Kurikulum" {...field} className="rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Deskripsi Singkat</FormLabel><FormControl><Textarea placeholder="Berikan penjelasan singkat tentang isi kategori ini..." {...field} className="rounded-xl min-h-[100px]" /></FormControl><FormMessage /></FormItem>)} />
+                        <div className="py-8 space-y-5">
+                            <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel className="text-xs font-black uppercase tracking-widest ml-1">Nama Kategori</FormLabel><FormControl><Input placeholder="cth: Administrasi Kurikulum" {...field} className="rounded-2xl border-2 py-6 px-5 focus-visible:ring-primary shadow-sm" /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel className="text-xs font-black uppercase tracking-widest ml-1">Deskripsi (Opsional)</FormLabel><FormControl><Textarea placeholder="Berikan penjelasan singkat tentang isi kategori ini..." {...field} className="rounded-2xl border-2 py-4 px-5 focus-visible:ring-primary shadow-sm min-h-[120px] resize-none" /></FormControl><FormMessage /></FormItem>)} />
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto rounded-xl">
-                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? 'Simpan Perubahan' : 'Tambah Kategori'}
+                            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full rounded-2xl py-7 text-lg font-black shadow-lg shadow-primary/20">
+                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                {isEditing ? 'SIMPAN PERUBAHAN' : 'BUAT KATEGORI'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -407,22 +430,25 @@ function LinkFormDialog({ triggerButton, category, link, onSave }: LinkFormDialo
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{triggerButton}</DialogTrigger>
-            <DialogContent className="rounded-2xl max-w-md">
+            <DialogContent className="rounded-[2rem] border-none shadow-2xl p-8 max-w-md">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleFormSubmit)}>
                         <DialogHeader>
-                            <DialogTitle className="text-2xl font-headline">{isEditing ? 'Edit Tautan' : 'Tambah Tautan Baru'}</DialogTitle>
-                            <DialogDescription>Menambahkan link ke kategori <span className="font-bold text-primary">{category.title}</span></DialogDescription>
+                            <div className="bg-primary/10 p-4 rounded-full w-fit mb-4">
+                              <LinkIcon className="h-8 w-8 text-primary" />
+                            </div>
+                            <DialogTitle className="text-3xl font-black font-headline">{isEditing ? 'Edit Tautan' : 'Tambah Tautan'}</DialogTitle>
+                            <DialogDescription className="text-base font-medium">Menyimpan ke kategori <span className="text-primary font-bold">{category.title}</span></DialogDescription>
                         </DialogHeader>
-                        <div className="py-6 space-y-4">
-                             <FormField control={form.control} name="judul" render={({ field }) => ( <FormItem><FormLabel>Judul Tautan</FormLabel><FormControl><Input placeholder="cth: Portal Dapodik Pusat" {...field} className="rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="url" render={({ field }) => ( <FormItem><FormLabel>Alamat URL (Link)</FormLabel><FormControl><Input placeholder="https://dapodik.kemdikbud.go.id" {...field} type="url" className="rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="deskripsi" render={({ field }) => ( <FormItem><FormLabel>Catatan (Opsional)</FormLabel><FormControl><Textarea placeholder="Keterangan singkat tentang link ini..." {...field} rows={3} className="rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
+                        <div className="py-8 space-y-5">
+                             <FormField control={form.control} name="judul" render={({ field }) => ( <FormItem><FormLabel className="text-xs font-black uppercase tracking-widest ml-1">Judul Tautan</FormLabel><FormControl><Input placeholder="cth: Portal Dapodik Pusat" {...field} className="rounded-2xl border-2 py-6 px-5 focus-visible:ring-primary shadow-sm" /></FormControl><FormMessage /></FormItem>)} />
+                             <FormField control={form.control} name="url" render={({ field }) => ( <FormItem><FormLabel className="text-xs font-black uppercase tracking-widest ml-1">Alamat URL</FormLabel><FormControl><Input placeholder="https://dapodik.kemdikbud.go.id" {...field} type="url" className="rounded-2xl border-2 py-6 px-5 focus-visible:ring-primary shadow-sm" /></FormControl><FormMessage /></FormItem>)} />
+                             <FormField control={form.control} name="deskripsi" render={({ field }) => ( <FormItem><FormLabel className="text-xs font-black uppercase tracking-widest ml-1">Catatan</FormLabel><FormControl><Textarea placeholder="Keterangan singkat tentang link ini..." {...field} rows={3} className="rounded-2xl border-2 py-4 px-5 focus-visible:ring-primary shadow-sm resize-none" /></FormControl><FormMessage /></FormItem>)} />
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto rounded-xl">
-                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? 'Simpan Tautan' : 'Tambahkan Tautan'}
+                            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full rounded-2xl py-7 text-lg font-black shadow-lg shadow-primary/20">
+                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                {isEditing ? 'SIMPAN PERUBAHAN' : 'TAMBAHKAN TAUTAN'}
                             </Button>
                         </DialogFooter>
                     </form>

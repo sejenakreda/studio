@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, Link as LinkIcon, Info, FolderKanban, ExternalLink, Search } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Link as LinkIcon, Info, FolderKanban, ExternalLink, Search, Globe, FileText, Bookmark, Zap } from "lucide-react";
 import { getArsipCategories } from '@/lib/firestoreService';
 import type { ArsipLinkCategory } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -50,129 +50,144 @@ export default function ArsipLinkPage() {
       ...cat,
       links: cat.links.filter(link => 
         link.judul.toLowerCase().includes(query) || 
-        link.deskripsi.toLowerCase().includes(query) ||
+        (link.deskripsi && link.deskripsi.toLowerCase().includes(query)) ||
         cat.title.toLowerCase().includes(query)
       )
     })).filter(cat => cat.links.length > 0 || cat.title.toLowerCase().includes(query));
   }, [categories, searchQuery]);
 
   const totalLinks = React.useMemo(() => {
-    return categories.reduce((sum, cat) => sum + cat.links.length, 0);
+    return categories.reduce((sum, cat) => sum + (cat.links?.length || 0), 0);
   }, [categories]);
 
+  // UI Helper for randomized icons to make it look "neat"
+  const getIconForCategory = (index: number) => {
+    const icons = [Globe, FileText, Bookmark, Zap, FolderKanban];
+    const Icon = icons[index % icons.length];
+    return <Icon className="h-6 w-6" />;
+  };
+
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-4">
-          <Link href={dashboardLink}>
-            <Button variant="outline" size="icon" className="rounded-full shadow-sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground font-headline flex items-center gap-3">
-              <FolderKanban className="h-8 w-8 text-primary" /> Arsip Link Penting
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Temukan tautan penting, dokumen, dan aplikasi sekolah dengan mudah.
-            </p>
+    <div className="space-y-10 pb-20">
+      {/* Header Section */}
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-5">
+            <Link href={dashboardLink}>
+              <Button variant="outline" size="icon" className="rounded-full shadow-lg h-12 w-12 hover:bg-primary hover:text-white transition-all border-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-4xl font-black tracking-tight text-foreground font-headline flex items-center gap-3">
+                <FolderKanban className="h-10 w-10 text-primary" /> Arsip Link
+              </h1>
+              <p className="text-muted-foreground font-medium mt-1">
+                Kumpulan portal, dokumen, dan aplikasi penting SMA PGRI Naringgul.
+              </p>
+            </div>
+          </div>
+          
+          <div className="relative w-full md:w-96 group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            </div>
+            <Input 
+              placeholder="Cari judul tautan atau kategori..." 
+              className="pl-12 pr-4 h-14 rounded-2xl border-2 focus-visible:ring-primary shadow-lg bg-card/50 backdrop-blur-sm transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchSearchQuery(e.target.value)}
+            />
           </div>
         </div>
-        
-        <div className="relative w-full md:w-72 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-          <Input 
-            placeholder="Cari tautan..." 
-            className="pl-10 rounded-full border-2 focus-visible:ring-primary shadow-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchSearchQuery(e.target.value)}
-          />
-        </div>
+
+        {!isLoading && !error && categories.length > 0 && (
+          <div className="flex flex-wrap gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+            <Badge className="px-5 py-2 rounded-full text-xs bg-primary/10 text-primary hover:bg-primary/20 border-none font-black tracking-widest">
+              {categories.length} KATEGORI
+            </Badge>
+            <Badge className="px-5 py-2 rounded-full text-xs bg-accent/10 text-accent hover:bg-accent/20 border-none font-black tracking-widest">
+              {totalLinks} TAUTAN AKTIF
+            </Badge>
+          </div>
+        )}
       </div>
 
-      {!isLoading && !error && categories.length > 0 && (
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-          <Badge variant="secondary" className="px-4 py-1.5 rounded-full text-xs bg-primary/10 text-primary border-none whitespace-nowrap">
-            {categories.length} Kategori
-          </Badge>
-          <Badge variant="secondary" className="px-4 py-1.5 rounded-full text-xs bg-accent/10 text-accent border-none whitespace-nowrap">
-            {totalLinks} Tautan Tersedia
-          </Badge>
-        </div>
-      )}
-
+      {/* Content Section */}
       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-2xl" />)}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-80 w-full rounded-[2.5rem]" />)}
         </div>
       ) : error ? (
-        <Alert variant="destructive" className="rounded-2xl">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Gagal Memuat</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-3xl border-2 p-6">
+            <AlertCircle className="h-6 w-6" />
+            <AlertTitle className="text-lg font-bold">Gagal Memuat Data</AlertTitle>
+            <AlertDescription className="text-base">{error}</AlertDescription>
         </Alert>
       ) : filteredCategories.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-12 border-2 border-dashed rounded-3xl bg-card/50">
-            <div className="bg-muted p-6 rounded-full mb-6">
-              <LinkIcon className="h-12 w-12 text-muted-foreground/50" />
+        <div className="flex flex-col items-center justify-center min-h-[450px] text-center p-12 border-4 border-dashed rounded-[3rem] bg-card/20 backdrop-blur-sm">
+            <div className="bg-muted p-10 rounded-full mb-8 shadow-inner">
+              <LinkIcon className="h-16 w-16 text-muted-foreground/30" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Tautan Tidak Ditemukan</h3>
-            <p className="text-muted-foreground max-w-sm">
-                {searchQuery ? `Tidak ada hasil untuk pencarian "${searchQuery}". Coba kata kunci lain.` : "Saat ini belum ada link yang diarsipkan oleh Admin."}
+            <h3 className="text-3xl font-black text-foreground mb-3 font-headline">Tautan Tidak Ditemukan</h3>
+            <p className="text-muted-foreground text-lg max-w-md font-medium">
+                {searchQuery ? `Kami tidak menemukan apa pun untuk "${searchQuery}". Coba kata kunci yang lebih umum.` : "Belum ada link yang diarsipkan. Hubungi Admin jika Anda merasa ini adalah kesalahan."}
             </p>
             {searchQuery && (
-              <Button variant="link" onClick={() => setSearchSearchQuery("")} className="mt-4">Bersihkan Pencarian</Button>
+              <Button variant="link" onClick={() => setSearchSearchQuery("")} className="mt-6 text-primary font-black text-lg">Hapus Semua Pencarian</Button>
             )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {filteredCategories.map((category) => (
-                <Card key={category.id} className="overflow-hidden rounded-2xl border-none shadow-md hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-card to-muted/20">
-                    <CardHeader className="bg-primary/5 border-b border-primary/10 py-6">
-                        <div className="flex items-start gap-4">
-                            <div className="bg-primary text-primary-foreground p-3 rounded-xl shadow-sm">
-                              <FolderKanban className="h-6 w-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {filteredCategories.map((category, idx) => (
+                <Card key={category.id} className="group relative overflow-hidden rounded-[2.5rem] border-none shadow-xl hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-card to-muted/10">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20 group-hover:opacity-100 transition-opacity" />
+                    <CardHeader className="bg-primary/5 border-b border-primary/5 py-8 px-8">
+                        <div className="flex items-start gap-5">
+                            <div className="bg-primary text-primary-foreground p-4 rounded-[1.25rem] shadow-lg shadow-primary/20 transform group-hover:scale-110 transition-transform">
+                              {getIconForCategory(idx)}
                             </div>
-                            <div className="flex-grow">
-                                <CardTitle className="text-xl font-bold font-headline">{category.title}</CardTitle>
-                                {category.description && <CardDescription className="text-sm mt-1">{category.description}</CardDescription>}
+                            <div className="flex-grow pt-1">
+                                <CardTitle className="text-2xl font-black font-headline text-foreground tracking-tight group-hover:text-primary transition-colors">{category.title}</CardTitle>
+                                {category.description && <CardDescription className="text-base mt-2 font-medium leading-relaxed opacity-80">{category.description}</CardDescription>}
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-4">
+                    <CardContent className="p-6 space-y-4">
                         {category.links && category.links.length > 0 ? (
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-4">
                                 {category.links.map(link => (
-                                    <div key={link.id} className="group relative">
-                                      <a 
-                                        href={link.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="block p-4 rounded-xl border-2 border-transparent bg-background/50 hover:bg-background hover:border-primary/20 hover:shadow-sm transition-all duration-200"
-                                      >
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex-shrink-0 bg-muted group-hover:bg-primary/10 p-2.5 rounded-lg transition-colors">
-                                              <LinkIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary"/>
-                                            </div>
-                                            <div className="flex-grow min-w-0 pr-8">
-                                                <p className="font-bold text-sm text-foreground mb-0.5">{link.judul}</p>
-                                                {link.deskripsi && <p className="text-[11px] text-muted-foreground line-clamp-1">{link.deskripsi}</p>}
-                                            </div>
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                                              <ExternalLink className="h-4 w-4 text-primary" />
-                                            </div>
-                                        </div>
-                                      </a>
-                                    </div>
+                                    <a 
+                                      key={link.id}
+                                      href={link.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="group/link block p-5 rounded-[1.5rem] border-2 border-transparent bg-background/40 hover:bg-background hover:border-primary/30 hover:translate-x-2 transition-all duration-300 shadow-sm"
+                                    >
+                                      <div className="flex items-center gap-5">
+                                          <div className="flex-shrink-0 bg-muted group-hover/link:bg-primary/10 p-3 rounded-xl transition-colors">
+                                            <LinkIcon className="h-5 w-5 text-muted-foreground group-hover/link:text-primary"/>
+                                          </div>
+                                          <div className="flex-grow min-w-0 pr-10 relative">
+                                              <p className="font-black text-sm text-foreground mb-1 group-hover/link:text-primary transition-colors truncate">{link.judul}</p>
+                                              {link.deskripsi && <p className="text-xs font-medium text-muted-foreground line-clamp-1 opacity-70">{link.deskripsi}</p>}
+                                              <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/link:opacity-100 transform translate-x-4 group-hover/link:translate-x-0 transition-all">
+                                                <ExternalLink className="h-5 w-5 text-primary" />
+                                              </div>
+                                          </div>
+                                      </div>
+                                    </a>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-center text-muted-foreground py-8 italic">Tidak ada link dalam kategori ini.</p>
+                            <div className="py-12 text-center">
+                              <p className="text-sm font-bold text-muted-foreground/50 uppercase tracking-[0.3em] italic">Folder Kosong</p>
+                            </div>
                         )}
                     </CardContent>
-                    <CardFooter className="px-6 py-3 bg-muted/30 border-t flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{category.links.length} Tautan</span>
-                      <Badge variant="ghost" className="text-[10px] font-medium text-muted-foreground opacity-50">AR-V2</Badge>
+                    <CardFooter className="px-8 py-5 bg-muted/20 border-t border-muted flex justify-between items-center">
+                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">{category.links?.length || 0} ITEM TERSIMPAN</span>
+                      <Badge variant="outline" className="text-[9px] font-bold text-muted-foreground opacity-40 border-muted uppercase tracking-widest">v2.0 Stable</Badge>
                     </CardFooter>
                 </Card>
             ))}

@@ -88,8 +88,8 @@ export const addArsipCategory = async (data: Omit<ArsipLinkCategory, 'id' | 'cre
     const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
     
     // Get highest order to set new category at the end
-    const snapshot = await getDocs(query(collRef, orderBy('order', 'desc'), limit(1)));
-    const lastOrder = snapshot.empty ? 0 : snapshot.docs[0].data().order;
+    const snapshot = await getDocs(collRef);
+    const lastOrder = snapshot.empty ? 0 : Math.max(...snapshot.docs.map(d => d.data().order || 0));
     
     const dataToSave = { 
       ...data, 
@@ -108,9 +108,12 @@ export const addArsipCategory = async (data: Omit<ArsipLinkCategory, 'id' | 'cre
 export const getArsipCategories = async (): Promise<ArsipLinkCategory[]> => {
   try {
     const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
-    const q = query(collRef, orderBy('order', 'asc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data());
+    // CRITICAL FIX: Fetch all first to include legacy data without 'order' field
+    const querySnapshot = await getDocs(collRef);
+    const data = querySnapshot.docs.map(doc => doc.data());
+    
+    // Sort in memory to be resilient to missing 'order' fields
+    return data.sort((a, b) => (a.order || 0) - (b.order || 0));
   } catch (error) {
     handleFirestoreError(error, 'mendapatkan', ARSIP_LINK_CATEGORY_COLLECTION);
   }

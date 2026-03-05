@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Link as LinkIcon, Trash2, Edit, Info, FolderPlus, FolderKanban, ChevronUp, ChevronDown, GripVertical, MoveVertical } from "lucide-react";
+import { ArrowLeft, PlusCircle, Loader2, AlertCircle, Link as LinkIcon, Trash2, Edit, Info, FolderPlus, FolderKanban, ChevronUp, ChevronDown, GripVertical, ExternalLink } from "lucide-react";
 import { addArsipCategory, getArsipCategories, deleteArsipCategory, updateArsipCategory, addActivityLog, reorderArsipCategories } from '@/lib/firestoreService';
 import type { ArsipLinkCategory, ArsipLinkItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -224,7 +224,7 @@ export default function ManageArsipLinkPage() {
               <FolderPlus className="h-16 w-16 text-primary/40" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-2">Belum Ada Arsip Link</h3>
-            <p className="text-muted-foreground mb-8 max-w-md">Data lama Anda mungkin tersembunyi karena sistem pengurutan baru. Tambahkan kategori baru atau sistem akan memulihkan data Anda secara otomatis.</p>
+            <p className="text-muted-foreground mb-8 max-w-md">Data Anda mungkin membutuhkan kategori awal. Tambahkan kategori baru untuk memulai.</p>
             <CategoryFormDialog onSave={handleSaveCategory} triggerButton={<Button variant="outline" className="rounded-xl px-8 py-6 font-bold"><PlusCircle className="mr-2 h-5 w-5" /> Mulai Sekarang</Button>} />
         </div>
       ) : (
@@ -267,7 +267,18 @@ export default function ManageArsipLinkPage() {
                           <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover/item:text-primary/40" />
                         </div>
                         <div className="flex-grow min-w-0">
-                          <p className="font-bold text-sm text-foreground truncate group-hover/item:text-primary transition-colors">{link.judul}</p>
+                          <div className="flex items-center gap-2">
+                            <a 
+                              href={link.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="font-bold text-sm text-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 group/title"
+                              title="Klik untuk membuka tautan langsung"
+                            >
+                              <span className="truncate">{link.judul}</span>
+                              <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover/title:opacity-100 transition-opacity flex-shrink-0" />
+                            </a>
+                          </div>
                           <p className="text-[11px] font-medium text-muted-foreground truncate opacity-70" title={link.url}>{link.url}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-all translate-x-2 group-hover/item:translate-x-0">

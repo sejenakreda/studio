@@ -1,3 +1,4 @@
+
 import {
   doc,
   getDoc,
@@ -43,11 +44,11 @@ const handleFirestoreError = (error: any, operation: string, collectionName: str
   let userMessage = `Gagal ${operation} data di '${collectionName}'.`;
   if (error instanceof FirestoreError) {
     if (error.code === 'permission-denied') {
-      userMessage = `Error Izin: Anda tidak memiliki hak untuk ${operation} data di '${collectionName}'.`;
+      userMessage = `Error Izin: Anda tidak memiliki hak akses untuk ${operation} data ini.`;
     } else if (error.code === 'unauthenticated') {
-      userMessage = `Error Autentikasi: Anda harus login untuk ${operation} data.`;
-    } else {
-      userMessage = `Terjadi error Firestore (${error.code}) saat ${operation}.`;
+      userMessage = `Error Autentikasi: Silakan login ulang.`;
+    } else if (error.code === 'not-found') {
+      userMessage = `Data tidak ditemukan.`;
     }
   }
   throw new Error(userMessage);
@@ -86,8 +87,6 @@ const ARSIP_LINK_CATEGORY_COLLECTION = 'arsipLinkCategories';
 export const addArsipCategory = async (data: Omit<ArsipLinkCategory, 'id' | 'createdAt' | 'updatedAt' | 'links' | 'order'>): Promise<ArsipLinkCategory> => {
   try {
     const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
-    
-    // Get highest order to set new category at the end
     const snapshot = await getDocs(collRef);
     const lastOrder = snapshot.empty ? 0 : Math.max(...snapshot.docs.map(d => d.data().order || 0));
     
@@ -108,11 +107,8 @@ export const addArsipCategory = async (data: Omit<ArsipLinkCategory, 'id' | 'cre
 export const getArsipCategories = async (): Promise<ArsipLinkCategory[]> => {
   try {
     const collRef = collection(db, ARSIP_LINK_CATEGORY_COLLECTION).withConverter(arsipLinkCategoryConverter);
-    // CRITICAL FIX: Fetch all first to include legacy data without 'order' field
     const querySnapshot = await getDocs(collRef);
     const data = querySnapshot.docs.map(doc => doc.data());
-    
-    // Sort in memory to be resilient to missing 'order' fields
     return data.sort((a, b) => (a.order || 0) - (b.order || 0));
   } catch (error) {
     handleFirestoreError(error, 'mendapatkan', ARSIP_LINK_CATEGORY_COLLECTION);
@@ -194,7 +190,7 @@ export const deleteSchoolHoliday = async (dateString: string) => {
   }
 };
 
-// --- Other Services (Placeholders or partially implemented) ---
+// --- Core Data Services ---
 
 export const getStudents = async (): Promise<Siswa[]> => {
   try {
@@ -295,13 +291,12 @@ export const deletePengumuman = async (id: string) => deleteDoc(doc(db, 'pengumu
 
 export const getAllPelanggaran = async (year: number, month: number | null): Promise<PelanggaranSiswa[]> => {
   try {
-    let q = query(collection(db, 'pelanggaran_siswa'), orderBy('tanggal', 'desc'));
-    const snap = await getDocs(q);
+    const snap = await getDocs(collection(db, 'pelanggaran_siswa'));
     let results = snap.docs.map(d => ({ id: d.id, ...d.data() } as PelanggaranSiswa));
     return results.filter(r => {
       const d = r.tanggal.toDate();
       return d.getFullYear() === year && (month === null || d.getMonth() === month - 1);
-    });
+    }).sort((a,b) => b.tanggal.toMillis() - a.tanggal.toMillis());
   } catch (e) { return []; }
 };
 
@@ -309,9 +304,8 @@ export const addPelanggaran = async (data: any) => addDoc(collection(db, 'pelang
 
 export const getAllLaporanKegiatan = async (): Promise<LaporanKegiatan[]> => {
   try {
-    const q = query(collection(db, 'laporan_kegiatan'), orderBy('date', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as LaporanKegiatan));
+    const snap = await getDocs(collection(db, 'laporan_kegiatan'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as LaporanKegiatan)).sort((a,b) => b.date.toMillis() - a.date.toMillis());
   } catch (e) { return []; }
 };
 
@@ -334,7 +328,7 @@ export const getAllAgendas = async (year: number, month: number | null): Promise
     return results.filter(r => {
       const d = r.tanggal.toDate();
       return d.getFullYear() === year && (month === null || d.getMonth() === month - 1);
-    });
+    }).sort((a,b) => b.tanggal.toMillis() - a.tanggal.toMillis());
   } catch (e) { return []; }
 };
 
@@ -346,7 +340,7 @@ export const getAgendasForTeacher = async (userId: string, year: number, month: 
     return results.filter(r => {
       const d = r.tanggal.toDate();
       return d.getFullYear() === year && d.getMonth() === month - 1;
-    });
+    }).sort((a,b) => b.tanggal.toMillis() - a.tanggal.toMillis());
   } catch (e) { return []; }
 };
 
@@ -443,13 +437,13 @@ export const getTeacherDailyAttendanceForDate = async (teacherUid: string, date:
 
 export const getTeacherDailyAttendanceForMonth = async (teacherUid: string, year: number, month: number): Promise<TeacherDailyAttendance[]> => {
   try {
-    const q = query(collection(db, 'teacherDailyAttendance'), where('teacherUid', '==', teacherUid));
-    const snap = await getDocs(q);
+    const snap = await getDocs(collection(db, 'teacherDailyAttendance'));
     let results = snap.docs.map(d => ({ id: d.id, ...d.data() } as TeacherDailyAttendance));
     return results.filter(r => {
+      if (!r.date?.toDate) return false;
       const d = r.date.toDate();
-      return d.getFullYear() === year && d.getMonth() === month - 1;
-    });
+      return r.teacherUid === teacherUid && d.getFullYear() === year && d.getMonth() === month - 1;
+    }).sort((a,b) => a.date.toMillis() - b.date.toMillis());
   } catch (e) { return []; }
 };
 
@@ -458,6 +452,7 @@ export const getAllTeachersDailyAttendanceForPeriod = async (year: number, month
     const snap = await getDocs(collection(db, 'teacherDailyAttendance'));
     let results = snap.docs.map(d => ({ id: d.id, ...d.data() } as TeacherDailyAttendance));
     return results.filter(r => {
+      if (!r.date?.toDate) return false;
       const d = r.date.toDate();
       return d.getFullYear() === year && (month === null || d.getMonth() === month - 1);
     });
@@ -493,9 +488,8 @@ export const getGradesByStudentId = async (studentId: string): Promise<Nilai[]> 
 
 export const getBeritaAcara = async (userProfile: UserProfile): Promise<BeritaAcaraUjian[]> => {
   try {
-    let q = query(collection(db, 'beritaAcaraUjian'), orderBy('createdAt', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as BeritaAcaraUjian));
+    const snap = await getDocs(collection(db, 'beritaAcaraUjian'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as BeritaAcaraUjian)).sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
   } catch (e) { return []; }
 };
 
@@ -512,9 +506,8 @@ export const deleteBeritaAcara = async (id: string, user: any) => deleteDoc(doc(
 
 export const getDaftarHadirPengawas = async (userProfile: UserProfile): Promise<DaftarHadirPengawas[]> => {
   try {
-    const q = query(collection(db, 'daftarHadirPengawas'), orderBy('tanggalUjian', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as DaftarHadirPengawas));
+    const snap = await getDocs(collection(db, 'daftarHadirPengawas'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as DaftarHadirPengawas)).sort((a,b) => b.tanggalUjian.toMillis() - a.tanggalUjian.toMillis());
   } catch (e) { return []; }
 };
 
